@@ -86,6 +86,14 @@ function Header() {
         <b>{mine}</b>
         Hoods
       </div>
+
+      {session.xp && (
+        <NavLink to="/me" className="level-badge"
+                 title={`${session.xp.title} · ${session.xp.xp.toLocaleString()} XP lifetime · ${session.xp.to_next} to level ${session.xp.level + 1}`}>
+          <b>{session.xp.level}</b>
+          <i style={{ width: `${Math.round(session.xp.fraction * 100)}%` }} />
+        </NavLink>
+      )}
     </header>
   );
 }

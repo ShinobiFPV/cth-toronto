@@ -24,8 +24,8 @@ export default function HoodSheet({ hoodId, onClose }) {
   if (!hood) return null;
   const v = hood.viewer ?? {};
 
-  const done = async (claim) => {
-    setLanded(claim);
+  const done = async (claim, meta) => {
+    setLanded({ ...claim, xp: meta?.xp, level_up: meta?.level_up });
     setClaiming(false);
     await refreshHoods().catch(() => {});
   };
@@ -60,7 +60,11 @@ export default function HoodSheet({ hoodId, onClose }) {
             <div className="sheet-body stack">
               {landed && (
                 <Banner kind="ok">
-                  {landed.summary}. {landed.claim_kind !== 'reinforce'
+                  {landed.summary}.{' '}
+                  {landed.xp && <><b>+{landed.xp.xp} XP</b>
+                    {landed.xp.discovery > 0 && ' — somewhere new'}. </>}
+                  {landed.level_up && <><b>Level {landed.level_up.to}, {landed.level_up.title}!</b> </>}
+                  {landed.claim_kind !== 'reinforce'
                     && `Locked from stealing for ${until(hood.locked_until) ?? 'a while'}.`}
                 </Banner>
               )}

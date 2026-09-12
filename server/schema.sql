@@ -108,6 +108,10 @@ CREATE TABLE IF NOT EXISTS claims (
   beaten_player_id  INTEGER REFERENCES players(id),
   beaten_photo_type TEXT,
   points_awarded    INTEGER NOT NULL,
+  -- XP frozen onto the row at the moment it landed, exactly like points_awarded.
+  -- Lifetime XP is SUM(xp_awarded) with no season filter, which is what makes levels
+  -- persist forever without a counter anywhere that could drift.
+  xp_awarded        INTEGER NOT NULL DEFAULT 0,
   status            TEXT NOT NULL,    -- active | superseded | reverted
   flag_count        INTEGER NOT NULL DEFAULT 0,
   -- Snapshot of hood_state immediately before this claim landed, so a reversal can

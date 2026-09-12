@@ -11,6 +11,7 @@ import {
 } from '../lib/parks.js';
 import { processUpload, discardUpload } from '../lib/images.js';
 import { broadcast, postMessage } from '../lib/hub.js';
+import { withLevelUp, announceLevelUp } from '../lib/xp-announce.js';
 import { notFound } from '../lib/errors.js';
 import { hoodLabel } from '../lib/hood-seed.js';
 
@@ -64,7 +65,9 @@ parkRoutes.post('/parks/:id/collect', requireAuth, upload.single('photo'), async
     }
 
     photo = await processUpload(req.file);
-    const { claim, park } = commitCollect({ parkId, playerId: req.player.id, photo });
+    const { result, levelUp, progress } = withLevelUp(req.player.id,
+      () => commitCollect({ parkId, playerId: req.player.id, photo }));
+    const { claim, park, xp } = result;
 
     postMessage({
       body: `${req.player.display_name} collected ${park.name} in `
@@ -75,8 +78,9 @@ parkRoutes.post('/parks/:id/collect', requireAuth, upload.single('photo'), async
     broadcast('park_collected', {
       park_id: park.id, hood_id: park.hood_id, player_id: req.player.id, points: claim.points,
     });
+    announceLevelUp(req.player, levelUp);
 
-    res.status(201).json({ card: claim });
+    res.status(201).json({ card: claim, xp, progress, level_up: levelUp });
   } catch (err) {
     await discardUpload(photo);
     next(err);

@@ -68,8 +68,8 @@ export default function ClaimFlow({ hood, onClose, onDone }) {
       const form = new FormData();
       form.append('photo', file, file.name);
       form.append('photo_type', subject);
-      const { claim } = await uploadClaim(hood.id, form, setProgress);
-      onDone?.(claim);
+      const res = await uploadClaim(hood.id, form, setProgress);
+      onDone?.(res.claim, res);
     } catch (err) {
       setError(err.message || 'That did not go through.');
       setBusy(false);

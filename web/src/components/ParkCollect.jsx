@@ -55,8 +55,8 @@ export default function ParkCollect({ park, onClose, onDone }) {
     try {
       const form = new FormData();
       form.append('photo', file, file.name);
-      const { card } = await uploadPark(park.id, form, setProgress);
-      onDone?.(card);
+      const res = await uploadPark(park.id, form, setProgress);
+      onDone?.(res.card, res);
     } catch (err) {
       setError(err.message || 'That did not go through.');
       setBusy(false);

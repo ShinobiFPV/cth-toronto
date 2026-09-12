@@ -38,6 +38,26 @@ const migrations = db.transaction(() => {
   addColumn('claims', 'card_seed', 'TEXT');
   addColumn('parks', 'set_number', 'INTEGER');
 
+  // XP and levels.
+  const addedXp = addColumn('claims', 'xp_awarded', 'INTEGER NOT NULL DEFAULT 0');
+
+  if (addedXp) {
+    // Backfill so nobody's history is worth nothing. Derived from what each claim was,
+    // using the same schedule as a fresh claim — minus the discovery bonuses, which
+    // depend on ordering this migration cannot reconstruct cheaply and which would
+    // only ever inflate the result.
+    db.exec(`
+      UPDATE claims SET xp_awarded = CASE claim_kind
+        WHEN 'conquer'   THEN 50
+        WHEN 'steal'     THEN 70
+        WHEN 'reinforce' THEN 20
+        WHEN 'park'      THEN 10
+        ELSE 0 END
+      WHERE xp_awarded = 0 AND claim_kind IS NOT NULL`);
+    const n = db.prepare('SELECT COUNT(*) AS c FROM claims WHERE xp_awarded > 0').get().c;
+    if (n) console.log(`[cth] migrated: XP backfilled onto ${n} existing claims`);
+  }
+
   if (addedDifficulty) {
     // Backfill from the seed, then work out how many escalations each Hood had already
     // banked under the old flat-25 scheme so nobody silently loses value they had

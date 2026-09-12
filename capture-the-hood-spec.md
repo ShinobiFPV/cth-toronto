@@ -268,6 +268,75 @@ CREATE UNIQUE INDEX idx_park_once_per_season
 
 ---
 
+## 1.9 XP and levels
+
+Season points answer *who is winning right now*. XP answers *how long have you been doing
+this*, and it is deliberately a different axis:
+
+- **points** scale with **value** — a hard Hood, a far park, a steal off somebody
+- **XP** scales with **activity and novelty** — showing up, and going somewhere new
+
+So a player who farms four easy Hoods near home can out-point somebody in a season and
+still be a lower level than the person who has been everywhere once.
+
+**XP never resets.** Not at a season rollover, not ever. That is not a feature that had to
+be built: XP is derived from the claims ledger exactly like points are, with `xp_awarded`
+frozen onto each row when it lands, and nothing anywhere filters it by `season_id`. There
+is no counter to drift. A claim reverted by flags loses its XP with its points, because
+`status != 'reverted'` is the only filter applied.
+
+### The schedule
+
+| Action | XP |
+|---|---|
+| Steal | 70 |
+| Conquer | 50 |
+| Reinforce | 20 |
+| Collect a park | 10 + rarity (0 / 5 / 15 / 30) |
+| **First time ever in a Hood** | **+100** |
+| **First time ever at a park** | **+15** |
+
+The discovery bonuses are the reason XP is not just a rename of the Champion total: they
+pay you to see the city rather than to farm the corner you already know. They are
+per-player and lifetime — everyone gets their own first visit, and a claim reverted by
+flags makes that Hood undiscovered again.
+
+### The curve
+
+XP required to have reached level *L* is **20 × L × (L−1)**:
+
+| Level | XP | Title |
+|---|---|---|
+| 1 | 0 | Tourist |
+| 2 | 40 | Tourist |
+| 5 | 400 | Local |
+| 10 | 1,800 | Regular |
+| 15 | 4,200 | Fixture |
+| 20 | 7,600 | Institution |
+| 30 | 17,400 | Landmark |
+| 40 | 31,200 | Legend |
+| 55 | 59,400 | Mythic |
+
+Triangular rather than exponential, so it keeps being reachable, and **uncapped** — there
+is no final level, because "persistent forever" was the brief. Level 2 costs less than one
+conquer, so the first level-up is immediate; by level 30 you are looking at roughly a year
+of keen play.
+
+A level-up is not an event that gets stored. It is the observation that the derived level
+is higher after a claim than it was before — see `withLevelUp()` — and it announces itself
+in chat like everything else in this game.
+
+### Data
+
+```sql
+claims(... xp_awarded)   -- frozen at claim time, immutable, never season-scoped
+
+-- lifetime XP
+SELECT SUM(xp_awarded) FROM claims WHERE player_id = ? AND status != 'reverted';
+```
+
+---
+
 ## 2. Stack
 
 | Layer | Choice | Why |
@@ -439,7 +508,7 @@ GET    /api/hoods/:id              detail + claim history + current photo
 POST   /api/hoods/:id/claim        multipart: photo, declared_type
 GET    /api/hoods/:id/history
 
-GET    /api/leaderboard?season=    current season standings
+GET    /api/leaderboard?season=    current season standings (carries xp/level/title)
 GET    /api/leaderboard/champion   all-season totals
 GET    /api/seasons                schedule + which is active
 
@@ -565,6 +634,10 @@ see how people actually behave.
   consider requiring the flaggers to be neither the claimant nor the displaced holder, so a
   grudge pair can't revert at will.
 - **Shot-data panel** — read-only EXIF display to inform disputes, or leave it fully blind.
+- **Does XP want to unlock anything?** Right now a level is a title and a number, and
+  nothing mechanical hangs off it — deliberately, because a level that granted an in-game
+  advantage would compound and the early joiners would never be caught. If it ever should
+  do something, cosmetic is the safe direction: a card frame, a map colour, a chat flourish.
 - **Do parks swamp territory?** 1,513 parks at 5–100 points each is a far bigger pool than
   25 Hoods, and an afternoon of walking a dense Hood could out-earn a hard-won steal. The
   levers, if it distorts: scale park values down, cap park points per season, or count

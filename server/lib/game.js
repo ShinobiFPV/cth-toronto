@@ -13,6 +13,7 @@ import { config, BEATEN_BY, PHOTO_TYPES, beats } from '../config.js';
 import { GameError, badRequest, notFound } from './errors.js';
 import { activeSeason } from './seasons.js';
 import { hoodLabel } from './hood-seed.js';
+import { xpFor } from './xp.js';
 
 /**
  * What `playerId` can do at `hoodId` right now.
@@ -180,6 +181,10 @@ export const commitClaim = db.transaction(({ hoodId, playerId, declaredType, pho
   const prev = db.prepare('SELECT * FROM hood_state WHERE hood_id = ?').get(hoodId);
   const kind = evaluation.claim_kind;
 
+  // Worked out before the row is written, so the discovery check sees the ledger as it
+  // was a moment ago and a first-ever claim on this Hood still counts as one.
+  const earned = xpFor({ kind, playerId, hoodId });
+
   const photoRow = db.prepare(`
     INSERT INTO photos (player_id, photo_type, path_original, path_display, path_thumb,
                         width, height, bytes, exif_json, created_at)
@@ -207,11 +212,13 @@ export const commitClaim = db.transaction(({ hoodId, playerId, declaredType, pho
 
   const claimRow = db.prepare(`
     INSERT INTO claims (hood_id, player_id, season_id, photo_id, claim_kind, photo_type,
-                        beaten_player_id, beaten_photo_type, points_awarded, status, flag_count,
+                        beaten_player_id, beaten_photo_type, points_awarded, xp_awarded,
+                        status, flag_count,
                         prev_owner_id, prev_photo_type, prev_claim_id, prev_last_claim_at,
                         prev_locked_until, created_at)
     VALUES (@hood_id, @player_id, @season_id, @photo_id, @claim_kind, @photo_type,
-            @beaten_player_id, @beaten_photo_type, @points_awarded, 'active', 0,
+            @beaten_player_id, @beaten_photo_type, @points_awarded, @xp_awarded,
+            'active', 0,
             @prev_owner_id, @prev_photo_type, @prev_claim_id, @prev_last_claim_at,
             @prev_locked_until, @created_at)`)
     .run({
@@ -224,6 +231,7 @@ export const commitClaim = db.transaction(({ hoodId, playerId, declaredType, pho
       beaten_player_id: kind === 'conquer' ? null : prev?.owner_id ?? null,
       beaten_photo_type: kind === 'conquer' ? null : prev?.photo_type ?? null,
       points_awarded: evaluation.points,
+      xp_awarded: earned.xp,
       prev_owner_id: prev?.owner_id ?? null,
       prev_photo_type: prev?.photo_type ?? null,
       prev_claim_id: prev?.active_claim_id ?? null,
@@ -251,7 +259,7 @@ export const commitClaim = db.transaction(({ hoodId, playerId, declaredType, pho
     db.prepare('UPDATE hoods SET ever_conquered = 1 WHERE id = ?').run(hoodId);
   }
 
-  return { claim: getClaim(claimId), evaluation, season, hood, prev };
+  return { claim: getClaim(claimId), evaluation, season, hood, prev, xp: earned };
 });
 
 /**

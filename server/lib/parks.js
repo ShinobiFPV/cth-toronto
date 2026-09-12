@@ -13,6 +13,7 @@ import { db, nowIso } from '../db.js';
 import { GameError, notFound } from './errors.js';
 import { activeSeason } from './seasons.js';
 import { hoodLabel } from './hood-seed.js';
+import { xpFor } from './xp.js';
 
 /** Rarity tiers, driven by the park's value. Drives the card art, nothing mechanical. */
 export const RARITIES = [
@@ -168,6 +169,9 @@ export const commitCollect = db.transaction(({ parkId, playerId, photo }) => {
 
   const park = getPark(parkId);
   const seasonId = evaluation.season_id;
+  const earned = xpFor({
+    kind: 'park', playerId, parkId: park.id, rarity: rarityOf(park.value).key,
+  });
 
   const photoRow = db.prepare(`
     INSERT INTO photos (player_id, photo_type, path_original, path_display, path_thumb,
@@ -188,12 +192,18 @@ export const commitCollect = db.transaction(({ parkId, playerId, photo }) => {
 
   const row = db.prepare(`
     INSERT INTO claims (hood_id, player_id, season_id, photo_id, claim_kind, photo_type,
-                        points_awarded, status, flag_count, park_id, card_seed, created_at)
-    VALUES (?, ?, ?, ?, 'park', 'park_sign', ?, 'active', 0, ?, ?, ?)`)
+                        points_awarded, xp_awarded, status, flag_count, park_id,
+                        card_seed, created_at)
+    VALUES (?, ?, ?, ?, 'park', 'park_sign', ?, ?, 'active', 0, ?, ?, ?)`)
     .run(park.hood_id, playerId, seasonId, photoRow.lastInsertRowid,
-         park.value, park.id, cardSeed(playerId, park.id, seasonId), at);
+         park.value, earned.xp, park.id, cardSeed(playerId, park.id, seasonId), at);
 
-  return { claim: getCardByClaim(Number(row.lastInsertRowid)), park, season_id: seasonId };
+  return {
+    claim: getCardByClaim(Number(row.lastInsertRowid)),
+    park,
+    season_id: seasonId,
+    xp: earned,
+  };
 });
 
 const CARD_SELECT = `

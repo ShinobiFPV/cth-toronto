@@ -21,6 +21,7 @@ export default function Profile() {
   }, [player?.is_admin]);
 
   const mine = hoods.filter((h) => h.owner?.id === player?.id);
+  const xp = session?.xp;
   const ready = mine.filter((h) => h.viewer?.reinforce_ready);
 
   const mintInvite = async () => {
@@ -46,6 +47,27 @@ export default function Profile() {
           <span className="spacer grow" />
           {player?.is_admin && <span className="chip chip-accent">admin</span>}
         </div>
+
+        {/* Lifetime XP. Deliberately above the seasonal numbers: it is the only line
+            here that will still mean something a year from now. */}
+        {xp && (
+          <div className="sheet-body xp-card" style={{ borderBottom: '1px solid var(--rule)' }}>
+            <div className="cluster" style={{ justifyContent: 'space-between', alignItems: 'baseline' }}>
+              <span>
+                <span className="xp-title">Level {xp.level}</span>
+                <span className="dim"> · {xp.title}</span>
+              </span>
+              <span className="tiny dim">{xp.xp.toLocaleString()} XP</span>
+            </div>
+            <div className="xp-bar" style={{ margin: '0.45rem 0 0.3rem' }}>
+              <i style={{ width: `${Math.round(xp.fraction * 100)}%` }} />
+            </div>
+            <div className="tiny dim">
+              {xp.into_level} / {xp.level_span} through this level ·{' '}
+              {xp.to_next} XP to level {xp.level + 1}
+            </div>
+          </div>
+        )}
         <div className="row">
           <span className="grow dim">{session.season?.name ?? 'Between seasons'}</span>
           <b className="num">{session.season_points}</b>
@@ -124,6 +146,11 @@ export default function Profile() {
                       cannot sweep a whole block. Only you, and only conquering;
                       steal and reinforce are unaffected.</li>
                 )}
+                <li><b>XP is forever.</b> Every claim and every park earns it, it never
+                    resets at a season rollover, and it goes up with activity rather than
+                    value — so the player who has been everywhere once out-levels the one
+                    who farms four Hoods near home. Somewhere new you have never claimed
+                    is worth a big bonus.</li>
                 <li>Losing a Hood costs you nothing. Points are never taken back.</li>
                 <li>{rules.flag_threshold} flags revert a claim and cancel its points.</li>
                 <li><b>Parkemon GO:</b> every Toronto park has a sign with its name on it.

@@ -803,3 +803,64 @@ button, input, select, textarea { font: inherit; color: inherit; }
   line-height: 1.35;
   color: var(--dim);
 }
+
+/* ── XP and levels ─────────────────────────────────────────────────────────
+   The one number in the game that never resets, so it gets a permanent seat in
+   the header rather than a screen of its own. */
+
+.level-badge {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  flex: none;
+  background: var(--surface-2);
+  border: 2px solid var(--accent);
+  color: var(--accent);
+  text-decoration: none;
+  overflow: hidden;
+}
+.level-badge b {
+  position: relative;
+  z-index: 1;
+  font-family: var(--display);
+  font-size: 0.85rem;
+  line-height: 1;
+}
+/* Progress through the current level, filling from the bottom like a tank. */
+.level-badge i {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 100%;
+  background: rgba(var(--accent-rgb), 0.22);
+  transition: width 300ms ease-out;
+}
+
+.lvl { color: var(--accent); }
+
+.xp-card .row:first-child { align-items: baseline; }
+
+.xp-bar {
+  height: 10px;
+  background: var(--bg);
+  border: 2px solid var(--border);
+  overflow: hidden;
+}
+.xp-bar > i {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transition: width 400ms ease-out;
+}
+
+.xp-title {
+  font-family: var(--display);
+  font-size: 1.1rem;
+  color: var(--accent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .level-badge i, .xp-bar > i { transition: none; }
+}

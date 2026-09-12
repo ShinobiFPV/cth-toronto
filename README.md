@@ -107,6 +107,36 @@ different cards. Legendaries get a slow sheen, because obviously they do.
 
 ---
 
+## XP, which never resets
+
+Points are about **value**. XP is about **turning up**.
+
+A steal is 70 XP, a conquer 50, a reinforce 20, a park 10 plus a bit for rarity. Going
+somewhere you have **never been before** is worth +100 — which is the entire point, because
+it means the person who has seen all 25 Hoods out-levels the person farming four of them
+next to their flat, even if that person is winning on points.
+
+<p align="center">
+  <img src="docs/screenshots/11-xp-profile.png" width="320" alt="The profile screen showing level 10, the title Regular, 1,860 lifetime XP and a progress bar">
+</p>
+
+Levels need 20 × L × (L−1) XP, so level 2 arrives after a single claim and level 30 is
+about a year of actually playing. There is **no level cap**, and XP **never resets** — not
+at a season rollover, not ever. Your season score goes back to zero four times a year;
+your level only goes up.
+
+| Level | Title | | Level | Title |
+|---|---|---|---|---|
+| 1 | Tourist | | 20 | Institution |
+| 5 | Local | | 30 | Landmark |
+| 10 | Regular | | 40 | Legend |
+| 15 | Fixture | | 55 | Mythic |
+
+Level-ups announce themselves in chat, so everybody knows the moment you become an
+Institution.
+
+---
+
 ## The honour system, or: why this was easy to build
 
 The server does **not** check where you were, when you took the photo, or whether that's
@@ -174,7 +204,7 @@ Then open it on a phone and **Add to Home Screen**, because the capture flow is 
 point and it feels wrong in a browser tab.
 
 ```bash
-npm test                 # 117 tests, no server needed, touches nothing in data/
+npm test                 # 140 tests, no server needed, touches nothing in data/
 ```
 
 | Command | Does what |
@@ -203,6 +233,7 @@ amber) because the map already spends every other colour on somebody's territory
 server/lib/game.js    ←  the claim state machine. This is the game.
 server/lib/parks.js      Parkemon: collection rules, card seeds, the binder
 server/lib/views.js      read models; every score derived from the ledger
+server/lib/xp.js         XP, the level curve, the titles
 web/src/components/ParkCard.jsx    the card art — inline SVG, seeded
 scripts/                 the importers, the season rollover, icon generation
 deploy/                  systemd units, nginx vhost, backups, install.sh

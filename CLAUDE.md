@@ -73,6 +73,18 @@ changing one, read the test first — it says why.
   time. `ParkCard.jsx` reads the seed for the hatch, foil and corners, the season for
   the palette, and the value for the rarity. Never generate card art from Math.random
   or a timestamp — the whole point is that it is stable.
+- **XP is derived and never season-scoped.** `claims.xp_awarded` is frozen at claim
+  time like `points_awarded`, and lifetime XP is `SUM(xp_awarded)` filtered only by
+  `status != 'reverted'`. That is the whole of "persists forever" — do not add a
+  counter on `players`, and never filter XP by `season_id`.
+- **A level is an observation, not an event.** `levelOf(xp)` inverts the curve, and
+  `withLevelUp()` detects a level-up by comparing the derived level either side of a
+  write. There is no levels table and no level column.
+- **XP deliberately does not track points.** Points scale with value, XP with activity
+  and novelty, so the two tables say different things. The discovery bonuses are what
+  make that true; drop them and XP becomes a rename of the Champion total.
+- **Nothing mechanical hangs off a level** — it is a title and a number. A level that
+  granted an advantage would compound, and early joiners could never be caught.
 - **A reinforce does not arm the steal lock.** A conquer and a steal do. If a reinforce
   locked the Hood, a player could shield one indefinitely on a 72-hour timer.
 - **Losing a Hood costs no points.** The superseded claim keeps its `points_awarded` and
@@ -113,7 +125,7 @@ changing one, read the test first — it says why.
 ## Testing
 
 ```bash
-npm test        # 115 tests, no server needed, touches nothing in data/
+npm test        # 140 tests, no server needed, touches nothing in data/
 ```
 
 - `test/game.test.js` — the rules, driving the game module directly. Time is simulated by
@@ -122,6 +134,8 @@ npm test        # 115 tests, no server needed, touches nothing in data/
   walks the whole thing over HTTP, including real JPEGs through the sharp pipeline.
 - `test/parks.test.js` — Parkemon GO. Seeds four parks by hand rather than importing
   1,513, so the suite never touches the network.
+- `test/xp.test.js` — the level curve (asserted to invert exactly across 200 levels), the
+  XP schedule, and that XP survives season rollovers, reversals and lost territory.
 - `test/reproject.test.js` — the importer's coordinate maths, against fixtures lifted
   from the City's own files.
 

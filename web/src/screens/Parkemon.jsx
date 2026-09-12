@@ -57,10 +57,10 @@ export default function Parkemon() {
   const { progress, hood } = data;
   const pct = progress.total ? Math.round((progress.collected / progress.total) * 100) : 0;
 
-  const collected = async (card) => {
+  const collected = async (card, meta) => {
     setSelected(null);
     await Promise.all([load().catch(() => {}), refreshMe().catch(() => {})]);
-    setJustGot(card);
+    setJustGot({ ...card, xp: meta?.xp, level_up: meta?.level_up });
   };
 
   return (
@@ -140,7 +140,16 @@ export default function Parkemon() {
             <div className="sheet-head">
               <div className="grow">
                 <h1>{justGot.rarity_label} · +{justGot.points}</h1>
-                <div className="tiny dim">{justGot.park.name} is yours for {justGot.season?.name}</div>
+                <div className="tiny dim">
+                  {justGot.park.name} is yours for {justGot.season?.name}
+                  {justGot.xp && ` · +${justGot.xp.xp} XP`}
+                  {justGot.xp?.discovery > 0 && ' (first time here)'}
+                </div>
+                {justGot.level_up && (
+                  <div className="tiny" style={{ color: 'var(--accent)' }}>
+                    Level {justGot.level_up.to} — {justGot.level_up.title}
+                  </div>
+                )}
               </div>
               <button className="btn btn-sm btn-ghost" onClick={() => setJustGot(null)} aria-label="Close">
                 <CloseIcon style={{ width: 16, height: 16 }} />

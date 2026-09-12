@@ -43,6 +43,7 @@ export default function Standings() {
         {mode === 'season'
           ? 'Points scored inside the current season. Resets at rollover; Hoods do not.'
           : 'Every point ever scored, across all four seasons. One winner at the end of it.'}
+        {' '}Levels are lifetime and never reset, so they read the same on both tables.
       </p>
 
       {loading && <div className="empty"><Spinner /></div>}
@@ -68,6 +69,7 @@ export default function Standings() {
                     <span className="truncate">{row.player.display_name}</span>
                   </span>
                   <span className="tiny dim">
+                    <b className="lvl">L{row.level}</b> {row.title} ·{' '}
                     {row.conquers}C · {row.steals}S · {row.reinforces}R
                     {row.parks > 0 && ` · ${row.parks} parks`}
                   </span>

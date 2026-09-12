@@ -9,7 +9,9 @@ import { evaluateClaim, humanUntil, article } from './game.js';
 import { activeSeason } from './seasons.js';
 import { hoodLabel, neighboursOf } from './hood-seed.js';
 import { publicPlayer } from './auth.js';
+import { levelOf, titleOf } from './xp.js';
 import { parkProgress } from './parks.js';
+import { progressFor } from './xp.js';
 
 /** Every Hood with its holder and, if a viewer is given, what that viewer can do. */
 export function listHoods(viewerId = null, at = nowIso()) {
@@ -235,6 +237,12 @@ export function leaderboard(seasonId = null) {
     SELECT owner_id, COUNT(*) AS n FROM hood_state WHERE owner_id IS NOT NULL GROUP BY owner_id`)
     .all();
 
+  // XP is deliberately NOT scoped to the season being shown: a level is a lifetime
+  // fact, so it reads the same whichever table you are looking at.
+  const xpByPlayer = Object.fromEntries(db.prepare(`
+    SELECT player_id, COALESCE(SUM(xp_awarded), 0) AS xp FROM claims
+     WHERE status != 'reverted' GROUP BY player_id`).all().map((r) => [r.player_id, r.xp]));
+
   const pts = Object.fromEntries(points.map((r) => [r.player_id, r]));
   const hoods = Object.fromEntries(held.map((r) => [r.owner_id, r.n]));
   const kinds = {};
@@ -256,6 +264,9 @@ export function leaderboard(seasonId = null) {
       // Parkemon GO points count toward the same total, but it is worth seeing the
       // split: somebody can be top of the table without holding a single Hood.
       parks: kinds[p.id]?.park ?? 0,
+      xp: xpByPlayer[p.id] ?? 0,
+      level: levelOf(xpByPlayer[p.id] ?? 0),
+      title: titleOf(levelOf(xpByPlayer[p.id] ?? 0)),
       park_points: kindPoints[p.id]?.park ?? 0,
       territory_points: (kindPoints[p.id]?.conquer ?? 0)
         + (kindPoints[p.id]?.steal ?? 0)
@@ -300,5 +311,7 @@ export function playerSummary(playerId, at = nowIso()) {
     total_points: totalPts,
     hoods_held: holdings,
     reinforce_ready: readyRow,
+    // Lifetime, across every season. The one number here that never resets.
+    xp: progressFor(playerId),
   };
 }

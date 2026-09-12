@@ -4,6 +4,7 @@ import { config } from '../config.js';
 import { requireAuth } from '../lib/auth.js';
 import { listHoods, hoodDetail, hoodHistory, shapeClaim, claimSummary } from '../lib/views.js';
 import { commitClaim, evaluateClaim } from '../lib/game.js';
+import { withLevelUp, announceLevelUp } from '../lib/xp-announce.js';
 import { processUpload, discardUpload } from '../lib/images.js';
 import { broadcast, postMessage } from '../lib/hub.js';
 import { badRequest, notFound } from '../lib/errors.js';
@@ -63,9 +64,10 @@ hoodRoutes.post('/:id/claim', requireAuth, upload.single('photo'), async (req, r
     }
 
     photo = await processUpload(req.file);
-    const { claim } = commitClaim({
+    const { result, levelUp, progress } = withLevelUp(req.player.id, () => commitClaim({
       hoodId, playerId: req.player.id, declaredType, photo,
-    });
+    }));
+    const { claim, xp } = result;
 
     const shaped = shapeClaim(claim, req.player.id);
     // Chat is the activity feed (spec §7) — every claim announces itself.
@@ -76,8 +78,9 @@ hoodRoutes.post('/:id/claim', requireAuth, upload.single('photo'), async (req, r
     });
     broadcast('claim_created', shaped);
     broadcast('hood_changed', { hood_id: hoodId });
+    announceLevelUp(req.player, levelUp);
 
-    res.status(201).json({ claim: shaped });
+    res.status(201).json({ claim: shaped, xp, progress, level_up: levelUp });
   } catch (err) {
     await discardUpload(photo);   // never leave orphaned files behind a rejected claim
     next(err);
