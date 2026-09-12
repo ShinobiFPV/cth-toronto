@@ -131,13 +131,12 @@ CREATE INDEX IF NOT EXISTS idx_claims_hood    ON claims(hood_id, created_at DESC
 CREATE INDEX IF NOT EXISTS idx_claims_season  ON claims(season_id, status);
 CREATE INDEX IF NOT EXISTS idx_claims_player  ON claims(player_id, status);
 CREATE INDEX IF NOT EXISTS idx_claims_created ON claims(created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_claims_park   ON claims(park_id, player_id, season_id);
 
--- One collection per player per park per season. Partial so it only governs park rows,
--- and excludes reverted ones so a claim the group threw out frees the park up again.
-CREATE UNIQUE INDEX IF NOT EXISTS idx_park_once_per_season
-  ON claims(player_id, park_id, season_id)
-  WHERE park_id IS NOT NULL AND status != 'reverted';
+-- NOTE: indexes over claims.park_id are NOT here. This file runs before the migrations
+-- in db.js, and on a database that predates that column `CREATE TABLE IF NOT EXISTS` is
+-- a no-op — so an index naming park_id would fail with "no such column". They are
+-- created in db.js instead, after the column exists. Anything indexing a migrated
+-- column belongs there, not here.
 
 CREATE TABLE IF NOT EXISTS hood_state (
   hood_id        INTEGER PRIMARY KEY REFERENCES hoods(id),

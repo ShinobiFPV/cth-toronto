@@ -53,6 +53,21 @@ const migrations = db.transaction(() => {
 });
 migrations();
 
+/**
+ * Indexes that reference migrated columns. These have to run after migrations(), which
+ * is why they are not in schema.sql: that file executes first, and on a database created
+ * before a column existed it cannot index it.
+ */
+db.exec(`
+  CREATE INDEX IF NOT EXISTS idx_claims_park ON claims(park_id, player_id, season_id);
+
+  -- One collection per player per park per season. Partial so it governs only park rows,
+  -- and excludes reverted ones so a claim the group threw out frees the park up again.
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_park_once_per_season
+    ON claims(player_id, park_id, season_id)
+    WHERE park_id IS NOT NULL AND status != 'reverted';
+`);
+
 // ── Values ────────────────────────────────────────────────────────────────
 
 /**
