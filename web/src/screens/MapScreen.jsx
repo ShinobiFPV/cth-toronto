@@ -8,9 +8,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { api } from '../lib/api.js';
 import { useGame } from '../lib/store.jsx';
 import { hoodColour } from '../lib/game.js';
-import { textSafe } from '../lib/theme.js';
+import { cssVar, textSafe } from '../lib/theme.js';
 import { useTheme } from '../lib/theme-context.jsx';
 import HoodSheet from '../components/HoodSheet.jsx';
 
@@ -31,16 +32,43 @@ const FILTER_TILES = (import.meta.env.VITE_MAP_DARKEN ?? 'true') !== 'false';
 // The floor before a fit raises it to whatever actually frames the city.
 const MIN_ZOOM = 9;
 
+/**
+ * How big a park dot is at a given zoom, and whether to draw it at all.
+ *
+ * There are 1,513 of them. At city zoom they have to be specks or they bury the Hood
+ * numbers, and past the point where streets appear they want to be tappable. Below 10.5
+ * the city is small enough that 1,513 dots read as a grey haze over it, so they are
+ * dropped entirely rather than drawn as noise.
+ */
+const dotRadius = (zoom) => {
+  if (zoom < 10.5) return 0;
+  if (zoom < 12) return 1.8;
+  if (zoom < 13.5) return 3;
+  if (zoom < 15) return 4.5;
+  return 6;
+};
+
 export default function MapScreen() {
   const { hoods, player } = useGame();
-  const { resolved } = useTheme();
+  // `appearance` as well as `resolved`: the dot colours are read out of CSS, so they
+  // have to be redrawn when the accent changes and not only on a light/dark flip.
+  const { resolved, appearance } = useTheme();
   const [geo, setGeo] = useState(null);
   const [geoError, setGeoError] = useState(null);
   const [selected, setSelected] = useState(null);
+  const [parks, setParks] = useState(null);
+  const [showParks, setShowParks] = useState(true);
 
   const mapEl = useRef(null);
   const mapRef = useRef(null);
   const layersRef = useRef(new Map());      // hood id → { polygon, label }
+  // The park dots live on their own canvas renderer. The Hood polygons have to stay SVG
+  // for the reinforce pulse, but 1,513 SVG circles would put 1,513 more nodes in the
+  // DOM — on canvas they are one draw call and the map still scrolls.
+  const parkLayerRef = useRef(null);
+  const parkRendererRef = useRef(null);
+  const dotsRef = useRef([]);               // { marker, collected }
+  const zoomBucketRef = useRef(null);
   // Set by the layer effect so the resize handler can re-fit, and flipped the first
   // time the player zooms or drags so we stop moving the map under them.
   const fitRef = useRef(null);
@@ -122,6 +150,17 @@ export default function MapScreen() {
       })
       .then((g) => !cancelled && setGeo(g))
       .catch((err) => !cancelled && setGeoError(err.message));
+    return () => { cancelled = true; };
+  }, []);
+
+  // All 1,513 parks, with what this player has already collected. One fetch of about
+  // 70 kB; failing is not worth a message, since the dots are an extra and the Hoods
+  // are the map.
+  useEffect(() => {
+    let cancelled = false;
+    api.parksForMap()
+      .then((r) => !cancelled && setParks(r))
+      .catch(() => {});
     return () => { cancelled = true; };
   }, []);
 
@@ -244,6 +283,93 @@ export default function MapScreen() {
   // ── repaint whenever the game state, or the theme, changes ──────────────
   useEffect(() => { paint(); }, [byId, resolved, paint]);
 
+  // ── the park dots ───────────────────────────────────────────────────────
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !parks?.parks?.length || !showParks) return undefined;
+
+    // Its own pane, at a z-index between the Hood polygons (overlayPane, 400) and the
+    // Hood numbers (markerPane, 600). Two reasons: a dot has to draw over a Hood's
+    // translucent fill to be seen at all, and it has to be above the polygons to get
+    // the tap — in the overlay pane the polygon underneath swallowed it and opened the
+    // Hood sheet instead. Under the labels, so a dot never hides a Hood's number.
+    if (!map.getPane('parks')) {
+      map.createPane('parks');
+      const pane = map.getPane('parks');
+      pane.style.zIndex = 450;
+      // And transparent to the mouse. A canvas sitting above the polygons swallows
+      // every click that lands on it — the browser dispatches to the topmost element,
+      // and a non-interactive Leaflet layer does not make its canvas transparent. With
+      // this missing, tapping a Hood anywhere on the map did nothing at all, which is
+      // the map's entire interaction gone.
+      pane.style.pointerEvents = 'none';
+    }
+    const renderer = L.canvas({ padding: 0.3, pane: 'parks' });
+    parkRendererRef.current = renderer;
+    const group = L.layerGroup();
+    parkLayerRef.current = group;
+
+    const got = cssVar('--r-uncommon', '#3FD66A');
+    const want = cssVar('--accent', '#FFB020');
+    const radius = dotRadius(map.getZoom());
+    zoomBucketRef.current = radius;
+    // Hidden means off the map, not drawn at radius 0 — there is no reason to keep
+    // 1,513 invisible circles in the renderer's redraw loop while panning.
+    const show = (r) => {
+      if (r > 0 && !map.hasLayer(group)) group.addTo(map);
+      else if (r === 0 && map.hasLayer(group)) map.removeLayer(group);
+    };
+
+    const dots = parks.parks.map((p) => {
+      const marker = L.circleMarker([p.la, p.ln], {
+        renderer,
+        radius,
+        // A collected park is hollow, an uncollected one solid — the same language the
+        // per-Hood park map already speaks, so the two read as one feature.
+        color: p.c ? got : want,
+        weight: p.c ? 1.5 : 1,
+        opacity: 0.9,
+        fillColor: want,
+        fillOpacity: p.c ? 0 : 0.75,
+        // Not clickable, on purpose. Tapping a Hood is the map's whole interaction, and
+        // a canvas of 1,513 hit targets laid over the polygons takes that tap: with the
+        // dots interactive, aiming at one either opened the Hood underneath or did
+        // nothing at all, depending on which pane won. The dots are here to show you
+        // where the parks are; tapping the Hood and then Collect parks is still how you
+        // get to one.
+        interactive: false,
+      }).addTo(group);
+      return { marker, collected: !!p.c };
+    });
+    dotsRef.current = dots;
+    show(radius);
+
+    // Restyle only when the size band actually changes — 1,513 setStyle calls on every
+    // fractional zoom step would make panning feel like treacle.
+    const onZoom = () => {
+      const r = dotRadius(map.getZoom());
+      if (r === zoomBucketRef.current) return;
+      zoomBucketRef.current = r;
+      if (r > 0) {
+        for (const { marker, collected } of dots) {
+          marker.setStyle({ radius: r, opacity: 0.9, fillOpacity: collected ? 0 : 0.75 });
+        }
+      }
+      show(r);
+    };
+    map.on('zoomend', onZoom);
+
+    return () => {
+      map.off('zoomend', onZoom);
+      group.remove();
+      parkLayerRef.current = null;
+      parkRendererRef.current = null;
+      dotsRef.current = [];
+      zoomBucketRef.current = null;
+    };
+    // resolved and the accent are in here because the dot colours are read out of CSS.
+  }, [parks, showParks, resolved, appearance.accent]);
+
   const mine = hoods.filter((h) => h.owner?.id === player?.id);
   const richest = hoods.filter((h) => !h.owner)
     .sort((a, b) => b.unclaimed_value - a.unclaimed_value)[0];
@@ -280,6 +406,17 @@ export default function MapScreen() {
               <b>+{richest.unclaimed_value}</b>
               <span className="dim truncate">best unclaimed · {richest.id}</span>
             </div>
+          )}
+          {parks && (
+            <button className={`row map-parks-toggle ${showParks ? 'on' : ''}`}
+                    aria-pressed={showParks}
+                    onClick={() => setShowParks((v) => !v)}
+                    title={showParks ? 'Hide the park dots' : 'Show the park dots'}>
+              <b>{parks.collected}</b>
+              <span className="dim truncate">
+                of {parks.total} parks{showParks ? '' : ' · hidden'}
+              </span>
+            </button>
           )}
           <div className="map-hint">Refresh the page if the map is not showing info</div>
         </div>

@@ -66,6 +66,8 @@ export const api = {
   seasons: () => request('/seasons'),
 
   // Parks
+  // Every park in the city, for the dots on the main map.
+  parksForMap: () => request('/parks/map'),
   parksInHood: (hoodId) => request(`/hoods/${hoodId}/parks`),
   park: (id) => request(`/parks/${id}`),
   parkCheck: (id) => request(`/parks/${id}/check`),

@@ -4,7 +4,7 @@
 // and a list sorted by value for when you are planning a route. The list is the default
 // on purpose — you open this to decide where to go.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import L from 'leaflet';
 import { api } from '../lib/api.js';
 import { useGame } from '../lib/store.jsx';
@@ -33,13 +33,21 @@ const rarityColours = () => ({
 
 export default function Parkemans() {
   const { id } = useParams();
+  // ?park=<id> opens straight onto that park's sheet rather than the Hood's list, so a
+  // link to one particular park is possible from anywhere.
+  const [search] = useSearchParams();
   const navigate = useNavigate();
   const { refreshMe } = useGame();
 
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState('list');
-  const [selected, setSelected] = useState(null);
+  // Seeded from ?park= on the first render. Read once: closing the sheet should not
+  // reopen it.
+  const [selected, setSelected] = useState(() => {
+    const want = Number(search.get('park'));
+    return Number.isInteger(want) && want > 0 ? want : null;
+  });
   const [sort, setSort] = useState('value');
   // Declared up here with the rest: there are early returns below, and a useState
   // after one of those is a rules-of-hooks violation that React will throw on.

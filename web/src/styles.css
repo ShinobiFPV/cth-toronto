@@ -219,6 +219,17 @@ button, input, select, textarea { font: inherit; color: inherit; }
   border-bottom: 2px solid var(--border);
 }
 
+/* The sign-in page's wordmark. Bigger than the header's, since it is the only thing
+   on the screen, and the brush face wants room. */
+.login-mark {
+  font-family: var(--wordmark);
+  font-size: 4rem;
+  line-height: 0.95;
+  letter-spacing: 0;
+  margin: 0;
+}
+.login-mark span { color: var(--accent); }
+
 .header .brand {
   font-family: var(--wordmark);
   /* A brush script sits small on its em box and has no business being letter-spaced,
@@ -540,6 +551,23 @@ button, input, select, textarea { font: inherit; color: inherit; }
   max-width: 45vw;
 }
 .map-legend .row { padding: 0.15rem 0; border: 0; gap: 0.4rem; }
+
+/* The park count doubles as the show/hide switch for the dots — a legend row that is
+   also a control, rather than another floating button over the map. */
+.map-parks-toggle {
+  width: 100%;
+  background: none;
+  border: 0;
+  border-top: 1px solid var(--rule);
+  margin-top: 0.15rem;
+  padding-top: 0.3rem;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.map-parks-toggle:not(.on) { opacity: 0.55; }
+.map-parks-toggle.on b { color: var(--accent-text); }
 
 .map-fab {
   position: absolute;

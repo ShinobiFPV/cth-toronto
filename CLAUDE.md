@@ -289,6 +289,21 @@ There is no linter and no CI. Validate frontend changes by running the app
   is handled for free. `--sheet-lift` is now just breathing room and the fallback for a
   browser with no `visualViewport`. `test/sheets.test.js` holds all of that in place,
   including the arithmetic.
+- **The park dots live in their own Leaflet pane, at z-index 450 with
+  `pointer-events: none`.** Both halves are load-bearing. 450 puts them above the Hood
+  polygons (overlayPane, 400) so a dot draws over a Hood's translucent fill, and below
+  the Hood numbers (markerPane, 600) so a dot never hides one. `pointer-events: none` is
+  what keeps the map usable at all: the browser dispatches a click to the topmost
+  element, and a canvas covering the map swallows every tap meant for a Hood — marking
+  the markers non-interactive does *not* make its canvas transparent. Without that line,
+  tapping a Hood anywhere on the map silently did nothing, which is the map's entire
+  interaction gone. They are also **canvas, not SVG**: 1,513 SVG circles would be 1,513
+  more DOM nodes, and the Hood polygons need SVG only because the reinforce pulse
+  animates a path.
+- **Dots are deliberately not clickable.** Tapping a Hood is the map's whole interaction
+  and a field of 1,513 hit targets over it competes with that; the route to a park is
+  still Hood → Collect parks. `dotRadius()` also drops them entirely below zoom 10.5,
+  where 1,513 specks read as a grey haze over the city rather than as information.
 - **Leaflet sizing.** The map lives in a grid row and is measured before layout settles,
   so `MapScreen` calls `invalidateSize()` on the next frame and keeps a `ResizeObserver`.
   Removing that leaves Toronto fitted to the wrong viewport.

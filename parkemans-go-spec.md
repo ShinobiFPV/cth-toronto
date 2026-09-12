@@ -647,7 +647,8 @@ GET    /api/leaderboard?season=    current season standings (carries xp/level/ti
 GET    /api/leaderboard/champion   all-season totals
 GET    /api/seasons                schedule + which is active
 
-GET    /api/hoods/:id/parks        Parkemans: every park in a Hood + your collection state
+GET    /api/parks/map              every park in the city + what you have collected (~70 kB)
+GET    /api/hoods/:id/parks        every park in a Hood + your collection state
 GET    /api/parks/:id             one park + whether you can collect it
 GET    /api/parks/:id/check       dry run
 POST   /api/parks/:id/collect     multipart: photo of the sign, caption (optional)
@@ -688,6 +689,7 @@ displays "needs an animal photo" or "reinforce available in 14h" up front.
 
 ## 7. Screens
 
+0. **Sign in** — the wordmark and nothing else to look at.
 1. **Map** — full-bleed Leaflet map, 25 Hoods filled in their owner's player colour,
    unclaimed Hoods in neutral grey with their point value at the centroid. Tap a Hood →
    bottom sheet with holder, their photo, the subject you need, and the action button,
@@ -708,6 +710,12 @@ displays "needs an animal photo" or "reinforce available in 14h" up front.
 7. **Cards** — the binder, reachable from the tab bar because the collection is what the
    app is named after. Anybody's binder (§1.8), and the way into offers (§1.8a).
 8. **Offers** — incoming and outgoing trades.
+
+The map also carries **every park in the city as a dot** once you zoom past the whole-city
+view: solid for one you have not collected this season, hollow for one you have. The
+legend's park count doubles as the switch that hides them. They are deliberately not
+tappable — tapping a Hood is the map's one interaction, and 1,513 hit targets laid over it
+would fight with that.
 
 The tab bar is Map / Cards / Feed / Standings / Chat, and carries two badges: unread chat,
 and trade offers waiting on you. The offers badge is fed by `trades_pending` on `/me` and

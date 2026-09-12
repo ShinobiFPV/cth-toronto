@@ -109,6 +109,36 @@ const shapeCollection = (r) => ({
   caption: r.caption ?? null,
 });
 
+/**
+ * Every park in the city, for the dots on the main map: where it is, what it pays, and
+ * whether this player already has it this season.
+ *
+ * Keys are short because there are 1,513 of them and this is the one payload in the app
+ * where that matters — `{i, la, ln, v, h, c}` is id, lat, lng, value, hood, collected.
+ * Names are left out: on a phone there is no hover, so a dot is tapped rather than
+ * peeked at, and the park's own screen has the name.
+ */
+export function parksForMap(playerId, at = nowIso()) {
+  const season = activeSeason(at);
+  // The once-per-season unique index makes this join 1:1, so no DISTINCT is needed.
+  const rows = db.prepare(`
+    SELECT p.id, p.lat, p.lng, p.value, p.hood_id,
+           CASE WHEN c.id IS NULL THEN 0 ELSE 1 END AS collected
+      FROM parks p
+ LEFT JOIN claims c ON c.park_id = p.id AND c.player_id = ? AND c.season_id = ?
+                   AND c.status != 'reverted'
+     ORDER BY p.id`).all(playerId, season?.id ?? -1);
+
+  return {
+    season_id: season?.id ?? null,
+    total: rows.length,
+    collected: rows.reduce((n, r) => n + r.collected, 0),
+    parks: rows.map((r) => ({
+      i: r.id, la: r.lat, ln: r.lng, v: r.value, h: r.hood_id, c: r.collected,
+    })),
+  };
+}
+
 /** How a Hood's Parkemans progress looks in one line, for the Hood sheet and the map. */
 export function parkProgress(hoodId, playerId, at = nowIso()) {
   const season = activeSeason(at);

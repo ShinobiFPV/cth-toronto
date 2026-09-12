@@ -7,7 +7,7 @@ import { config } from '../config.js';
 import { requireAuth } from '../lib/auth.js';
 import {
   listParksInHood, evaluateCollect, commitCollect, getPark, getCardByClaim,
-  cardsOf, collectionSummary, parkProgress, shapePark,
+  cardsOf, collectionSummary, parkProgress, shapePark, parksForMap,
 } from '../lib/parks.js';
 import { processUpload, discardUpload } from '../lib/images.js';
 import { broadcast, postMessage } from '../lib/hub.js';
@@ -20,6 +20,14 @@ export const parkRoutes = Router();
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: config.maxUploadBytes, files: 1 },
+});
+
+/**
+ * Every park in the city, for the dots on the main map. One fetch of about 70 kB, so
+ * the map draws all 1,513 without asking per Hood.
+ */
+parkRoutes.get('/parks/map', requireAuth, (req, res) => {
+  res.json(parksForMap(req.player.id));
 });
 
 /** Every park in a Hood, with this player's collection state for the season. */

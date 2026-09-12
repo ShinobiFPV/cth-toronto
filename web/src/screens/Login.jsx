@@ -38,11 +38,13 @@ export default function Login() {
 
   return (
     <div className="screen-pad" style={{ maxWidth: 420, margin: '0 auto', paddingTop: '3rem' }}>
-      <h1 style={{ fontSize: '1.5rem', lineHeight: 1.25 }}>
-        Capture<br />the <span style={{ color: 'var(--accent)' }}>Hood</span>
+      {/* The wordmark, in the brush face, same as the header once you are in. Not an
+          <h1> default: this is the app's name rather than a page title. */}
+      <h1 className="login-mark">
+        ParkeMans<br /><span>GO!</span>
       </h1>
       <p className="dim tiny" style={{ margin: '0.5rem 0 2rem', letterSpacing: '0.1em' }}>
-        TORONTO · 25 HOODS · 4 SEASONS
+        TORONTO · 1,513 PARKS · 25 HOODS · 4 SEASONS
       </p>
 
       <div className="toggle" role="group" aria-label="Sign in or join">
