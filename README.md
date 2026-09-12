@@ -130,11 +130,12 @@ flourishes. Two people who collect the same park in the same season still get vi
 different cards. Legendaries get a slow sheen, because obviously they do.
 
 <p align="center">
-  <img src="docs/screenshots/20-card.png" width="330" alt="A legendary Fall card for Maberley Parkette: brush-script title, the park's value, the photo, its Hood and address, the collector's caption as flavour text, and the set number">
+  <img src="docs/screenshots/20-card.png" width="330" alt="The Dieppe Park card: a photo of the park's municipal sign at 455 Cosburn Avenue, framed in Fall amber, worth 26 points, uncommon, number 368 of 1513">
 </p>
 <p align="center">
-  <em>The title is in the same hand as the app's own name. The line above the footer is
-  whatever the collector wrote when they took the photo.</em>
+  <em>A real card. Somebody walked to 455 Cosburn Avenue, photographed the sign, and got
+  #0368 of 1513 — uncommon, worth 26, Fall 2026. The title is in the same hand as the
+  app&rsquo;s own name.</em>
 </p>
 
 <p align="center">
