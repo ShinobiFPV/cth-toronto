@@ -40,6 +40,7 @@ export const KIND_VERB = {
   steal: 'Steal',
   reinforce: 'Reinforce',
   reversal: 'Reverted',
+  park: 'Collected',
 };
 
 /** Human countdown, matching the server's phrasing so the two never disagree. */

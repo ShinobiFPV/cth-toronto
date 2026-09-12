@@ -5,8 +5,11 @@ import { ago, article, clock } from '../lib/game.js';
 import { SUBJECT_ICON, FlagIcon, CloseIcon } from './icons.jsx';
 
 export function Subject({ type, label = true, className = '' }) {
-  if (!type) return null;
   const Icon = SUBJECT_ICON[type];
+  // Only the three territory subjects have an icon. A park collection carries
+  // photo_type 'park_sign', and rendering <undefined /> for it crashed the whole Feed
+  // tab with React error #130 the moment anybody collected a park.
+  if (!type || !Icon) return null;
   return (
     <span className={`subject ${className}`} title={article(type)}>
       <Icon />

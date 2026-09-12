@@ -91,7 +91,9 @@ export default function HoodDetail() {
                 <span className={`chip ${c.claim_kind === 'reversal' ? 'chip-bad' : 'chip-accent'}`}>
                   {KIND_VERB[c.claim_kind]}{c.points ? ` +${c.points}` : ''}
                 </span>
-                {c.photo_type && <Subject type={c.photo_type} />}
+                {c.park
+                  ? <span className="tiny dim truncate">{c.park.name}</span>
+                  : c.photo_type && <Subject type={c.photo_type} />}
                 {c.beaten && <span className="tiny dim">beat {c.beaten.display_name}</span>}
                 {c.replaced_photo_type
                   && <span className="tiny dim">was {c.replaced_photo_type}</span>}

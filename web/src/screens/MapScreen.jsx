@@ -25,6 +25,9 @@ const ATTRIB = import.meta.env.VITE_MAP_ATTRIB
 // set VITE_MAP_DARKEN=false.
 const DARKEN = (import.meta.env.VITE_MAP_DARKEN ?? 'true') !== 'false';
 
+// The floor before a fit raises it to whatever actually frames the city.
+const MIN_ZOOM = 9;
+
 export default function MapScreen() {
   const { hoods, player } = useGame();
   const [geo, setGeo] = useState(null);
@@ -34,6 +37,10 @@ export default function MapScreen() {
   const mapEl = useRef(null);
   const mapRef = useRef(null);
   const layersRef = useRef(new Map());      // hood id → { polygon, label }
+  // Set by the layer effect so the resize handler can re-fit, and flipped the first
+  // time the player zooms or drags so we stop moving the map under them.
+  const fitRef = useRef(null);
+  const interactedRef = useRef(false);
   const byId = useMemo(() => new Map(hoods.map((h) => [h.id, h])), [hoods]);
 
   // paint() reads the Hood data through a ref rather than closing over it, which keeps
@@ -113,16 +120,31 @@ export default function MapScreen() {
       // SVG, not canvas: the reinforce pulse is a CSS animation on the polygon's
       // path element, and canvas rendering would leave nothing to animate.
       preferCanvas: false,
+      // Fractional zoom. Leaflet otherwise snaps to whole levels, and Toronto at zoom
+      // 10 needs a hair more than 400px of width — so every phone narrower than that
+      // dropped to zoom 9 and drew the city at half size with Barrie and Niagara Falls
+      // for company. With no snapping, fitBounds frames the city exactly, whatever the
+      // screen. zoomDelta keeps the +/- buttons stepping a sensible amount.
+      zoomSnap: 0,
+      zoomDelta: 0.5,
       maxZoom: 17,
-      minZoom: 9,
+      minZoom: MIN_ZOOM,
     }).setView([43.72, -79.38], 10);
     L.tileLayer(TILES, { attribution: ATTRIB, maxZoom: 19 }).addTo(map);
     mapRef.current = map;
 
-    // Leaflet measures its container on creation. Inside a freshly mounted grid that
-    // measurement is often wrong, which leaves the map fitted to the wrong viewport —
-    // so re-measure on the next frame and whenever the container actually resizes.
-    const resize = () => map.invalidateSize({ animate: false });
+    // Once the player zooms or pans, the view is theirs and we stop re-fitting it.
+    map.on('zoomstart dragstart', () => { interactedRef.current = true; });
+
+    // Leaflet measures its container on creation, and inside a freshly mounted grid
+    // that measurement is usually wrong. Re-measuring alone is not enough: a map fitted
+    // to a 200px-tall box and then grown to 700px keeps its low zoom and shows Barrie
+    // to Niagara Falls with Toronto as a smudge in the middle. So a resize also re-fits,
+    // until the player touches the map.
+    const resize = () => {
+      map.invalidateSize({ animate: false });
+      if (!interactedRef.current) fitRef.current?.();
+    };
     requestAnimationFrame(resize);
     const observer = new ResizeObserver(resize);
     observer.observe(mapEl.current);
@@ -172,16 +194,21 @@ export default function MapScreen() {
     }
     // Fit after the container has been measured, or Toronto ends up a smudge in the
     // middle of Southern Ontario.
+    const bounds = shapes.getBounds();
     const fit = () => {
       map.invalidateSize({ animate: false });
-      map.fitBounds(shapes.getBounds(), { padding: [10, 10] });
+      // Drop the floor before fitting, or a minZoom left over from an earlier fit
+      // against a smaller container clamps this one and the city stays too small.
+      map.setMinZoom(MIN_ZOOM);
+      map.fitBounds(bounds, { padding: [10, 10] });
       // Toronto is the whole world here. Pin the city in place: you cannot zoom out
       // past the fitted view, and panning stops before the map is all lake. On a phone
       // the viewport is taller than the city, and Leaflet simply centres the axis that
       // does not fit, which is what we want anyway.
       map.setMinZoom(map.getZoom());
-      map.setMaxBounds(shapes.getBounds().pad(0.4));
+      map.setMaxBounds(bounds.pad(0.4));
     };
+    fitRef.current = fit;
     fit();
     requestAnimationFrame(fit);
 
@@ -193,7 +220,11 @@ export default function MapScreen() {
     // entirely — layers are never left unpainted, whichever half arrives last.
     paint();
 
-    return () => { group.remove(); layersRef.current.clear(); };
+    return () => {
+      group.remove();
+      layersRef.current.clear();
+      fitRef.current = null;
+    };
   }, [geo, paint]);
 
   // ── repaint whenever the game state changes ─────────────────────────────
