@@ -1,4 +1,4 @@
-// Parkemans GO endpoints. The park map is scoped to one Hood, because that is how you
+// Park endpoints. The park map is scoped to one Hood, because that is how you
 // reach it — you tap a Hood, then you play the sub-game inside it.
 import { Router } from 'express';
 import multer from 'multer';

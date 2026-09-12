@@ -87,7 +87,7 @@ Downloads the 25-ward GeoJSON from City of Toronto Open Data, simplifies it to ~
 for the map layer, and fills in the `hoods` table. Safe to re-run at any time — it never
 touches game state.
 
-Then the parks for Parkemans GO — 1,513 of them, assigned to Hoods by point-in-polygon,
+Then the parks — 1,513 of them, assigned to Hoods by point-in-polygon,
 so this must run *after* the boundaries:
 
 ```bash

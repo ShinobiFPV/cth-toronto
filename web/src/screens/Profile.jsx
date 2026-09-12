@@ -162,7 +162,7 @@ export default function Profile() {
                     is worth a big bonus.</li>
                 <li>Losing a Hood costs you nothing. Points are never taken back.</li>
                 <li>{rules.flag_threshold} flags revert a claim and cancel its points.</li>
-                <li><b>Parkemans GO:</b> every Toronto park has a sign with its name on it.
+                <li><b>Parks:</b> every Toronto park has a sign with its name on it.
                     Photograph one and you collect that park for a card, worth 5 to 100 by
                     how far out it is. Each park once a season, nobody competes over them,
                     and the points go straight into your total.</li>

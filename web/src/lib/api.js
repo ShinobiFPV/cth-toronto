@@ -65,7 +65,7 @@ export const api = {
   champion: () => request('/leaderboard/champion'),
   seasons: () => request('/seasons'),
 
-  // Parkemans GO
+  // Parks
   parksInHood: (hoodId) => request(`/hoods/${hoodId}/parks`),
   park: (id) => request(`/parks/${id}`),
   parkCheck: (id) => request(`/parks/${id}/check`),

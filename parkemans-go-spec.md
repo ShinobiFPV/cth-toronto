@@ -223,7 +223,7 @@ visible first flag is most of what makes it work.
 
 ---
 
-## 1.8 Parkemans GO
+## 1.8 Parks, and the cards they print
 
 A sub-game inside every Hood, and the only part of the game that nobody competes
 over.
@@ -244,7 +244,7 @@ and you **collect** that park: it pays points and prints you a collectable card.
   makes scoring, the feed, chat and **flagging** work on them unchanged. A collection
   reverted by flags cancels its points and frees the park to be collected again.
 
-Reached from the map: tap a Hood, then the **Parkemans GO** button on its sheet. That
+Reached from the map: tap a Hood, then **Collect parks** on its sheet. That
 opens the ~60 parks in that Hood as a list sorted by value, or as pins on a map.
 
 **Cards and binders are public.** Any player can open any other player's binder, and any

@@ -1,4 +1,4 @@
-// Parkemans GO: the collection rules, the card seed, and how park points join the score.
+// Parks: the collection rules, the card seed, and how park points join the score.
 import { test, before, beforeEach, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -194,7 +194,7 @@ describe('a Hood\'s parks', () => {
 
   test('progress hangs off the Hood itself, which is where the sheet reads it', async () => {
     // Regression: this lived on hood.viewer.parks for one release, and the
-    // "Play Parkemans GO" button — which reads hood.parks — silently never rendered.
+    // parks button — which reads hood.parks — silently never rendered.
     const { listHoods } = await import('../server/lib/views.js');
     collect(9003, alice);
 

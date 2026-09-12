@@ -767,7 +767,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
   }
 }
 
-/* ── Parkemans GO ───────────────────────────────────────────────────────────
+/* ── Park cards ─────────────────────────────────────────────────────────────
    The collectable card. The frame is an inline SVG behind everything; this
    lays the photo, the plate and the footer on top of it. Sizes are fixed in
    px because a trading card has a physical size in your head — it should not
@@ -804,16 +804,24 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .pcard-name {
   flex: 1;
   min-width: 0;
-  font-family: var(--display);
-  font-size: 0.78rem;
-  line-height: 1.15;
+  /* The card's title, in the same brush as the app's own name. A script face sits
+     small on its em box, so this is set roughly twice the size the blocky face was —
+     and with no tracking and no uppercasing, because both wreck a script. Park names
+     arrive from the City in title case, which is what the face wants anyway. */
+  font-family: var(--wordmark);
+  font-size: 1.55rem;
+  line-height: 1;
+  letter-spacing: 0;
+  text-transform: none;
   overflow: hidden;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   text-shadow: 0 1px 0 rgba(0, 0, 0, 0.7);
 }
-.pcard-compact .pcard-name { font-size: 0.5rem; -webkit-line-clamp: 2; }
+/* 0.9rem, not 0.95: at the larger size the longest park names in the set ("Scarborough
+   Heights Waterfront Parkette") came a pixel short of fitting two lines. */
+.pcard-compact .pcard-name { font-size: 0.9rem; -webkit-line-clamp: 2; }
 
 .pcard-value {
   flex: none;

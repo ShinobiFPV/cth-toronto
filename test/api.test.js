@@ -463,7 +463,7 @@ describe('the API end to end', () => {
     assert.ok(data.messages.some((m) => m.body === 'that was my nephew' && m.handle === 'bob'));
   });
 
-  // ── Parkemans GO over HTTP: collecting, and reading somebody else's binder ──
+  // ── Parks over HTTP: collecting, and reading somebody else's binder ──
   //
   // Binders are public on purpose (spec §1.8): nobody competes over parks, so a
   // collection costs no one anything and is worth showing off. These tests pin down

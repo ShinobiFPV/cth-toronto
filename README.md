@@ -80,14 +80,14 @@ entirely because of drones. One flight should not hand somebody the whole west e
 
 ---
 
-## Parkemans GO
+## Parks
 
 Every park in Toronto has the same municipal sign with the park's name on it. There are
 **1,513 of them**. Photograph one and you collect that park, and it prints you a card.
 
 <table>
 <tr>
-<td width="50%"><img src="docs/screenshots/05-parkemans.png" alt="The Parkemans GO list for one Hood, sorted by value"></td>
+<td width="50%"><img src="docs/screenshots/05-parkemans.png" alt="The parks in one Hood, sorted by value"></td>
 <td width="50%"><img src="docs/screenshots/07-card.png" alt="A legendary Parkemans card with a foil border"></td>
 </tr>
 <tr>

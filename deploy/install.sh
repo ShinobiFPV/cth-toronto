@@ -90,9 +90,9 @@ grep -q '^CTH_JWT_SECRET=.\+' "$APP_DIR/.env" \
 ok "CTH_JWT_SECRET is set"
 
 # ── Game data ────────────────────────────────────────────────────────────────
-# The 25 Hoods ship as a seed, but the 1,513 parks do not — Parkemans GO is simply
+# The 25 Hoods ship as a seed, but the 1,513 parks do not — the parks game is simply
 # missing until the importer has run once. Safe to skip if they are already there.
-say "Parks (Parkemans GO)"
+say "Parks"
 park_count=$(sudo -u "$SVC_USER" node -e "
   const D = require('$APP_DIR/node_modules/better-sqlite3');
   try {
@@ -108,7 +108,7 @@ else
   if sudo -u "$SVC_USER" env CTH_DB="$DATA_DIR/cth.sqlite"        node "$APP_DIR/scripts/import-parks.js" >/tmp/cth-parks.log 2>&1; then
     ok "$(tail -3 /tmp/cth-parks.log | head -1)"
   else
-    ok "park import failed — Parkemans GO will be empty until you re-run it:"
+    ok "park import failed — the parks game will be empty until you re-run it:"
     ok "  cd $APP_DIR && node scripts/import-parks.js"
     tail -3 /tmp/cth-parks.log >&2 || true
   fi

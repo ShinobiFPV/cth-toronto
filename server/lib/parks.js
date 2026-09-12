@@ -1,4 +1,4 @@
-// Parkemans GO: the sub-game inside each Hood.
+// Parks: the sub-game inside each Hood, and the app's namesake.
 //
 // Every Toronto park has the same green sign with the park's name on it. You photograph
 // the sign, you collect the park, you get a card. Each park is collectable once per

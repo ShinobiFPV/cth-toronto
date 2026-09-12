@@ -270,7 +270,7 @@ export function leaderboard(seasonId = null) {
       conquers: kinds[p.id]?.conquer ?? 0,
       steals: kinds[p.id]?.steal ?? 0,
       reinforces: kinds[p.id]?.reinforce ?? 0,
-      // Parkemans GO points count toward the same total, but it is worth seeing the
+      // Park points count toward the same total, but it is worth seeing the
       // split: somebody can be top of the table without holding a single Hood.
       parks: kinds[p.id]?.park ?? 0,
       xp: xpByPlayer[p.id] ?? 0,

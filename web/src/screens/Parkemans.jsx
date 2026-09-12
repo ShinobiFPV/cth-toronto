@@ -1,4 +1,4 @@
-// Parkemans GO, scoped to one Hood. Reached from the Hood sheet on the main map.
+// Parks, scoped to one Hood. Reached from the Hood sheet on the main map.
 //
 // Two ways to look at the same ~60 parks: pins on a map for when you are out walking,
 // and a list sorted by value for when you are planning a route. The list is the default

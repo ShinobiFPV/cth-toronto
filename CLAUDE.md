@@ -101,7 +101,7 @@ changing one, read the test first — it says why.
   nobody competes over parks, so a card takes nothing from anybody, and comparing pulls
   is most of what makes a card game fun. Territory claims are a different matter — do
   not copy this openness onto anything anyone can lose.
-- **The game is called Parkemans GO.** It was Parkemon until the rename; the only place
+- **The app is called ParkeMans GO!** It was Parkemon, then Parkemans; the only place
   the old spelling survives is the `cth-parkemon:` salt inside `cardSeed()`, which is a
   hash input already baked into every stored `card_seed`. Leave it.
 - **An edition is rolled with fresh randomness, never derived from `card_seed`.** The
@@ -200,7 +200,7 @@ npm test        # 251 tests, no server needed, touches nothing in data/
   winding `hood_state` clocks backwards, not by waiting.
 - `test/api.test.js` — boots the real server on port 8199 against a temp database and
   walks the whole thing over HTTP, including real JPEGs through the sharp pipeline.
-- `test/parks.test.js` — Parkemans GO. Seeds four parks by hand rather than importing
+- `test/parks.test.js` — parks and cards. Seeds four parks by hand rather than importing
   1,513, so the suite never touches the network.
 - `test/editions.test.js` — Steel / Gold / Hologram: the roll, the per-Hood hologram cap,
   and that none of it can move a single point.
@@ -274,7 +274,7 @@ There is no linter and no CI. Validate frontend changes by running the app
   pushed Collect and Conquer clean past the bottom edge. `min-height: 0` on
   `.bottom-sheet > .sheet-body` is what lets the body shrink and scroll instead of
   growing and shoving the footer out; without it the bug returns exactly as it was.
-  Both actions on the Hood sheet belong there too — the claim *and* Play Parkemans GO,
+  Both actions on the Hood sheet belong there too — the claim *and* the parks button,
   which sits under it and was therefore the first thing to disappear.
 - **The bottom of the screen is not yours, and its height cannot be guessed.** A
   `position: fixed; bottom: 0` element anchors to the **layout** viewport, which on iOS
@@ -300,12 +300,17 @@ There is no linter and no CI. Validate frontend changes by running the app
 
 ## Visual style
 
-**The wordmark is the only thing set in Kolker Brush.** `--wordmark` exists so the brush
-script stays on the app's name; `--display` (Rubik Mono One) still sets every heading,
-the map's Hood numbers and every `.num`. Putting a brush face on a table header or a
-two-digit map label would be unreadable, which is the whole reason there are two tokens.
-The font is self-hosted in `web/public/fonts` with its OFL licence beside it, like the
-other two — nothing here fetches a font at run time.
+**Kolker Brush is for the wordmark and the card titles, and nothing else.** `--wordmark`
+holds the brush face; `--display` (Rubik Mono One) still sets every heading, the map's
+Hood numbers and every `.num`, because a brush face on a table header or a two-digit map
+label would be unreadable. The card title is the other place a script belongs: it is the
+name of the object you are holding, it echoes the app's own mark, and park names arrive
+from the City in title case, which is what a script wants — so `.pcard-name` also drops
+the tracking and any uppercasing. It is set at roughly twice the size the blocky face
+was, since a script sits small on its em box; `0.9rem` on a compact card is the largest
+that still fits the longest park name in the set across two lines. The font is
+self-hosted in `web/public/fonts` with its OFL licence beside the other two — nothing
+here fetches a font at run time.
 
 "Arctic Classified after dark" — the shintech.online house style inverted for a map-first
 app used outdoors at night. The rules carry over unchanged and `web/src/styles.css`
