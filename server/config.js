@@ -83,6 +83,17 @@ export const config = {
   // §1.7's stated rule is "2 or more other players" — but one env var away.
   FLAG_EXCLUDE_DISPLACED: bool('CTH_FLAG_EXCLUDE_DISPLACED', false),
 
+  // Special editions (spec §1.8b). A card's *rarity* comes from the park's value and is
+  // knowable before you set out; its *edition* is luck, rolled when the photo lands.
+  // One in N, so a bigger number is rarer.
+  EDITION_STEEL_ONE_IN: num('CTH_EDITION_STEEL_ONE_IN', 10),
+  EDITION_GOLD_ONE_IN: num('CTH_EDITION_GOLD_ONE_IN', 40),
+  EDITION_HOLO_ONE_IN: num('CTH_EDITION_HOLO_ONE_IN', 150),
+  // ...and on top of that, a Hood yields at most this many holograms per season. With
+  // 25 Hoods that caps the whole group at 25 a season, and makes each one *the* Hood 13
+  // hologram rather than one of several.
+  HOLO_PER_HOOD_PER_SEASON: num('CTH_HOLO_PER_HOOD_PER_SEASON', 1),
+
   // Uploads
   maxUploadBytes: num('CTH_MAX_UPLOAD_MB', 60) * 1024 * 1024,
   // A caption is flavour, not an essay. Long enough for a joke about the raccoon,

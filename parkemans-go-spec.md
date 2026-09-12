@@ -1,4 +1,4 @@
-# Parkemans Go — Build Spec
+# ParkeMans GO! — Build Spec
 
 A photo game for a small private friend group, in two halves.
 
@@ -255,6 +255,43 @@ What is left is the part of a card game that is actually fun — seeing what eve
 pulled. Two players who collect the same park in the same season get visibly different
 cards, so a shared park is a comparison rather than a duplicate.
 
+### 1.8b Special editions
+
+A card's **rarity** comes from its park's value: how far out it is, knowable before you
+leave the house, and the same for everybody who collects it. A card's **edition** is the
+opposite — pure chance, rolled the moment the photo lands, and the reason it is worth
+photographing a park somebody else already has.
+
+| Edition | Chance | XP | Notes |
+|---|---|---|---|
+| Steel | 1 in 10 | +15 | brushed grey frame |
+| Gold | 1 in 40 | +40 | gold frame, stronger foil |
+| **Hologram** | 1 in 150 | **+100** | full spectrum, animated, **one per Hood per season** |
+
+Everything about the design follows from two rules:
+
+- **Editions pay XP, never points.** Points are the season race, and a race decided by
+  dice is not a race. XP is lifetime and never resets (§1.9), so a lucky pull is a
+  permanent little keepsake that leaves the table alone. A hologram is worth as much XP
+  as walking into a Hood for the first time; there are at most 25 of them in a season.
+- **The roll uses fresh randomness, not `card_seed`.** Deriving it from the seed would
+  have been tidier, but the seed is `sha256('cth-parkemon:player:park:season')` and that
+  salt is in a public repo — anybody could precompute which parks would hand them a Gold
+  this season and go collect exactly those. A chance prize you can shop for is not a
+  chance prize. So the edition is rolled with `crypto.randomInt` and frozen onto
+  `claims.edition`, as immutable as `points_awarded`.
+
+The hologram cap is checked inside the collection's transaction, so two simultaneous
+collections cannot both mint a Hood's last one. It is **global rather than per player**:
+once Hood 13's hologram is out there, it is out there. That is the only scarce thing in a
+sub-game that otherwise has nothing to fight over, and nobody loses anything when
+somebody else pulls it — a Hood whose hologram has gone still yields Gold and Steel,
+because a hit falls through to the next edition down rather than being thrown away. A
+hologram reverted by flags frees its Hood again, like every other kind of claim.
+
+Editions travel with the card when it is traded (§1.8a): the edition belongs to the card,
+the XP stays with whoever pulled it.
+
 ### 1.8a Trading
 
 Players trade cards. **A trade moves the card and never the score**, and everything else
@@ -374,6 +411,7 @@ is no counter to drift. A claim reverted by flags loses its XP with its points, 
 | Conquer | 50 |
 | Reinforce | 20 |
 | Collect a park | 10 + rarity (0 / 5 / 15 / 30) |
+| **A special edition** | **+15 Steel / +40 Gold / +100 Hologram** (§1.8b) |
 | **First time ever in a Hood** | **+100** |
 | **First time ever at a park** | **+15** |
 
@@ -556,6 +594,8 @@ trades(                          -- offers. Append-only apart from status.
 )
 
 claims(                          -- append-only ledger; never UPDATE points
+  ...                            -- §1.8b: `edition` is null | steel | gold | hologram,
+  edition,                       --   rolled by chance at collection time and frozen
   id, hood_id, player_id, season_id, photo_id,
   claim_kind,                    -- conquer | steal | reinforce | reversal
   photo_type,

@@ -15,6 +15,7 @@ import { activeSeason } from './seasons.js';
 import { hoodLabel } from './hood-seed.js';
 import { xpFor } from './xp.js';
 import { cleanCaption } from './captions.js';
+import { rollEdition, editionLabel, editionCounts } from './editions.js';
 
 /** Rarity tiers, driven by the park's value. Drives the card art, nothing mechanical. */
 export const RARITIES = [
@@ -83,6 +84,7 @@ export function listParksInHood(hoodId, playerId, at = nowIso()) {
 
   const mine = season ? new Map(db.prepare(`
     SELECT c.park_id, c.id, c.points_awarded, c.card_seed, c.created_at, c.status,
+           c.edition,
            ph.path_thumb, ph.path_display, ph.caption
       FROM claims c
  LEFT JOIN photos ph ON ph.id = c.photo_id
@@ -98,6 +100,8 @@ const shapeCollection = (r) => ({
   claim_id: r.id,
   points: r.points_awarded,
   card_seed: r.card_seed,
+  edition: r.edition ?? null,
+  edition_label: editionLabel(r.edition),
   created_at: r.created_at,
   status: r.status,
   thumb_url: r.path_thumb ? `/media/${r.path_thumb}` : null,
@@ -167,7 +171,11 @@ export function evaluateCollect({ parkId, playerId, at = nowIso() }) {
  * Collect a park. One transaction: photo row, ledger row, done. Nothing to update in
  * hood_state, because nothing changed hands.
  */
-export const commitCollect = db.transaction(({ parkId, playerId, photo, caption = null }) => {
+export const commitCollect = db.transaction((
+  // `rand` exists so a test can force an edition; production never passes it and gets
+  // crypto.randomInt. See lib/editions.js.
+  { parkId, playerId, photo, caption = null, rand = undefined },
+) => {
   const at = nowIso();
   const evaluation = evaluateCollect({ parkId, playerId, at });
   if (!evaluation.ok) {
@@ -176,8 +184,14 @@ export const commitCollect = db.transaction(({ parkId, playerId, photo, caption 
 
   const park = getPark(parkId);
   const seasonId = evaluation.season_id;
+
+  // Luck, rolled once, here, and frozen onto the row — a card's edition is as immutable
+  // as its points. Inside this transaction, so two collections cannot both mint the
+  // last hologram in a Hood.
+  const edition = rollEdition({ hoodId: park.hood_id, seasonId, ...(rand ? { rand } : {}) });
+
   const earned = xpFor({
-    kind: 'park', playerId, parkId: park.id, rarity: rarityOf(park.value).key,
+    kind: 'park', playerId, parkId: park.id, rarity: rarityOf(park.value).key, edition,
   });
 
   const photoRow = db.prepare(`
@@ -201,10 +215,11 @@ export const commitCollect = db.transaction(({ parkId, playerId, photo, caption 
   const row = db.prepare(`
     INSERT INTO claims (hood_id, player_id, season_id, photo_id, claim_kind, photo_type,
                         points_awarded, xp_awarded, status, flag_count, park_id,
-                        card_seed, created_at)
-    VALUES (?, ?, ?, ?, 'park', 'park_sign', ?, ?, 'active', 0, ?, ?, ?)`)
+                        card_seed, edition, created_at)
+    VALUES (?, ?, ?, ?, 'park', 'park_sign', ?, ?, 'active', 0, ?, ?, ?, ?)`)
     .run(park.hood_id, playerId, seasonId, photoRow.lastInsertRowid,
-         park.value, earned.xp, park.id, cardSeed(playerId, park.id, seasonId), at);
+         park.value, earned.xp, park.id, cardSeed(playerId, park.id, seasonId),
+         edition, at);
 
   return {
     claim: getCardByClaim(Number(row.lastInsertRowid)),
@@ -218,7 +233,7 @@ export const commitCollect = db.transaction(({ parkId, playerId, photo, caption 
 // lib/trades.js. A card that has never been traded has no holdings row at all.
 const CARD_SELECT = `
   SELECT c.id AS claim_id, c.player_id, c.season_id, c.points_awarded, c.card_seed,
-         c.created_at, c.status, c.flag_count,
+         c.created_at, c.status, c.flag_count, c.edition,
          p.id AS park_id, p.name AS park_name, p.value, p.hood_id, p.address,
          p.distance_km, p.set_number,
          h.name AS hood_name,
@@ -276,6 +291,9 @@ export function shapeCard(r) {
     points: r.points_awarded,
     rarity: rarity.key,
     rarity_label: rarity.label,
+    // Rarity is the park; edition is the luck. Null on a standard card.
+    edition: r.edition ?? null,
+    edition_label: editionLabel(r.edition),
     card_seed: r.card_seed,
     status: r.status,
     flag_count: r.flag_count,
@@ -368,6 +386,7 @@ export function collectionSummary(playerId, at = nowIso()) {
     cards_held: held,
     cards_received: traded.received,
     cards_given_away: traded.given,
+    by_edition: editionCounts(playerId, { seasonId: season?.id ?? null }),
     season,
   };
 }

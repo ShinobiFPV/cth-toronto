@@ -69,14 +69,35 @@ parkRoutes.post('/parks/:id/collect', requireAuth, upload.single('photo'), async
       () => commitCollect({ parkId, playerId: req.player.id, photo, caption: req.body?.caption }));
     const { claim, park, xp } = result;
 
+    const where = hoodLabel(park.hood_id, park.hood_name);
     postMessage({
       body: `${req.player.display_name} collected ${park.name} in `
-        + `${hoodLabel(park.hood_id, park.hood_name)} (+${claim.points}, ${claim.rarity_label})`,
+        + `${where} (+${claim.points}, ${claim.rarity_label})`,
       kind: 'system',
       meta: { event: 'park', claim_id: claim.claim_id, park_id: park.id, hood_id: park.hood_id },
     });
+
+    // A special edition gets its own line rather than a parenthesis on the last one.
+    // There are at most 25 holograms in a season and it would be a shame to bury one.
+    if (claim.edition) {
+      postMessage({
+        body: claim.edition === 'hologram'
+          ? `${claim.edition_label.toUpperCase()} — ${req.player.display_name} pulled the `
+            + `${where} hologram out of ${park.name}. There is only one this season. `
+            + `(+${xp.edition_xp} XP)`
+          : `${claim.edition_label} edition — ${req.player.display_name}'s ${park.name} `
+            + `came out ${claim.edition} (+${xp.edition_xp} XP)`,
+        kind: 'system',
+        meta: {
+          event: 'edition', edition: claim.edition,
+          claim_id: claim.claim_id, park_id: park.id, hood_id: park.hood_id,
+        },
+      });
+    }
+
     broadcast('park_collected', {
-      park_id: park.id, hood_id: park.hood_id, player_id: req.player.id, points: claim.points,
+      park_id: park.id, hood_id: park.hood_id, player_id: req.player.id,
+      points: claim.points, edition: claim.edition ?? null,
     });
     announceLevelUp(req.player, levelUp);
 

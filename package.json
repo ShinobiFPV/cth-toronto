@@ -1,8 +1,8 @@
 {
-  "name": "cth-toronto",
+  "name": "parkemans-go",
   "version": "1.0.0",
   "private": true,
-  "description": "Parkemans Go — collect Toronto's 1,513 park signs, and hold its 25 Hoods, by camera",
+  "description": "ParkeMans GO! — collect Toronto's 1,513 park signs, and hold its 25 Hoods, by camera",
   "type": "module",
   "engines": {
     "node": ">=20"

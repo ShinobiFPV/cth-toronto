@@ -1,5 +1,5 @@
 [Unit]
-Description=Back up the Parkemans Go database and media nightly
+Description=Back up the ParkeMans GO! database and media nightly
 
 [Timer]
 OnCalendar=*-*-* 03:20:00

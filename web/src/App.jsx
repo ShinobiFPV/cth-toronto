@@ -78,7 +78,7 @@ function Header() {
   return (
     <header className="header">
       <NavLink to="/me" className="brand" style={{ textDecoration: 'none', color: 'inherit' }}>
-        PARKEMANS <b>GO</b>
+        ParkeMans <b>GO!</b>
       </NavLink>
 
       <span className="spacer" />

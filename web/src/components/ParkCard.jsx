@@ -65,6 +65,37 @@ const themeFor = (season) => {
 };
 
 /** Rarity decides how much the frame shows off, not what it is worth. */
+/**
+ * A special edition repaints the metal.
+ *
+ * The season still owns the ink, the paper and the glyph, so a Gold Fall card still
+ * reads as Fall — it is the frame and the foil sweep that change, which is exactly how
+ * a real parallel-edition card works. `foil` lifts the sweep so even a Common special
+ * catches the light, and `spectrum` turns that sweep into a full rainbow for the one
+ * edition that earns it.
+ */
+const EDITION_STYLE = {
+  steel: {
+    label: 'Steel',
+    frame: ['#8A949C', '#D7DEE3', '#4C555C'],
+    foil: ['#FFFFFF', '#93A0A8', '#E6EDF1'],
+    minFoil: 0.45,
+  },
+  gold: {
+    label: 'Gold',
+    frame: ['#C9A227', '#F6DE8B', '#7A5E0C'],
+    foil: ['#FFF4C4', '#D4AF37', '#FFFFFF'],
+    minFoil: 0.7,
+  },
+  hologram: {
+    label: 'Hologram',
+    frame: ['#7B5CE0', '#3FE0C8', '#E0479B'],
+    foil: ['#FF4FA3', '#2FC4FF', '#8CFF6B'],
+    minFoil: 1,
+    spectrum: true,
+  },
+};
+
 const RARITY_STYLE = {
   common: { ornaments: 0, strokes: 1, foil: 0, label: 'Common' },
   uncommon: { ornaments: 2, strokes: 2, foil: 0.25, label: 'Uncommon' },
@@ -92,15 +123,17 @@ const W = 320;
 const H = 448;
 
 export default function ParkCard({ card, compact = false, onClick }) {
-  const art = useMemo(() => buildArt(card), [card?.card_seed, card?.rarity, card?.season?.id]);
+  const art = useMemo(() => buildArt(card),
+    [card?.card_seed, card?.rarity, card?.season?.id, card?.edition]);
   if (!card) return null;
 
-  const { theme, rarity, pattern, corners, foilAngle, hue } = art;
+  const { theme, rarity, pattern, corners, foilAngle, hue, special } = art;
   const uid = `c${card.claim_id ?? card.card_seed ?? 'x'}`;
 
   return (
     <figure
-      className={`pcard ${compact ? 'pcard-compact' : ''} pcard-${theme.key} pcard-${card.rarity}`}
+      className={`pcard ${compact ? 'pcard-compact' : ''} pcard-${theme.key} `
+        + `pcard-${card.rarity}${card.edition ? ` pcard-ed pcard-ed-${card.edition}` : ''}`}
       onClick={onClick}
       style={{ '--pc-ink': theme.ink, '--pc-paper': theme.paper, '--pc-edge': theme.frame[0] }}
     >
@@ -113,11 +146,27 @@ export default function ParkCard({ card, compact = false, onClick }) {
           </linearGradient>
 
           <linearGradient id={`${uid}-foil`} gradientTransform={`rotate(${foilAngle + 30} 0.5 0.5)`}>
-            <stop offset="0%" stopColor={theme.foil[0]} stopOpacity="0" />
-            <stop offset="42%" stopColor={theme.foil[0]} stopOpacity={rarity.foil} />
-            <stop offset="52%" stopColor={theme.foil[2]} stopOpacity={rarity.foil} />
-            <stop offset="62%" stopColor={theme.foil[1]} stopOpacity={rarity.foil * 0.6} />
-            <stop offset="100%" stopColor={theme.foil[1]} stopOpacity="0" />
+            {special?.spectrum ? (
+              // A hologram gets the whole spectrum rather than a single sweep. Six
+              // stops is enough to read as iridescent at card size.
+              <>
+                <stop offset="0%" stopColor="#FF4FA3" stopOpacity="0" />
+                <stop offset="18%" stopColor="#FF4FA3" stopOpacity={rarity.foil * 0.75} />
+                <stop offset="34%" stopColor="#FFD400" stopOpacity={rarity.foil * 0.8} />
+                <stop offset="50%" stopColor="#8CFF6B" stopOpacity={rarity.foil * 0.85} />
+                <stop offset="66%" stopColor="#2FC4FF" stopOpacity={rarity.foil * 0.8} />
+                <stop offset="84%" stopColor="#9B6BE0" stopOpacity={rarity.foil * 0.7} />
+                <stop offset="100%" stopColor="#9B6BE0" stopOpacity="0" />
+              </>
+            ) : (
+              <>
+                <stop offset="0%" stopColor={theme.foil[0]} stopOpacity="0" />
+                <stop offset="42%" stopColor={theme.foil[0]} stopOpacity={rarity.foil} />
+                <stop offset="52%" stopColor={theme.foil[2]} stopOpacity={rarity.foil} />
+                <stop offset="62%" stopColor={theme.foil[1]} stopOpacity={rarity.foil * 0.6} />
+                <stop offset="100%" stopColor={theme.foil[1]} stopOpacity="0" />
+              </>
+            )}
           </linearGradient>
 
           {/* The procedural bit: a hatch tile whose angle, spacing and weight all come
@@ -172,6 +221,12 @@ export default function ParkCard({ card, compact = false, onClick }) {
         </header>
 
         <div className="pcard-window">
+          {/* Stamped on the photo's corner like a parallel print. Inside the window
+              rather than at a fixed offset from the top, because a park name that
+              wraps to two lines moves everything below it. */}
+          {card.edition && (
+            <div className="pcard-stamp">{card.edition_label ?? card.edition}</div>
+          )}
           {card.display_url || card.thumb_url ? (
             <img src={compact ? (card.thumb_url ?? card.display_url) : (card.display_url ?? card.thumb_url)}
                  alt={`The park sign at ${card.park.name}`} loading="lazy" />
@@ -206,8 +261,20 @@ export default function ParkCard({ card, compact = false, onClick }) {
 }
 
 function buildArt(card) {
-  const theme = themeFor(card?.season);
-  const rarity = RARITY_STYLE[card?.rarity] ?? RARITY_STYLE.common;
+  const season = themeFor(card?.season);
+  const special = EDITION_STYLE[card?.edition] ?? null;
+  // The edition repaints the metal over the season's palette; the seeded weave,
+  // corners and hue-rotate are untouched, so a Gold card is still recognisably *this*
+  // card in gold rather than a different card.
+  const theme = special
+    ? { ...season, frame: special.frame, foil: special.foil }
+    : season;
+
+  const base = RARITY_STYLE[card?.rarity] ?? RARITY_STYLE.common;
+  const rarity = special
+    ? { ...base, foil: Math.max(base.foil, special.minFoil), strokes: Math.max(base.strokes, 2) }
+    : base;
+
   const rand = rng(card?.card_seed);
 
   const pattern = {
@@ -232,11 +299,13 @@ function buildArt(card) {
   return {
     theme,
     rarity,
+    special,
     pattern,
     corners,
     foilAngle: Math.floor(rand() * 360),
     // A few degrees of drift so even two same-season commons are not identical.
-    hue: Math.round((rand() - 0.5) * 16),
+    // A special edition skips it: its palette is the point, so do not tint it.
+    hue: special ? 0 : Math.round((rand() - 0.5) * 16),
   };
 }
 

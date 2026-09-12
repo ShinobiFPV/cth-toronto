@@ -15,6 +15,7 @@
 // there is no counter anywhere that can drift. A claim reverted by flags loses its XP
 // along with its points, because `status != 'reverted'` is the only filter.
 import { db } from '../db.js';
+import { editionXp } from './editions.js';
 
 /** Base XP per action. Stealing pays most; reinforcing is maintenance. */
 export const ACTION_XP = {
@@ -24,6 +25,11 @@ export const ACTION_XP = {
   park: 10,
   reversal: 0,
 };
+
+/**
+ * A special edition, rolled by chance when the photo lands (spec §1.8b). The numbers
+ * live in lib/editions.js next to the roll that produces them.
+ */
 
 /** A rarer park card is a longer walk, so it carries a little more. */
 export const RARITY_XP = {
@@ -121,9 +127,11 @@ export const progressFor = (playerId) => progressOf(xpOf(playerId));
  * @param {number} [claim.parkId]   for a park collection
  * @param {string} [claim.rarity]   for a park collection
  */
-export function xpFor({ kind, playerId, hoodId = null, parkId = null, rarity = null }) {
+export function xpFor({ kind, playerId, hoodId = null, parkId = null, rarity = null, edition = null }) {
   const base = ACTION_XP[kind] ?? 0;
   const bonus = kind === 'park' ? (RARITY_XP[rarity] ?? 0) : 0;
+  // Luck, not value — see lib/editions.js for why this lands on XP and never on points.
+  const special = kind === 'park' ? editionXp(edition) : 0;
 
   let discovery = 0;
   let discovered = null;
@@ -143,7 +151,12 @@ export function xpFor({ kind, playerId, hoodId = null, parkId = null, rarity = n
     if (!seen) { discovery = DISCOVERY_XP.hood; discovered = 'hood'; }
   }
 
-  return { xp: base + bonus + discovery, base, bonus, discovery, discovered };
+  return {
+    xp: base + bonus + discovery + special,
+    base, bonus, discovery, discovered,
+    edition: special > 0 ? edition : null,
+    edition_xp: special,
+  };
 }
 
 /**

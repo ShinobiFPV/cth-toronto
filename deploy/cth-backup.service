@@ -1,5 +1,5 @@
 [Unit]
-Description=Parkemans Go nightly backup
+Description=ParkeMans GO! nightly backup
 
 [Service]
 Type=oneshot

@@ -4,7 +4,7 @@ Guidance for Claude Code working in this repository.
 
 ## What this is
 
-**Parkemans Go** — collect the 1,513 park signs of Toronto, and hold its 25 wards
+**ParkeMans GO!** — collect the 1,513 park signs of Toronto, and hold its 25 wards
 ("Hoods") with your camera. For a private friend group of about six people. Node +
 SQLite backend, React PWA frontend, deployed to the Raspberry Pi 5 (`shinobi`,
 192.168.1.203) on port **8096** and exposed at `cth.shintech.online` through the
@@ -104,6 +104,18 @@ changing one, read the test first — it says why.
 - **The game is called Parkemans GO.** It was Parkemon until the rename; the only place
   the old spelling survives is the `cth-parkemon:` salt inside `cardSeed()`, which is a
   hash input already baked into every stored `card_seed`. Leave it.
+- **An edition is rolled with fresh randomness, never derived from `card_seed`.** The
+  seed's salt is in a public repo, so a seed-derived edition would let anybody
+  precompute which parks hand them a Gold and go collect exactly those. `rollEdition()`
+  uses `crypto.randomInt` and the result is frozen onto `claims.edition`. It takes an
+  injectable `rand` purely so tests can force an outcome.
+- **Editions pay XP and never points.** Points are the season race; a race decided by
+  dice is not a race. `test/editions.test.js` asserts the leaderboard cannot move.
+- **The hologram cap is one per Hood per season, global, and checked inside the
+  collection's transaction** so two collections cannot both mint the last one. A hit in
+  a Hood whose hologram has gone falls through to the next edition down rather than
+  being discarded — `EDITIONS` is ordered rarest-first for exactly that reason, and so
+  that an all-hits roll cannot be demoted to Steel.
 - **A card's art is seeded, not random.** `card_seed` is hashed from
   (player, park, season) and stored on the claim, so a card renders identically every
   time. `ParkCard.jsx` reads the seed for the hatch, foil and corners, the season for
@@ -160,7 +172,7 @@ changing one, read the test first — it says why.
   `trade_resolved` frame addressed to this player, because a notification badge that
   only appears on reload is not a notification. Five labels fit down to 320px; check
   that before adding a sixth.
-- **The app is Parkemans Go; the sub-game inside it is just "parks".** A button reading
+- **The app is ParkeMans GO! — the sub-game inside it is just "parks".** A button reading
   "Play Parkemans GO" inside an app of that name is a button offering to launch the app
   you are already in, so the Hood sheet says **Collect parks** and the parks screen is
   titled **Parks**. The *card* and the *binder* keep their own names.
@@ -181,7 +193,7 @@ changing one, read the test first — it says why.
 ## Testing
 
 ```bash
-npm test        # 233 tests, no server needed, touches nothing in data/
+npm test        # 251 tests, no server needed, touches nothing in data/
 ```
 
 - `test/game.test.js` — the rules, driving the game module directly. Time is simulated by
@@ -190,6 +202,8 @@ npm test        # 233 tests, no server needed, touches nothing in data/
   walks the whole thing over HTTP, including real JPEGs through the sharp pipeline.
 - `test/parks.test.js` — Parkemans GO. Seeds four parks by hand rather than importing
   1,513, so the suite never touches the network.
+- `test/editions.test.js` — Steel / Gold / Hologram: the roll, the per-Hood hologram cap,
+  and that none of it can move a single point.
 - `test/trades.test.js` — trading. The first suite in it exists only to assert that a
   trade changes no points, no XP and no standings; the rest covers the rules, stale
   offers and the inbox.
@@ -285,6 +299,13 @@ There is no linter and no CI. Validate frontend changes by running the app
   the app is unusable without it and nobody should need network access to run it.
 
 ## Visual style
+
+**The wordmark is the only thing set in Kolker Brush.** `--wordmark` exists so the brush
+script stays on the app's name; `--display` (Rubik Mono One) still sets every heading,
+the map's Hood numbers and every `.num`. Putting a brush face on a table header or a
+two-digit map label would be unreadable, which is the whole reason there are two tokens.
+The font is self-hosted in `web/public/fonts` with its OFL licence beside it, like the
+other two — nothing here fetches a font at run time.
 
 "Arctic Classified after dark" — the shintech.online house style inverted for a map-first
 app used outdoors at night. The rules carry over unchanged and `web/src/styles.css`

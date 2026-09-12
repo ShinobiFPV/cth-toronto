@@ -42,6 +42,10 @@ const migrations = db.transaction(() => {
   // is not; null means "not captioned", which is what every pre-existing photo is.
   addColumn('photos', 'caption', 'TEXT');
 
+  // Special editions. Null means a standard card, which is what every card collected
+  // before this existed is.
+  addColumn('claims', 'edition', 'TEXT');
+
   // XP and levels.
   const addedXp = addColumn('claims', 'xp_awarded', 'INTEGER NOT NULL DEFAULT 0');
 
@@ -84,6 +88,11 @@ migrations();
  */
 db.exec(`
   CREATE INDEX IF NOT EXISTS idx_claims_park ON claims(park_id, player_id, season_id);
+
+  -- The hologram cap is checked on every park collection, so it gets an index. Partial,
+  -- because it only ever asks about one edition.
+  CREATE INDEX IF NOT EXISTS idx_claims_holo ON claims(hood_id, season_id)
+    WHERE edition = 'hologram' AND status != 'reverted';
 
   -- One collection per player per park per season. Partial so it governs only park rows,
   -- and excludes reverted ones so a claim the group threw out frees the park up again.

@@ -14,6 +14,8 @@ import ParkCard from '../components/ParkCard.jsx';
 import TradeOffer from '../components/TradeOffer.jsx';
 
 const RARITY_ORDER = ['legendary', 'rare', 'uncommon', 'common'];
+// Rarest first, matching the roll's own order (server/lib/editions.js).
+const EDITION_ORDER = ['hologram', 'gold', 'steel'];
 
 export default function Binder() {
   const navigate = useNavigate();
@@ -24,6 +26,7 @@ export default function Binder() {
   const [scope, setScope] = useState('season');
   const [zoom, setZoom] = useState(null);
   const [rarity, setRarity] = useState('all');
+  const [edition, setEdition] = useState('all');
   const [offering, setOffering] = useState(null);
   const [note, setNote] = useState(null);
 
@@ -41,13 +44,20 @@ export default function Binder() {
   }, [scope, session?.season?.id, viewing]);
 
   const cards = useMemo(() => {
-    const list = [...(data?.cards ?? [])];
-    const filtered = rarity === 'all' ? list : list.filter((c) => c.rarity === rarity);
-    return filtered.sort((a, b) =>
-      RARITY_ORDER.indexOf(a.rarity) - RARITY_ORDER.indexOf(b.rarity)
+    let list = [...(data?.cards ?? [])];
+    if (rarity !== 'all') list = list.filter((c) => c.rarity === rarity);
+    // 'special' is every non-standard card at once, which is what anybody actually
+    // wants to look at.
+    if (edition === 'special') list = list.filter((c) => c.edition);
+    else if (edition !== 'all') list = list.filter((c) => c.edition === edition);
+    return list.sort((a, b) =>
+      // Specials to the front, rarest edition first — they are the reason to open this.
+      (b.edition ? EDITION_ORDER.length - EDITION_ORDER.indexOf(b.edition) : 0)
+      - (a.edition ? EDITION_ORDER.length - EDITION_ORDER.indexOf(a.edition) : 0)
+      || RARITY_ORDER.indexOf(a.rarity) - RARITY_ORDER.indexOf(b.rarity)
       || b.points - a.points
       || a.park.name.localeCompare(b.park.name));
-  }, [data, rarity]);
+  }, [data, rarity, edition]);
 
   const s = data?.summary;
 
@@ -132,6 +142,13 @@ export default function Binder() {
               ))}
             </div>
           )}
+          {Object.keys(s.by_edition ?? {}).length > 0 && (
+            <div className="row" style={{ gap: '0.5rem', flexWrap: 'wrap' }}>
+              {EDITION_ORDER.filter((e) => s.by_edition[e]).map((e) => (
+                <span key={e} className={`chip ed-${e}`}>{s.by_edition[e]} {e}</span>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -142,11 +159,20 @@ export default function Binder() {
         <button aria-pressed={scope === 'all'} onClick={() => setScope('all')}>All time</button>
       </div>
 
-      <div className="cluster" style={{ marginBottom: '0.8rem' }}>
+      <div className="cluster" style={{ marginBottom: '0.5rem' }}>
         {['all', ...RARITY_ORDER].map((r) => (
           <button key={r} className={`btn btn-sm ${rarity === r ? 'btn-primary' : 'btn-ghost'}`}
                   onClick={() => setRarity(r)}>
             {r === 'all' ? 'All' : r}
+          </button>
+        ))}
+      </div>
+
+      <div className="cluster" style={{ marginBottom: '0.8rem' }}>
+        {['all', 'special', ...EDITION_ORDER].map((e) => (
+          <button key={e} className={`btn btn-sm ${edition === e ? 'btn-primary' : 'btn-ghost'}`}
+                  onClick={() => setEdition(e)}>
+            {e === 'all' ? 'Any print' : e}
           </button>
         ))}
       </div>

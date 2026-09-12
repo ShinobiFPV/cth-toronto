@@ -1,4 +1,4 @@
-# Parkemans Go
+# ParkeMans GO!
 
 **Six friends. One thousand five hundred and thirteen park signs. Twenty-five neighbourhoods. No referee.**
 
@@ -102,6 +102,26 @@ Every park in Toronto has the same municipal sign with the park's name on it. Th
 - The points go into the same total as territory, so you can genuinely win this thing
   without holding a single Hood, just by walking a lot
 - **Rarity** comes off the value: Common, Uncommon, Rare, **Legendary**
+
+### Special editions
+
+Every collection rolls the dice. Most cards are ordinary; some come out **Steel**, fewer
+**Gold**, and once in a very long while a **Hologram** — full spectrum, and there is only
+**one per Hood per season**. Once somebody pulls the Rouge Park hologram, that is it
+until the season turns.
+
+| | Chance | Worth |
+|---|---|---|
+| Steel | 1 in 10 | +15 XP |
+| Gold | 1 in 40 | +40 XP |
+| **Hologram** | 1 in 150, one per Hood per season | **+100 XP** |
+
+<p align="center">
+  <img src="docs/screenshots/19-hologram.png" width="340" alt="A hologram edition card with an iridescent frame and a HOLOGRAM stamp">
+</p>
+
+They pay **XP, never points** — so a lucky pull is a permanent brag and not a shortcut up
+the table. Nobody wins a season because the dice liked them.
 
 The border on each card is unique to that card. The **season** picks the palette — Fall is
 amber and rust, Winter goes ice blue, Spring green, Summer teal — and a seed derived from
