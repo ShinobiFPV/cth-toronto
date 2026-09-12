@@ -7,3 +7,8 @@ web/dist/
 *.sqlite-shm
 .DS_Store
 *.log
+
+# scratch files from one-off analysis
+*.tmp.json
+*.tmp.mjs
+*.tmp.py
