@@ -562,10 +562,60 @@ displays "needs an animal photo" or "reinforce available in 14h" up front.
 
 Design direction: dark UI, high-contrast player colours, map is the hero. Match the
 ShinTech house style — pick an accent colour for this one the way the product pages each
-have theirs.
+have theirs. (Amber was the pick; it is now the *default* rather than the only option —
+see §7.1.)
 
 A **reinforce-ready indicator** on the map is worth building: a subtle pulse on your own
 Hoods once they cross 72 hours. It's free points sitting there, and players will forget.
+
+### 7.1 Appearance
+
+Two controls on the profile screen: **mode** (System / Light / Dark) and **accent** (eight
+swatches). Both are cosmetic, both are per-device, and neither touches the game.
+
+- **Light mode is not a second design.** It is the original ShinTech house style — Arctic
+  Classified on paper: off-white desk, white panels, 2px black ink borders, hard offset
+  shadows. Dark is the after-dark variant the app was built in. The chrome bars stay black
+  in both, so the header and tab bar are the one constant.
+- **The accent only ever dresses the chrome.** Player colours are handed out by the server
+  and are unaffected, so nobody's territory can be recoloured out from under them — which
+  also means the accent can never be confused with a player.
+
+Implemented as CSS custom properties on `:root`, with a `[data-theme="light"]` block
+overriding the tokens. Switching mode is one attribute; there is no second stylesheet and
+no per-component branching. `applyAppearance()` runs before React mounts, so there is no
+flash of the wrong theme. `system` subscribes to `prefers-color-scheme` and follows the OS
+live. Stored in `localStorage` under `cth.appearance` — appearance belongs to the screen
+you are looking at, not to your account, and never reaches the server. Every read and
+write is wrapped, because a private window throws on access rather than returning null.
+
+**An arbitrary accent has to stay readable, and that is the actual work.** Hazard amber is
+perfect on black and 1.83:1 on white — unusable as text. So an accent is not one colour
+but five derived ones (`web/src/lib/theme.js`):
+
+| Token | What it is |
+|---|---|
+| `--accent` | the raw hex — fills, borders, and text on the black chrome |
+| `--accent-rgb` | channels, for `rgba()` tints |
+| `--accent-text` | the same hue pushed until it clears **6:1** on this theme's paper |
+| `--accent-deep` | darkened, for the hard offset shadow under a primary button |
+| `--accent-ink` | black or white for a label sitting **on** an accent fill |
+
+Two of those are load-bearing in ways that are easy to get wrong:
+
+- `--accent-text` targets 6:1 rather than the 4.5:1 minimum on purpose. Accent text is
+  often small and does not always sit on pure white — the off-white desk and the
+  accent-tinted "this is you" row each eat about half a point.
+- `--accent-ink` is chosen by **measuring** both candidates, not by a luminance threshold.
+  A `> 0.45` split picks white for every mid-tone and puts 2.57:1 labels on the teal
+  button. Black wins much further up the scale than it looks like it should.
+
+The same maths, at 4.5:1, is applied to player colours as `textSafe()` — but only to the
+Hood **number** drawn on the map. Territory fills keep the exact colour the server sent.
+
+Verified with a Puppeteer pass that walks every screen in both themes with several
+accents, composites `rgba()` layers over their ancestors, and checks every text node
+against WCAG AA. The colour maths itself is unit-tested in `test/theme.test.js`.
 
 ---
 

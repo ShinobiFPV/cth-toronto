@@ -8,6 +8,8 @@ import { useNavigate, useParams } from 'react-router-dom';
 import L from 'leaflet';
 import { api } from '../lib/api.js';
 import { useGame } from '../lib/store.jsx';
+import { cssVar } from '../lib/theme.js';
+import { useTheme } from '../lib/theme-context.jsx';
 import { BackIcon, CameraIcon, CloseIcon } from '../components/icons.jsx';
 import { Banner, Spinner } from '../components/bits.jsx';
 import ParkCard from '../components/ParkCard.jsx';
@@ -15,11 +17,19 @@ import ParkCollect from '../components/ParkCollect.jsx';
 
 const TILES = import.meta.env.VITE_MAP_TILES
   || 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
-const DARKEN = (import.meta.env.VITE_MAP_DARKEN ?? 'true') !== 'false';
+const FILTER_TILES = (import.meta.env.VITE_MAP_DARKEN ?? 'true') !== 'false';
 
-const RARITY_COLOUR = {
-  common: '#9AA4B0', uncommon: '#3FD66A', rare: '#35C4FF', legendary: '#FFB020',
-};
+/**
+ * Leaflet's circleMarker wants a real colour string, not a var(), so the rarity palette
+ * is read back out of CSS at render time. That means it follows both the theme and
+ * whichever accent the player chose — legendary is always the accent.
+ */
+const rarityColours = () => ({
+  common: cssVar('--r-common', '#9AA4B0'),
+  uncommon: cssVar('--r-uncommon', '#3FD66A'),
+  rare: cssVar('--r-rare', '#35C4FF'),
+  legendary: cssVar('--accent', '#FFB020'),
+});
 
 export default function Parkemon() {
   const { id } = useParams();
@@ -106,7 +116,7 @@ export default function Parkemon() {
               <button key={p.id} className={`park-row ${p.collected ? 'got' : ''}`}
                       onClick={() => setSelected(p.id)}>
                 <span className={`dot park-pin r-${p.rarity}`}
-                      style={{ background: RARITY_COLOUR[p.rarity], width: 12, height: 12 }} />
+                      style={{ background: 'currentColor', width: 12, height: 12 }} />
                 <span className="grow">
                   <span className="truncate" style={{ display: 'block' }}>{p.name}</span>
                   <span className="tiny dim">
@@ -146,7 +156,7 @@ export default function Parkemon() {
                   {justGot.xp?.discovery > 0 && ' (first time here)'}
                 </div>
                 {justGot.level_up && (
-                  <div className="tiny" style={{ color: 'var(--accent)' }}>
+                  <div className="tiny" style={{ color: 'var(--accent-text)' }}>
                     Level {justGot.level_up.to} — {justGot.level_up.title}
                   </div>
                 )}
@@ -173,6 +183,8 @@ export default function Parkemon() {
 function ParkMap({ parks, hood, onPick, onClose }) {
   const el = useRef(null);
   const mapRef = useRef(null);
+  // Re-read the palette and redraw the pins when the appearance changes.
+  const { resolved, appearance } = useTheme();
 
   useEffect(() => {
     if (!el.current || mapRef.current) return undefined;
@@ -190,12 +202,13 @@ function ParkMap({ parks, hood, onPick, onClose }) {
     const map = mapRef.current;
     if (!map || !parks.length) return undefined;
     const group = L.featureGroup().addTo(map);
+    const colours = rarityColours();
     for (const p of parks) {
       L.circleMarker([p.lat, p.lng], {
         radius: p.collected ? 5 : 7,
-        color: RARITY_COLOUR[p.rarity],
+        color: colours[p.rarity],
         weight: 2,
-        fillColor: p.collected ? 'transparent' : RARITY_COLOUR[p.rarity],
+        fillColor: p.collected ? 'transparent' : colours[p.rarity],
         fillOpacity: p.collected ? 0 : 0.75,
       })
         .bindTooltip(`${p.name} · ${p.collected ? 'collected' : `+${p.value}`}`, { direction: 'top' })
@@ -205,11 +218,11 @@ function ParkMap({ parks, hood, onPick, onClose }) {
     map.invalidateSize({ animate: false });
     map.fitBounds(group.getBounds(), { padding: [24, 24] });
     return () => group.remove();
-  }, [parks, onPick]);
+  }, [parks, onPick, resolved, appearance.accent]);
 
   return (
     <div className="map-wrap map-wrap-inline">
-      <div className={`map ${DARKEN ? 'map-dark' : ''}`} ref={el}
+      <div className={`map ${FILTER_TILES ? 'map-osm' : ''}`} ref={el}
            role="application" aria-label={`Parks in ${hood.label}`} />
       <div className="map-legend">
         <div className="row"><b>{parks.filter((p) => !p.collected).length}</b><span className="dim">still to get</span></div>

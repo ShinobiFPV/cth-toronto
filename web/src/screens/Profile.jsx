@@ -6,6 +6,7 @@ import { useGame } from '../lib/store.jsx';
 import { article, until, SUBJECTS, SUBJECT_BLURB, BEATS } from '../lib/game.js';
 import { Subject, Banner, PlayerName } from '../components/bits.jsx';
 import { BackIcon } from '../components/icons.jsx';
+import Appearance from '../components/Appearance.jsx';
 
 export default function Profile() {
   const { session, player, players, hoods, signOut } = useGame();
@@ -105,7 +106,7 @@ export default function Profile() {
               <Subject type={h.photo_type} label={false} />
               <span className="tiny dim">
                 {h.viewer?.reinforce_ready
-                  ? <b style={{ color: 'var(--accent)' }}>reinforce</b>
+                  ? <b style={{ color: 'var(--accent-text)' }}>reinforce</b>
                   : until(h.viewer?.available_at)}
               </span>
             </Link>
@@ -164,6 +165,8 @@ export default function Profile() {
           </div>
         </div>
       </div>
+
+      <Appearance />
 
       {player?.is_admin && (
         <div>

@@ -137,6 +137,32 @@ Institution.
 
 ---
 
+## Make it yours
+
+The profile screen has a **mode** switch and eight **accent** colours. Light mode isn't a
+watered-down dark mode — it's the original ShinTech look, ink on paper, and honestly it's
+the nicer one on a patio in July. The black chrome bars stay black in both, because they
+looked right.
+
+<table>
+<tr>
+<td width="50%"><img src="docs/screenshots/13-appearance-dark.png" alt="The appearance controls in dark mode with the amber accent selected"></td>
+<td width="50%"><img src="docs/screenshots/14-appearance-light.png" alt="The same controls in light mode with a teal accent"></td>
+</tr>
+</table>
+
+Your accent never touches anybody's **player** colour — those come from the server, so
+nobody's territory can get recoloured out from under them. Pick hot pink; the map still
+tells the truth.
+
+The unglamorous half of this: hazard amber is gorgeous on black and completely illegible
+on white, so an accent isn't one colour, it's five — the raw hex, a deepened version for
+text, a darker one for the shadow, and a measured black-or-white for button labels. All
+eight swatches clear WCAG AA in both themes, as text and as a fill, and there's a
+Puppeteer pass that walks every screen and re-checks it so that stays true.
+
+---
+
 ## The honour system, or: why this was easy to build
 
 The server does **not** check where you were, when you took the photo, or whether that's

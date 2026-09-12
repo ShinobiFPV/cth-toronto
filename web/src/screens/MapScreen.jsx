@@ -10,6 +10,8 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useGame } from '../lib/store.jsx';
 import { hoodColour } from '../lib/game.js';
+import { textSafe } from '../lib/theme.js';
+import { useTheme } from '../lib/theme-context.jsx';
 import HoodSheet from '../components/HoodSheet.jsx';
 
 // Basemap. The default is plain OpenStreetMap raster, darkened in CSS — keyless, which
@@ -21,15 +23,17 @@ const TILES = import.meta.env.VITE_MAP_TILES
 const ATTRIB = import.meta.env.VITE_MAP_ATTRIB
   || '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &middot; ' +
      'Hoods: City of Toronto (OGL&nbsp;&ndash;&nbsp;Toronto)';
-// Darkening is only correct for a light basemap; a provider that is already dark should
-// set VITE_MAP_DARKEN=false.
-const DARKEN = (import.meta.env.VITE_MAP_DARKEN ?? 'true') !== 'false';
+// Whether the tile pane gets the CSS filter at all. Which direction it filters in is a
+// theme question answered by --map-filter in the stylesheet, so a provider that already
+// ships dark tiles sets VITE_MAP_DARKEN=false and neither theme touches them.
+const FILTER_TILES = (import.meta.env.VITE_MAP_DARKEN ?? 'true') !== 'false';
 
 // The floor before a fit raises it to whatever actually frames the city.
 const MIN_ZOOM = 9;
 
 export default function MapScreen() {
   const { hoods, player } = useGame();
+  const { resolved } = useTheme();
   const [geo, setGeo] = useState(null);
   const [geoError, setGeoError] = useState(null);
   const [selected, setSelected] = useState(null);
@@ -49,6 +53,11 @@ export default function MapScreen() {
   // the whole map down and rebuild it on every claim.
   const byIdRef = useRef(byId);
   byIdRef.current = byId;
+
+  // paint() reads the theme through a ref for the same reason it reads the data that
+  // way: so the callback stays stable and the layer effect does not rebuild the map.
+  const themeRef = useRef(resolved);
+  themeRef.current = resolved;
 
   /**
    * Put the game state onto the layers: owner colour, the reinforce pulse, the blocked
@@ -87,10 +96,15 @@ export default function MapScreen() {
 
       const el = label.getElement();
       if (el) {
-        el.innerHTML =
-          `<span class="n" style="color:${hood.owner ? colour : blocked ? '#6B7480' : '#C6CFD8'}">${hood.id}</span>`
+        // A held Hood wears its owner's colour inline; everything else is themed in CSS.
+        // The fill above uses the player's exact colour; the number on top of it uses a
+        // text-safe version of the same hue, because several of the palette land near
+        // 2.7:1 as small text on paper.
+        el.innerHTML = (hood.owner
+          ? `<span class="n" style="color:${textSafe(colour, themeRef.current)}">${hood.id}</span>`
+          : `<span class="n ${blocked ? 'blocked' : 'free'}">${hood.id}</span>`)
           + (hood.owner ? ''
-            : blocked ? `<span class="v" style="color:#6B7480">${hood.viewer.countdown}</span>`
+            : blocked ? `<span class="v blocked">${hood.viewer.countdown}</span>`
             : `<span class="v">+${hood.unclaimed_value}</span>`);
         el.classList.toggle('hood-ready', !!ready);
         el.title = hood.label;
@@ -227,8 +241,8 @@ export default function MapScreen() {
     };
   }, [geo, paint]);
 
-  // ── repaint whenever the game state changes ─────────────────────────────
-  useEffect(() => { paint(); }, [byId, paint]);
+  // ── repaint whenever the game state, or the theme, changes ──────────────
+  useEffect(() => { paint(); }, [byId, resolved, paint]);
 
   const mine = hoods.filter((h) => h.owner?.id === player?.id);
   const richest = hoods.filter((h) => !h.owner)
@@ -239,7 +253,7 @@ export default function MapScreen() {
 
   return (
     <div className="map-wrap">
-      <div className={`map ${DARKEN ? 'map-dark' : ''}`} ref={mapEl}
+      <div className={`map ${FILTER_TILES ? 'map-osm' : ''}`} ref={mapEl}
            role="application" aria-label="Map of Toronto's 25 Hoods" />
 
       {geoError && (
@@ -254,7 +268,7 @@ export default function MapScreen() {
           <div className="row"><b>{mine.length}</b><span className="dim">yours</span></div>
           <div className="row"><b>{unclaimed.length}</b><span className="dim">unclaimed</span></div>
           {ready.length > 0 && (
-            <div className="row" style={{ color: 'var(--accent)' }}>
+            <div className="row" style={{ color: 'var(--accent-text)' }}>
               <b>{ready.length}</b><span>ready to reinforce</span>
             </div>
           )}

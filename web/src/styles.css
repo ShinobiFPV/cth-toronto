@@ -42,10 +42,39 @@
   --border:    #39424E;   /* structural 2px border */
   --chrome:    #05070A;   /* the two dark bars: header and tab bar */
 
+  /* The accent and its three derived values are written onto <html> at run time by
+     lib/theme.js, which computes the shadow shade and the on-accent text colour from
+     whichever hex the player picked. These are the fallbacks if that never runs. */
   --accent:        #FFB020;   /* hazard amber */
   --accent-rgb:    255, 176, 32;
   --accent-deep:   #C8820A;
   --accent-ink:    #0B0D10;   /* text on an amber fill */
+  --accent-text:   #FFB020;   /* the accent, adjusted to be legible as TEXT on paper */
+
+  /* The header and tab bar are black in BOTH themes — the house style allows exactly
+     two dark elements and those are they. So everything inside them needs its own
+     colours, or light mode paints ink on black and the score simply disappears. */
+  --on-chrome:     #E8ECEF;
+  --on-chrome-dim: #8A94A0;
+
+  /* Map and overlay furniture. Tokenised because light mode needs every one of them. */
+  --overlay:       rgba(5, 7, 10, 0.9);    /* legend, attribution */
+  --scrim:         rgba(5, 7, 10, 0.72);   /* behind a bottom sheet */
+  --lightbox:      rgba(5, 7, 10, 0.95);
+  --label-ink:     #C6CFD8;                /* an unclaimed Hood's number */
+  --label-dim:     #6B7480;                /* one that is closed to you */
+  --label-shadow:  0 0 4px #000, 0 0 8px #000;
+  --pin-ring:      #05070A;
+
+  /* Rarity. Semantic rather than decorative, so it gets tokens of its own —
+     legendary is deliberately the accent, whatever the accent happens to be. */
+  --r-common:      #9AA4B0;
+  --r-uncommon:    #3FD66A;
+  --r-rare:        #35C4FF;
+
+  /* Does the basemap need darkening? OpenStreetMap raster is a light map, so dark mode
+     inverts it and light mode leaves it alone. */
+  --map-filter:    invert(1) hue-rotate(180deg) brightness(0.88) contrast(0.86) saturate(0.55);
 
   --ok:    #3FD66A;
   --warn:  #FFB020;
@@ -64,6 +93,53 @@
 
   color-scheme: dark;
 }
+
+/* ── Light mode ────────────────────────────────────────────────────────────
+   Not a new design: this is the original Arctic Classified from shintech.online —
+   a printed field document on paper. Same rules, same type, same square corners;
+   the ink and the paper simply swap places. */
+
+:root[data-theme='light'] {
+  --bg:        #E9E9E6;   /* the desk */
+  --surface:   #FFFFFF;   /* the sheet */
+  --surface-2: #F4F4F2;   /* a raised row */
+  --text:      #16181C;   /* ink */
+  --dim:       #5C6470;   /* 5.9:1 on white */
+  --rule:      #D7DBDE;
+  --border:    #16181C;   /* structural borders are ink, as the house style says */
+  --chrome:    #000000;   /* the nav and tab bars stay black on paper too */
+
+  --ok:    #0C7A34;
+  --bad:   #C8102E;
+
+  --overlay:      rgba(255, 255, 255, 0.94);
+  --scrim:        rgba(22, 24, 28, 0.45);
+  --lightbox:     rgba(22, 24, 28, 0.82);
+  --label-ink:    #16181C;
+  --label-dim:    #8A9099;
+  /* Player colours are fixed by the server and were picked for a dark map, so on paper
+     they need a harder halo to stay legible. Three tight white shadows rather than two
+     soft ones: it reads as a knockout rather than a glow. */
+  --label-shadow: 0 0 2px #FFF, 0 0 3px #FFF, 0 0 6px #FFF;
+  --pin-ring:     #FFFFFF;
+
+  --r-common:   #6B7480;
+  --r-uncommon: #0C7A34;
+  --r-rare:     #0F6FA8;
+
+  /* A light basemap on a light theme needs no inversion at all. */
+  --map-filter: none;
+
+  color-scheme: light;
+}
+
+/* The two chrome bars are black in both themes, so their contents stay light. */
+:root[data-theme='light'] .header,
+:root[data-theme='light'] .tabbar,
+:root[data-theme='light'] .composer {
+  color: #E8ECEF;
+}
+:root[data-theme='light'] .header .brand { color: #FFFFFF; }
 
 * { box-sizing: border-box; }
 
@@ -87,7 +163,7 @@ h1, h2, h3 { margin: 0; font-weight: 400; }
 h1 { font-family: var(--display); font-size: 1.15rem; letter-spacing: 0.01em; }
 h2 { font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--dim); }
 p { margin: 0 0 0.75rem; }
-a { color: var(--accent); }
+a { color: var(--accent-text); }
 
 button, input, select, textarea { font: inherit; color: inherit; }
 
@@ -125,13 +201,17 @@ button, input, select, textarea { font: inherit; color: inherit; }
 }
 .header .brand b { color: var(--accent); font-weight: 400; }
 
+/* Chrome is black whatever the theme, so its contents do not follow --text. */
+.header, .tabbar, .composer { color: var(--on-chrome); }
+.header .brand { color: var(--on-chrome); }
+
 .header .spacer { flex: 1; }
 
 .header-stat {
   text-align: right;
   line-height: 1.15;
   font-size: 0.7rem;
-  color: var(--dim);
+  color: var(--on-chrome-dim);
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
@@ -139,7 +219,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
   display: block;
   font-size: 1rem;
   letter-spacing: 0;
-  color: var(--text);
+  color: var(--on-chrome);
 }
 
 .screen {
@@ -171,7 +251,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
   justify-content: center;
   gap: 3px;
   text-decoration: none;
-  color: var(--dim);
+  color: var(--on-chrome-dim);
   font-size: 0.62rem;
   text-transform: uppercase;
   letter-spacing: 0.1em;
@@ -305,7 +385,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
   letter-spacing: 0.08em;
   white-space: nowrap;
 }
-.chip-accent { border-color: var(--accent); color: var(--accent); }
+.chip-accent { border-color: var(--accent); color: var(--accent-text); }
 .chip-bad { border-color: var(--bad); color: var(--bad); }
 .chip-ok { border-color: var(--ok); color: var(--ok); }
 .chip-solid { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 700; }
@@ -335,24 +415,25 @@ button, input, select, textarea { font: inherit; color: inherit; }
 
 .leaflet-container { background: var(--bg); font-family: var(--mono); }
 
-/* A light basemap turned dark. Only the tile pane is filtered, so player colours in
-   the overlay pane come through exactly as the server sent them. */
-.map-dark .leaflet-tile-pane {
-  filter: invert(1) hue-rotate(180deg) brightness(0.88) contrast(0.86) saturate(0.55);
-}
+/* Only the tile pane is filtered, so player colours in the overlay pane come through
+   exactly as the server sent them. --map-filter is `none` in light mode, which is what
+   makes the basemap follow the theme without any JavaScript. */
+.map-osm .leaflet-tile-pane { filter: var(--map-filter); }
 
 /* Leaflet's own controls sit as high as z-index 1000; the sheet has to clear them. */
 .leaflet-control-container { z-index: 600; }
 .leaflet-control-attribution {
-  background: rgba(5, 7, 10, 0.85) !important;
+  background: var(--overlay) !important;
   color: var(--dim) !important;
   font-size: 0.6rem !important;
   border-top: 1px solid var(--rule);
 }
 .leaflet-control-attribution a { color: var(--dim) !important; }
+/* Leaflet's own buttons sit on --chrome, which is black in both themes, so they take
+   the chrome text colour rather than the page one. */
 .leaflet-control-zoom a {
   background: var(--chrome) !important;
-  color: var(--text) !important;
+  color: var(--on-chrome) !important;
   border: 2px solid var(--border) !important;
   border-radius: 0 !important;
 }
@@ -364,14 +445,19 @@ button, input, select, textarea { font: inherit; color: inherit; }
   text-align: center;
   pointer-events: none;
   font-family: var(--display);
-  text-shadow: 0 0 4px #000, 0 0 8px #000;
+  text-shadow: var(--label-shadow);
 }
 .hood-label .n { display: block; font-size: 0.8rem; line-height: 1; }
+/* An unclaimed Hood's number, and one that is closed to you. A Hood somebody holds is
+   coloured inline with their own colour, which no theme is allowed to touch. */
+.hood-label .n.free { color: var(--label-ink); }
+.hood-label .n.blocked,
+.hood-label .v.blocked { color: var(--label-dim); }
 .hood-label .v {
   display: block;
   font-family: var(--mono);
   font-size: 0.62rem;
-  color: var(--accent);
+  color: var(--accent-text);
   line-height: 1.4;
 }
 
@@ -396,7 +482,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
   left: 0.6rem;
   bottom: 2.4rem;          /* clear of Leaflet's attribution strip */
   z-index: 500;
-  background: rgba(5, 7, 10, 0.9);
+  background: var(--overlay);
   border: 2px solid var(--border);
   padding: 0.5rem 0.6rem;
   font-size: 0.65rem;
@@ -416,7 +502,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .scrim {
   position: fixed;
   inset: 0;
-  background: rgba(5, 7, 10, 0.72);
+  background: var(--scrim);
   z-index: 2000;
   animation: fade 140ms ease-out;
 }
@@ -529,6 +615,12 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .msg-system b { color: var(--text); font-weight: 400; }
 .msg-time { font-size: 0.62rem; color: var(--dim); flex: none; }
 
+/* The composer input sits on the black bar, so it states its own paper and ink. */
+.composer .input {
+  background: var(--surface);
+  color: var(--text);
+}
+
 .composer {
   display: flex;
   gap: 0.5rem;
@@ -540,7 +632,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .chat-status {
   padding: 0 0.9rem 0.4rem;
   font-size: 0.62rem;
-  color: var(--dim);
+  color: var(--on-chrome-dim);
   text-align: right;
 }
 
@@ -584,7 +676,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
   position: fixed;
   inset: 0;
   z-index: 3000;
-  background: rgba(5, 7, 10, 0.95);
+  background: var(--lightbox);
   display: grid;
   place-items: center;
   padding: 1rem;
@@ -749,15 +841,15 @@ button, input, select, textarea { font: inherit; color: inherit; }
 
 /* Rarity is the one place a second colour is allowed, because it is the card's
    whole vocabulary. Kept out of the map so territory colours stay unambiguous. */
-.r-common    { color: #9AA4B0; }
-.r-uncommon  { color: #3FD66A; }
-.r-rare      { color: #35C4FF; }
-.r-legendary { color: var(--accent); }
+.r-common    { color: var(--r-common); }
+.r-uncommon  { color: var(--r-uncommon); }
+.r-rare      { color: var(--r-rare); }
+.r-legendary { color: var(--accent-text); }
 
 .park-pin {
   border-radius: 50%;
-  border: 2px solid #05070A;
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.3);
+  border: 2px solid var(--pin-ring);
+  box-shadow: 0 0 0 1px rgba(128, 128, 128, 0.35);
 }
 
 .progress-bar {
@@ -782,7 +874,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .btn-parkemon {
   min-height: var(--tap);
   border-color: var(--accent);
-  color: var(--accent);
+  color: var(--accent-text);
   font-weight: 700;
   gap: 0.5rem;
 }
@@ -815,7 +907,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
   width: 34px;
   height: 34px;
   flex: none;
-  background: var(--surface-2);
+  background: rgba(255, 255, 255, 0.07);
   border: 2px solid var(--accent);
   color: var(--accent);
   text-decoration: none;
@@ -838,7 +930,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
   transition: width 300ms ease-out;
 }
 
-.lvl { color: var(--accent); }
+.lvl { color: var(--accent-text); }
 
 .xp-card .row:first-child { align-items: baseline; }
 
@@ -858,9 +950,46 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .xp-title {
   font-family: var(--display);
   font-size: 1.1rem;
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 @media (prefers-reduced-motion: reduce) {
   .level-badge i, .xp-bar > i { transition: none; }
+}
+
+/* ── The accent swatches ───────────────────────────────────────────────────
+   Square, because nothing in this design is round, and the selected one is
+   marked with an ink ring rather than a tick so the colour stays unobstructed. */
+
+.swatches {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(40px, 1fr));
+  gap: 0.5rem;
+}
+
+.swatch {
+  height: 40px;
+  padding: 0;
+  background: var(--sw);
+  border: 2px solid var(--border);
+  cursor: pointer;
+  position: relative;
+  transition: transform 80ms linear;
+}
+.swatch:hover { transform: translate(-1px, -1px); box-shadow: 3px 3px 0 var(--rule); }
+.swatch:active { transform: translate(1px, 1px); box-shadow: none; }
+
+.swatch[aria-checked='true'] {
+  box-shadow: inset 0 0 0 3px var(--surface), inset 0 0 0 5px var(--sw);
+}
+.swatch[aria-checked='true']::after {
+  content: '';
+  position: absolute;
+  inset: -6px;
+  border: 2px solid var(--text);
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .swatch { transition: none; }
 }

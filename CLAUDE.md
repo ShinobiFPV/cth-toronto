@@ -125,7 +125,7 @@ changing one, read the test first — it says why.
 ## Testing
 
 ```bash
-npm test        # 140 tests, no server needed, touches nothing in data/
+npm test        # 152 tests, no server needed, touches nothing in data/
 ```
 
 - `test/game.test.js` — the rules, driving the game module directly. Time is simulated by
@@ -169,6 +169,20 @@ There is no linter and no CI. Validate frontend changes by running the app
 - **Map tiles need no API key and it must stay that way.** CARTO's dark basemap now
   watermarks every tile; the app uses plain OSM raster darkened with a CSS filter on the
   tile pane only. `VITE_MAP_TILES` / `VITE_MAP_ATTRIB` / `VITE_MAP_DARKEN` override it.
+  The darkening is `--map-filter`, so it switches itself off in light mode with no JS —
+  `.map-osm` is applied unconditionally and the token decides.
+- **Never hardcode a colour outside `styles.css`.** Every colour is a custom property, and
+  a literal hex in a component is a light-mode bug waiting to be reported. If Leaflet
+  needs a real string, read the token with `cssVar()`. The one legitimate exception is a
+  player colour from the server, and even then the map label runs it through `textSafe()`
+  so the number stays readable on paper while the fill keeps the server's exact hue.
+- **The chrome bars are black in both themes**, so their children need `--on-chrome` /
+  `--on-chrome-dim`, never `--text` / `--dim`. This was the source of most of the 72
+  contrast failures light mode shipped with in its first hour: the header stats, the tab
+  bar, the chat composer and Leaflet's own zoom buttons all inherited paper-coloured text
+  onto black.
+- **`applyAppearance()` runs in `main.jsx` before `createRoot`**, not in a `useEffect`.
+  Moving it into React gives every load a flash of the wrong theme.
 - **Leaflet sizing.** The map lives in a grid row and is measured before layout settles,
   so `MapScreen` calls `invalidateSize()` on the next frame and keeps a `ResizeObserver`.
   Removing that leaves Toronto fitted to the wrong viewport.
@@ -187,3 +201,21 @@ containers, hard offset shadows instead of glows, Rubik Mono One for display onl
 Mono for everything else. This project's accent is **hazard amber `#FFB020`** — chosen
 because the map already spends every other colour on player territory, so nothing in the
 chrome may take a hue a player could be wearing.
+
+Amber is now the **default**, not the only option. Players pick a mode and an accent on
+the profile screen (spec §7.1, `web/src/lib/theme.js`), and light mode is the *original*
+uninverted house style rather than a new design. Two consequences for anything you build:
+
+- **An accent is five tokens, not one** — `--accent`, `--accent-rgb`, `--accent-text`,
+  `--accent-deep`, `--accent-ink` — because a player-chosen hue has to survive being text
+  on paper and a label on its own fill. Use `--accent-text` for accent-coloured *words* on
+  a panel and `--accent` only on fills, borders, and the black chrome. `--accent-ink` is
+  chosen by measuring both candidates; a luminance threshold picks white for mid-tones and
+  puts 2.5:1 labels on the teal button.
+- **The accent never touches a player colour.** That separation is the reason an arbitrary
+  accent is safe at all: the chrome and the territory can't be confused for one another.
+
+`test/theme.test.js` unit-tests the colour maths and asserts all eight accents clear AA in
+both themes. It is mutation-checked against the two bugs that actually shipped here (the
+`--accent-ink` threshold, and `forContrast` ignoring the background it was passed), so if
+you change that file, re-run it before trusting it.
