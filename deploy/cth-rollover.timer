@@ -1,0 +1,11 @@
+[Unit]
+Description=Check for a season rollover daily at 00:05 Toronto time
+
+[Timer]
+# Local time — set the Pi's timezone to America/Toronto (timedatectl set-timezone).
+OnCalendar=*-*-* 00:05:00
+# If the Pi was off at midnight, run on the next boot rather than skipping a season.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

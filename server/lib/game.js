@@ -1,0 +1,312 @@
+// The claim state machine — conquer / steal / reinforce, cooldowns, counter rule.
+// Spec §9 calls this "the core of the app; everything else is presentation", and that
+// is meant literally: nothing else in the codebase decides who owns a Hood.
+//
+// Two entry points:
+//   evaluateClaim()  — pure, no writes. Answers "could this player claim this Hood,
+//                      with what type, for how many points, and if not, why not?"
+//                      Both POST /claim and GET /hoods run it, so the map sheet can
+//                      say "needs an animal photo" before the file picker ever opens.
+//   commitClaim()    — one transaction: photo row, ledger row, hood_state.
+import { db, nowIso, isoPlusHours } from '../db.js';
+import { config, BEATEN_BY, PHOTO_TYPES, beats } from '../config.js';
+import { GameError, badRequest, notFound } from './errors.js';
+import { activeSeason } from './seasons.js';
+import { hoodLabel } from './hood-seed.js';
+
+/**
+ * What `playerId` can do at `hoodId` right now.
+ *
+ * `declaredType` is optional: omit it to ask "what are my options?", pass it to ask
+ * "will this exact photo be accepted?". The returned shape is identical either way,
+ * so the map sheet and the upload handler agree by construction.
+ */
+export function evaluateClaim({ hoodId, playerId, declaredType = null, at = nowIso() }) {
+  const hood = db.prepare('SELECT * FROM hoods WHERE id = ?').get(hoodId);
+  if (!hood) throw notFound('HOOD_NOT_FOUND', `There is no Hood ${hoodId}.`);
+  if (declaredType !== null && !PHOTO_TYPES.includes(declaredType)) {
+    throw badRequest('BAD_TYPE', `photo_type must be one of ${PHOTO_TYPES.join(', ')}.`);
+  }
+
+  const state = db.prepare('SELECT * FROM hood_state WHERE hood_id = ?').get(hoodId)
+    ?? { hood_id: hoodId, owner_id: null, photo_type: null, last_claim_at: null, locked_until: null };
+
+  const label = hoodLabel(hood.id, hood.name);
+  const held = state.owner_id != null;
+  const mine = held && state.owner_id === playerId;
+  const kind = !held ? 'conquer' : mine ? 'reinforce' : 'steal';
+
+  // Which photo types would be accepted, ignoring time gates. For a held Hood there
+  // is exactly one: the type that beats what is currently planted there.
+  const requiredTypes = kind === 'conquer' ? [...PHOTO_TYPES] : [BEATEN_BY[state.photo_type]];
+  const points = kind === 'conquer' ? hood.unclaimed_value
+    : kind === 'steal' ? config.STEAL_POINTS
+    : config.REINFORCE_POINTS;
+
+  const base = {
+    hood_id: hood.id,
+    hood_name: hood.name,
+    hood_label: label,
+    claim_kind: kind,
+    points,
+    required_types: requiredTypes,
+    holder_photo_type: state.photo_type,
+    owner_id: state.owner_id,
+    available_at: null,
+  };
+
+  const deny = (code, message, extra = {}) => ({ ...base, ok: false, error: code, message, ...extra });
+
+  // ── Validation order is the spec §6 table, top to bottom ────────────────
+  // Time gates first: they are knowable before the photo is even taken, and a player
+  // who simply has to wait should not be told their photo type is wrong instead.
+
+  if (kind === 'steal' && state.locked_until && state.locked_until > at) {
+    return deny('HOOD_LOCKED',
+      `${label} just changed hands. Stealing is locked for another ${humanUntil(at, state.locked_until)}.`,
+      { available_at: state.locked_until });
+  }
+
+  if (kind === 'reinforce') {
+    const eligibleAt = state.last_claim_at
+      ? isoPlusHours(state.last_claim_at, config.REINFORCE_GATE_HOURS)
+      : at;
+    if (eligibleAt > at) {
+      return deny('REINFORCE_TOO_SOON',
+        `You can reinforce ${label} in ${humanUntil(at, eligibleAt)}.`,
+        { available_at: eligibleAt });
+    }
+    if (config.REINFORCE_SEASON_CAP > 0) {
+      const season = activeSeason(at);
+      if (season && reinforcePointsThisSeason(playerId, season.id) >= config.REINFORCE_SEASON_CAP) {
+        return deny('REINFORCE_CAP_REACHED',
+          `You have hit this season's reinforce cap (${config.REINFORCE_SEASON_CAP} points).`);
+      }
+    }
+  }
+
+  // Counter rule. SAME_TYPE is checked ahead of WEAK_TYPE because it is the more
+  // specific diagnosis of the same failure — "you need something else" reads worse
+  // than "that Hood already holds an animal photo".
+  if (declaredType && kind !== 'conquer') {
+    if (declaredType === state.photo_type) {
+      return deny('SAME_TYPE',
+        `${label} already holds ${article(state.photo_type)} photo. The same subject never takes a Hood.`);
+    }
+    if (!beats(declaredType, state.photo_type)) {
+      return deny('WEAK_TYPE',
+        `${cap(article(declaredType))} photo does not beat ${article(state.photo_type)} photo. You need ${article(requiredTypes[0])} photo.`);
+    }
+  }
+
+  return { ...base, ok: true, error: null, message: null };
+}
+
+function reinforcePointsThisSeason(playerId, seasonId) {
+  return db.prepare(`
+    SELECT COALESCE(SUM(points_awarded), 0) AS pts FROM claims
+    WHERE player_id = ? AND season_id = ? AND claim_kind = 'reinforce' AND status != 'reverted'`)
+    .get(playerId, seasonId).pts;
+}
+
+/**
+ * Land a claim. The caller has already written the photo derivatives to disk and
+ * touched nothing in the database — this owns the entire write, in one transaction.
+ *
+ * It re-runs evaluateClaim() inside that transaction on purpose: the preflight the
+ * client ran minutes ago, while the player walked back to their car, may no longer
+ * hold. The preflight is a courtesy; this is the ruling.
+ */
+export const commitClaim = db.transaction(({ hoodId, playerId, declaredType, photo }) => {
+  const at = nowIso();
+  const season = activeSeason(at);
+  if (!season) {
+    throw new GameError('NO_ACTIVE_SEASON',
+      'The game is between seasons — no claims can be made right now.');
+  }
+
+  const evaluation = evaluateClaim({ hoodId, playerId, declaredType, at });
+  if (!evaluation.ok) {
+    throw new GameError(evaluation.error, evaluation.message, {
+      available_at: evaluation.available_at,
+      required_types: evaluation.required_types,
+    });
+  }
+
+  const hood = db.prepare('SELECT * FROM hoods WHERE id = ?').get(hoodId);
+  const prev = db.prepare('SELECT * FROM hood_state WHERE hood_id = ?').get(hoodId);
+  const kind = evaluation.claim_kind;
+
+  const photoRow = db.prepare(`
+    INSERT INTO photos (player_id, photo_type, path_original, path_display, path_thumb,
+                        width, height, bytes, exif_json, created_at)
+    VALUES (@player_id, @photo_type, @path_original, @path_display, @path_thumb,
+            @width, @height, @bytes, @exif_json, @created_at)`)
+    .run({
+      player_id: playerId,
+      photo_type: declaredType,
+      path_original: photo.path_original,
+      path_display: photo.path_display,
+      path_thumb: photo.path_thumb,
+      width: photo.width ?? null,
+      height: photo.height ?? null,
+      bytes: photo.bytes ?? null,
+      exif_json: photo.exif_json ?? null,
+      created_at: at,
+    });
+
+  // The Hood's previous claim is superseded, not reverted: it keeps its points.
+  // Spec §1.3 — "A player who loses a Hood does not lose points."
+  if (prev?.active_claim_id) {
+    db.prepare("UPDATE claims SET status = 'superseded' WHERE id = ? AND status = 'active'")
+      .run(prev.active_claim_id);
+  }
+
+  const claimRow = db.prepare(`
+    INSERT INTO claims (hood_id, player_id, season_id, photo_id, claim_kind, photo_type,
+                        beaten_player_id, beaten_photo_type, points_awarded, status, flag_count,
+                        prev_owner_id, prev_photo_type, prev_claim_id, prev_last_claim_at,
+                        prev_locked_until, created_at)
+    VALUES (@hood_id, @player_id, @season_id, @photo_id, @claim_kind, @photo_type,
+            @beaten_player_id, @beaten_photo_type, @points_awarded, 'active', 0,
+            @prev_owner_id, @prev_photo_type, @prev_claim_id, @prev_last_claim_at,
+            @prev_locked_until, @created_at)`)
+    .run({
+      hood_id: hoodId,
+      player_id: playerId,
+      season_id: season.id,
+      photo_id: photoRow.lastInsertRowid,
+      claim_kind: kind,
+      photo_type: declaredType,
+      beaten_player_id: kind === 'conquer' ? null : prev?.owner_id ?? null,
+      beaten_photo_type: kind === 'conquer' ? null : prev?.photo_type ?? null,
+      points_awarded: evaluation.points,
+      prev_owner_id: prev?.owner_id ?? null,
+      prev_photo_type: prev?.photo_type ?? null,
+      prev_claim_id: prev?.active_claim_id ?? null,
+      prev_last_claim_at: prev?.last_claim_at ?? null,
+      prev_locked_until: prev?.locked_until ?? null,
+      created_at: at,
+    });
+  const claimId = Number(claimRow.lastInsertRowid);
+
+  // A steal arms the anti-ping-pong lock, and so does a conquer — both are a change
+  // of hands. A reinforce deliberately does not (spec §1.3): if it did, a player
+  // could shield a Hood indefinitely by reinforcing on a timer. Rotating what beats
+  // you is the defence a reinforce buys.
+  const lockedUntil = kind === 'reinforce'
+    ? (prev?.locked_until ?? null)
+    : isoPlusHours(at, config.STEAL_COOLDOWN_HOURS);
+
+  db.prepare(`
+    UPDATE hood_state
+       SET owner_id = ?, active_claim_id = ?, photo_type = ?, last_claim_at = ?, locked_until = ?
+     WHERE hood_id = ?`)
+    .run(playerId, claimId, declaredType, at, lockedUntil, hoodId);
+
+  if (kind === 'conquer' && !hood.ever_conquered) {
+    db.prepare('UPDATE hoods SET ever_conquered = 1 WHERE id = ?').run(hoodId);
+  }
+
+  return { claim: getClaim(claimId), evaluation, season, hood, prev };
+});
+
+/**
+ * Revert a claim once it crosses the flag threshold (spec §1.7).
+ *
+ * On points: the original row is marked `reverted`, and every scoring query excludes
+ * that status — that exclusion is what actually cancels the points, so the
+ * compensating `reversal` row carries 0 rather than -N. Doing both would subtract the
+ * score twice. The reversal row earns its place by making the cancellation visible in
+ * the feed and in the Hood's history; the ledger stays append-only either way.
+ */
+export const revertClaim = db.transaction((claimId, { reason = 'flagged' } = {}) => {
+  const at = nowIso();
+  const claim = db.prepare('SELECT * FROM claims WHERE id = ?').get(claimId);
+  if (!claim) throw notFound('CLAIM_NOT_FOUND', 'No such claim.');
+  if (claim.status === 'reverted') return { claim, alreadyReverted: true };
+
+  db.prepare("UPDATE claims SET status = 'reverted' WHERE id = ?").run(claimId);
+
+  const state = db.prepare('SELECT * FROM hood_state WHERE hood_id = ?').get(claim.hood_id);
+  const wasLive = state?.active_claim_id === claim.id;
+
+  // Only rewind territory if this claim is still the one standing. If someone has
+  // since taken the Hood legitimately, that later claim is untouched — we just cancel
+  // the flagged claim's points.
+  if (wasLive) {
+    db.prepare(`
+      UPDATE hood_state
+         SET owner_id = ?, active_claim_id = ?, photo_type = ?, last_claim_at = ?, locked_until = ?
+       WHERE hood_id = ?`)
+      .run(claim.prev_owner_id, claim.prev_claim_id, claim.prev_photo_type,
+           claim.prev_last_claim_at, claim.prev_locked_until, claim.hood_id);
+
+    if (claim.prev_claim_id) {
+      db.prepare("UPDATE claims SET status = 'active' WHERE id = ? AND status = 'superseded'")
+        .run(claim.prev_claim_id);
+    }
+
+    // A reverted first-ever conquer un-conquers the Hood, so seasonal escalation
+    // resumes for it — otherwise one bogus claim freezes its value at 25 forever.
+    if (claim.claim_kind === 'conquer' && !claim.prev_owner_id) {
+      const others = db.prepare(`
+        SELECT COUNT(*) AS c FROM claims
+        WHERE hood_id = ? AND id != ? AND claim_kind != 'reversal' AND status != 'reverted'`)
+        .get(claim.hood_id, claim.id);
+      if (others.c === 0) {
+        db.prepare('UPDATE hoods SET ever_conquered = 0 WHERE id = ?').run(claim.hood_id);
+      }
+    }
+  }
+
+  const reversal = db.prepare(`
+    INSERT INTO claims (hood_id, player_id, season_id, photo_id, claim_kind, photo_type,
+                        beaten_player_id, beaten_photo_type, points_awarded, status, flag_count,
+                        reverts_claim_id, created_at)
+    VALUES (?, ?, ?, NULL, 'reversal', NULL, ?, NULL, 0, 'active', 0, ?, ?)`)
+    .run(claim.hood_id, claim.player_id, claim.season_id, claim.player_id, claim.id, at);
+
+  return {
+    claim: getClaim(claim.id),
+    reversal: getClaim(Number(reversal.lastInsertRowid)),
+    restoredOwnerId: wasLive ? claim.prev_owner_id : null,
+    wasLive,
+    reason,
+  };
+});
+
+// The player columns are aliased to bare `handle` / `display_name` / `colour` to match
+// the feed and history queries, because shapeClaim() and claimSummary() consume rows
+// from all three and must not have to care which one produced them.
+export function getClaim(id) {
+  return db.prepare(`
+    SELECT c.*, p.handle AS handle, p.display_name AS display_name, p.colour AS colour,
+           b.handle AS beaten_handle, b.display_name AS beaten_name,
+           h.name AS hood_name,
+           ph.path_thumb, ph.path_display, ph.exif_json
+      FROM claims c
+      JOIN players p ON p.id = c.player_id
+      JOIN hoods   h ON h.id = c.hood_id
+ LEFT JOIN players b ON b.id = c.beaten_player_id
+ LEFT JOIN photos ph ON ph.id = c.photo_id
+     WHERE c.id = ?`).get(id);
+}
+
+/** "a landmark", "a person", "an animal" — the three subjects, read aloud. */
+export const article = (type) => `${type === 'animal' ? 'an' : 'a'} ${type}`;
+
+const cap = (s) => s[0].toUpperCase() + s.slice(1);
+
+/** "14h", "3h 20m", "4m", "2d 6h" — used in every gate message and on the map sheet. */
+export function humanUntil(fromIso, toIso) {
+  const ms = new Date(toIso) - new Date(fromIso);
+  if (ms <= 0) return 'now';
+  const mins = Math.ceil(ms / 60_000);
+  if (mins < 60) return `${mins}m`;
+  const hours = Math.floor(mins / 60);
+  const rem = mins % 60;
+  if (hours < 24) return rem ? `${hours}h ${rem}m` : `${hours}h`;
+  const days = Math.floor(hours / 24);
+  return hours % 24 ? `${days}d ${hours % 24}h` : `${days}d`;
+}

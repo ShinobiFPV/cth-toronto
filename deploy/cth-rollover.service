@@ -1,0 +1,12 @@
+[Unit]
+Description=Capture the Hood season rollover check
+After=network.target
+
+[Service]
+Type=oneshot
+User=shinobi
+WorkingDirectory=/home/shinobi/cth
+Environment=NODE_ENV=production
+EnvironmentFile=/home/shinobi/cth/.env
+ExecStart=/usr/bin/node /home/shinobi/cth/scripts/rollover.js
+ReadWritePaths=/srv/cth

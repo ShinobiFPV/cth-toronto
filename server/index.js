@@ -1,0 +1,119 @@
+// Capture the Hood: Toronto — server entry point.
+// Express for the API, ws for chat and live map updates, static hosting for the PWA.
+import http from 'node:http';
+import fs from 'node:fs';
+import path from 'node:path';
+import express from 'express';
+import cookieParser from 'cookie-parser';
+import multer from 'multer';
+import { config } from './config.js';
+import { db } from './db.js';
+import { attachPlayer } from './lib/auth.js';
+import { attachWebSocket } from './lib/hub.js';
+import { ensureMediaDirs } from './lib/images.js';
+import { GameError } from './lib/errors.js';
+import { authRoutes, meRoutes } from './routes/auth.js';
+import { hoodRoutes } from './routes/hoods.js';
+import { claimRoutes } from './routes/claims.js';
+import { miscRoutes } from './routes/misc.js';
+import { activeSeason } from './lib/seasons.js';
+
+await ensureMediaDirs();
+
+const app = express();
+app.set('trust proxy', true);   // behind nginx and the Cloudflare Tunnel
+app.disable('x-powered-by');
+
+app.use(express.json({ limit: '256kb' }));
+app.use(express.urlencoded({ extended: false, limit: '256kb' }));
+app.use(cookieParser());
+app.use(attachPlayer);
+
+app.get('/api/health', (_req, res) => {
+  res.json({
+    ok: true,
+    season: activeSeason()?.name ?? null,
+    players: db.prepare('SELECT COUNT(*) AS c FROM players').get().c,
+    claims: db.prepare('SELECT COUNT(*) AS c FROM claims').get().c,
+  });
+});
+
+app.use('/api/auth', authRoutes);
+app.use('/api', meRoutes);
+app.use('/api/hoods', hoodRoutes);
+app.use('/api/claims', claimRoutes);
+app.use('/api', miscRoutes);
+
+// Photos are behind the login. Originals in particular exist for dispute review, and
+// nothing in this game should be linkable to someone who is not playing it.
+app.use('/media', (req, res, next) => {
+  if (!req.player) return res.status(401).end();
+  next();
+}, express.static(config.mediaDir, {
+  maxAge: '30d',
+  immutable: true,
+  fallthrough: false,
+  dotfiles: 'deny',
+}));
+
+// The map layer and PWA assets. In dev these come from web/public; a production
+// build copies them into web/dist.
+const staticRoots = [config.webDist, config.publicDir].filter((d) => fs.existsSync(d));
+for (const root of staticRoots) app.use(express.static(root, { index: false }));
+
+app.use('/api', (_req, res) => res.status(404).json({ error: 'NOT_FOUND' }));
+
+// SPA fallback — every non-API path renders the app shell.
+app.get('*', (req, res, next) => {
+  const indexPath = staticRoots
+    .map((r) => path.join(r, 'index.html'))
+    .find((p) => fs.existsSync(p));
+  if (!indexPath) {
+    return res.status(503).type('text/plain').send(
+      'The web client has not been built yet. Run: npm run build');
+  }
+  res.sendFile(indexPath, (err) => (err ? next(err) : undefined));
+});
+
+// ── Errors ────────────────────────────────────────────────────────────────
+app.use((err, _req, res, _next) => {
+  if (err instanceof GameError) {
+    return res.status(err.status ?? 409).json(err.toJSON());
+  }
+  if (err instanceof multer.MulterError) {
+    const tooBig = err.code === 'LIMIT_FILE_SIZE';
+    return res.status(400).json({
+      error: tooBig ? 'PHOTO_TOO_BIG' : 'UPLOAD_FAILED',
+      message: tooBig
+        ? `That photo is over the ${config.maxUploadBytes / 1048576} MB limit.`
+        : err.message,
+    });
+  }
+  console.error('[cth]', err);
+  res.status(500).json({ error: 'SERVER_ERROR', message: 'Something broke on the server.' });
+});
+
+const server = http.createServer(app);
+attachWebSocket(server);
+
+server.listen(config.port, config.host, () => {
+  const season = activeSeason();
+  console.log(`[cth] Capture the Hood listening on http://${config.host}:${config.port}`);
+  console.log(`[cth] db=${config.dbPath}`);
+  console.log(`[cth] media=${config.mediaDir}`);
+  console.log(`[cth] season=${season ? season.name : 'none active'}`);
+  if (!staticRoots.some((r) => fs.existsSync(path.join(r, 'index.html')))) {
+    console.log('[cth] no web build found — run `npm run build`, or `npm run dev:web` for the Vite dev server');
+  }
+});
+
+const shutdown = (signal) => () => {
+  console.log(`[cth] ${signal} — closing`);
+  server.close(() => {
+    db.close();
+    process.exit(0);
+  });
+  setTimeout(() => process.exit(0), 5000).unref();
+};
+process.on('SIGTERM', shutdown('SIGTERM'));
+process.on('SIGINT', shutdown('SIGINT'));

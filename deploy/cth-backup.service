@@ -1,0 +1,7 @@
+[Unit]
+Description=Capture the Hood nightly backup
+
+[Service]
+Type=oneshot
+User=shinobi
+ExecStart=/home/shinobi/cth/deploy/backup.sh
