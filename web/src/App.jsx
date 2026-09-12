@@ -9,6 +9,8 @@ import Chat from './screens/Chat.jsx';
 import HoodDetail from './screens/HoodDetail.jsx';
 import Login from './screens/Login.jsx';
 import Profile from './screens/Profile.jsx';
+import Parkemon from './screens/Parkemon.jsx';
+import Binder from './screens/Binder.jsx';
 
 export default function App() {
   const { session, booting, unreadChat } = useGame();
@@ -20,6 +22,8 @@ export default function App() {
   if (!session) return <Login />;
 
   // The map and chat manage their own scrolling; every other screen scrolls normally.
+  // Parkemon's map view manages its own scrolling too, but its list view does not,
+  // so it stays a normal scrolling screen and the map fills the viewport inside it.
   const flush = pathname === '/' || pathname === '/chat';
 
   return (
@@ -34,6 +38,8 @@ export default function App() {
           <Route path="/chat" element={<Chat />} />
           <Route path="/hood/:id" element={<HoodDetail />} />
           <Route path="/me" element={<Profile />} />
+          <Route path="/hood/:id/parks" element={<Parkemon />} />
+          <Route path="/binder" element={<Binder />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>

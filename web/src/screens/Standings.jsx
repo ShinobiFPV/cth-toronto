@@ -54,6 +54,7 @@ export default function Standings() {
               <th style={{ width: '2.5rem' }}>#</th>
               <th>Player</th>
               <th className="r">Hoods</th>
+              <th className="r">Parks</th>
               <th className="r">Points</th>
             </tr>
           </thead>
@@ -68,9 +69,11 @@ export default function Standings() {
                   </span>
                   <span className="tiny dim">
                     {row.conquers}C · {row.steals}S · {row.reinforces}R
+                    {row.parks > 0 && ` · ${row.parks} parks`}
                   </span>
                 </td>
                 <td className="r">{row.hoods_held}</td>
+                <td className="r tiny dim">{row.park_points || '—'}</td>
                 <td className="r num">{row.points}</td>
               </tr>
             ))}

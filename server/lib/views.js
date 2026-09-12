@@ -9,6 +9,7 @@ import { evaluateClaim, humanUntil, article } from './game.js';
 import { activeSeason } from './seasons.js';
 import { hoodLabel, neighboursOf } from './hood-seed.js';
 import { publicPlayer } from './auth.js';
+import { parkProgress } from './parks.js';
 
 /** Every Hood with its holder and, if a viewer is given, what that viewer can do. */
 export function listHoods(viewerId = null, at = nowIso()) {
@@ -70,6 +71,7 @@ function shapeHood(r, viewerId, at) {
     countdown: ev.available_at ? humanUntil(at, ev.available_at) : null,
     // Drives the map's reinforce pulse (spec §7) — free points sitting there.
     reinforce_ready: ev.claim_kind === 'reinforce' && ev.ok,
+    parks: parkProgress(r.id, viewerId, at),
     // Unclaimed, but closed to this player because they just took a Hood next door.
     adjacent_blocked: ev.error === 'ADJACENT_COOLDOWN',
     blocked_by_hood_id: ev.blocked_by_hood_id ?? null,
@@ -112,12 +114,14 @@ export function hoodHistory(hoodId, viewerId = null) {
     SELECT c.*, p.handle, p.display_name, p.colour,
            b.handle AS beaten_handle, b.display_name AS beaten_name,
            ph.path_thumb, ph.path_display, ph.exif_json, ph.width, ph.height,
-           h.name AS hood_name
+           h.name AS hood_name,
+           pk.name AS park_name, pk.value AS park_value
       FROM claims c
       JOIN players p ON p.id = c.player_id
       JOIN hoods   h ON h.id = c.hood_id
  LEFT JOIN players b ON b.id = c.beaten_player_id
  LEFT JOIN photos ph ON ph.id = c.photo_id
+ LEFT JOIN parks  pk ON pk.id = c.park_id
      WHERE c.hood_id = ?
      ORDER BY c.id DESC`).all(hoodId);
   return rows.map((r) => shapeClaim(r, viewerId));
@@ -153,6 +157,8 @@ export function shapeClaim(r, viewerId = null) {
     display_url: r.path_display ? `/media/${r.path_display}` : null,
     shot_data: r.exif_json ? JSON.parse(r.exif_json) : null,
     reverts_claim_id: r.reverts_claim_id ?? null,
+    park: r.park_id ? { id: r.park_id, name: r.park_name, value: r.park_value } : null,
+    card_seed: r.card_seed ?? null,
     summary: claimSummary(r),
   };
 }
@@ -168,6 +174,8 @@ export function claimSummary(r) {
       return `${who} stole ${where} from ${r.beaten_name || r.beaten_handle} with ${article(r.photo_type)} photo (+${r.points_awarded})`;
     case 'reinforce':
       return `${who} reinforced ${where} with ${article(r.photo_type)} photo (+${r.points_awarded})`;
+    case 'park':
+      return `${who} collected ${r.park_name ?? 'a park'} in ${where} (+${r.points_awarded})`;
     case 'reversal':
       return `${who}'s claim on ${where} was reverted by flags — points cancelled`;
     default:
@@ -186,12 +194,14 @@ const FEED_SQL = `
   SELECT c.*, p.handle, p.display_name, p.colour,
          b.handle AS beaten_handle, b.display_name AS beaten_name,
          ph.path_thumb, ph.path_display, ph.exif_json,
-         h.name AS hood_name
+         h.name AS hood_name,
+         pk.name AS park_name, pk.value AS park_value
     FROM claims c
     JOIN players p ON p.id = c.player_id
     JOIN hoods   h ON h.id = c.hood_id
 LEFT JOIN players b ON b.id = c.beaten_player_id
-LEFT JOIN photos ph ON ph.id = c.photo_id`;
+LEFT JOIN photos ph ON ph.id = c.photo_id
+LEFT JOIN parks  pk ON pk.id = c.park_id`;
 
 /**
  * Standings. `seasonId` null means the Champion table — the same ledger, without the
@@ -211,11 +221,11 @@ export function leaderboard(seasonId = null) {
 
   const byKind = seasonId
     ? db.prepare(`
-        SELECT player_id, claim_kind, COUNT(*) AS n FROM claims
+        SELECT player_id, claim_kind, COUNT(*) AS n, SUM(points_awarded) AS pts FROM claims
          WHERE season_id = ? AND status != 'reverted' GROUP BY player_id, claim_kind`)
         .all(seasonId)
     : db.prepare(`
-        SELECT player_id, claim_kind, COUNT(*) AS n FROM claims
+        SELECT player_id, claim_kind, COUNT(*) AS n, SUM(points_awarded) AS pts FROM claims
          WHERE status != 'reverted' GROUP BY player_id, claim_kind`).all();
 
   const held = db.prepare(`
@@ -225,7 +235,11 @@ export function leaderboard(seasonId = null) {
   const pts = Object.fromEntries(points.map((r) => [r.player_id, r]));
   const hoods = Object.fromEntries(held.map((r) => [r.owner_id, r.n]));
   const kinds = {};
-  for (const r of byKind) (kinds[r.player_id] ??= {})[r.claim_kind] = r.n;
+  const kindPoints = {};
+  for (const r of byKind) {
+    (kinds[r.player_id] ??= {})[r.claim_kind] = r.n;
+    (kindPoints[r.player_id] ??= {})[r.claim_kind] = r.pts ?? 0;
+  }
 
   const ordered = players
     .map((p) => ({
@@ -236,6 +250,13 @@ export function leaderboard(seasonId = null) {
       conquers: kinds[p.id]?.conquer ?? 0,
       steals: kinds[p.id]?.steal ?? 0,
       reinforces: kinds[p.id]?.reinforce ?? 0,
+      // Parkemon GO points count toward the same total, but it is worth seeing the
+      // split: somebody can be top of the table without holding a single Hood.
+      parks: kinds[p.id]?.park ?? 0,
+      park_points: kindPoints[p.id]?.park ?? 0,
+      territory_points: (kindPoints[p.id]?.conquer ?? 0)
+        + (kindPoints[p.id]?.steal ?? 0)
+        + (kindPoints[p.id]?.reinforce ?? 0),
     }))
     .sort((a, b) => b.points - a.points || b.hoods_held - a.hoods_held
       || a.player.handle.localeCompare(b.player.handle));

@@ -55,6 +55,22 @@ income.
 - Losing a Hood costs you nothing. The ledger is append-only — territory changes, score
   does not.
 
+## Parkemon GO
+
+A sub-game inside every Hood, and the only part nobody competes over. Every Toronto park
+has a municipal sign with its name on it: photograph one and you collect that park.
+
+- **1,513 parks**, each worth **5–100 points** by distance from downtown
+- **Once per season per player** — everyone can collect the same park, no owner, no
+  stealing, nothing to lose
+- Points go into the **same total** as territory
+- Each collection prints a **collectable card**: the sign photo, the value where a Pokémon
+  card puts HP, and a border unique to that card. The season picks the palette, a stored
+  `card_seed` picks the hatch, foil and corner motif, the value picks the rarity
+  (Common / Uncommon / Rare / Legendary)
+
+Tap a Hood on the map, then **Parkemon GO**.
+
 ## Seasons
 
 Four, stored in the `seasons` table, never hardcoded. At each rollover season tallies
@@ -73,6 +89,7 @@ from the same ledger; there is no stored running total anywhere, by design.
 ```bash
 npm run install:all        # server deps + web deps
 npm run import-hoods       # fetch the 25 Hood boundaries from City of Toronto Open Data
+npm run import-parks       # fetch the 1,513 parks for Parkemon GO (needs hoods first)
 npm run invite             # mint an invite code — the first player to use one is admin
 npm run build              # build the PWA into web/dist
 npm start                  # http://localhost:8096
@@ -87,7 +104,7 @@ npm run dev:web            # Vite on :5173
 ```
 
 ```bash
-npm test                   # 94 tests: game rules, difficulty, the HTTP API, reprojection
+npm test                   # 115 tests: game rules, difficulty, Parkemon, the HTTP API, reprojection
 ```
 
 `npm test` needs no running server and touches nothing in `data/` — it boots its own
@@ -98,6 +115,7 @@ instance against a throwaway database in the OS temp directory.
 | Command | What it does |
 |---|---|
 | `npm run import-hoods` | Fetches `city-wards` from CKAN, writes `web/public/hoods.min.geojson` (1.1 MB → 66 kB), and updates the `hoods` table plus the `hood_neighbours` adjacency graph. `--file` for a local copy, `--seed` to also rewrite the seed module. |
+| `npm run import-parks` | Fetches `parks-and-recreation-facilities`, keeps `TYPE = 'Park'`, assigns each to a Hood by point-in-polygon, and scores them 5–100. Safe to re-run. |
 | `npm run rollover` | Checks whether the active season has ended; applies escalation and posts to chat. Idempotent. `--dry-run` to see what it would do. |
 | `npm run invite [n]` | Mints invite codes. |
 | `node scripts/make-icons.js` | Regenerates the PWA icons and favicon from one SVG. |
@@ -116,8 +134,9 @@ server/
   lib/auth.js         argon2id + JWT cookie + invite codes
   lib/images.js       sharp pipeline, HEIC fallback, EXIF panel
   lib/hub.js          WebSocket hub; every claim and flag posts itself to chat
+  lib/parks.js        Parkemon GO: collection rules, card seeds, the binder
   routes/             thin HTTP wrappers over the above
-scripts/              import-hoods, rollover, make-invite, make-icons
+scripts/              import-hoods, import-parks, rollover, make-invite, make-icons
   lib/difficulty.js   the 5-50 difficulty formula
   lib/reproject.js    inverse transverse Mercator, for projected source data
 web/                  React 18 + Vite + Leaflet PWA

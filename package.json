@@ -16,9 +16,11 @@
     "import-hoods": "node scripts/import-hoods.js",
     "rollover": "node scripts/rollover.js",
     "invite": "node scripts/make-invite.js",
-    "test": "node --test \"test/*.test.js\""
+    "test": "node --test \"test/*.test.js\"",
+    "import-parks": "node scripts/import-parks.js"
   },
   "dependencies": {
+    "@turf/boolean-point-in-polygon": "^7.1.0",
     "@turf/centroid": "^7.1.0",
     "@turf/simplify": "^7.1.0",
     "argon2": "^0.41.1",

@@ -62,6 +62,17 @@ changing one, read the test first — it says why.
   `server/db.js` is the only thing allowed to write it. The rollover increments
   `escalations` and calls it; the importer refreshes `difficulty` and calls it. Never
   UPDATE that column directly.
+- **Parkemon collections are claims too.** A park collection is a row in `claims` with
+  `claim_kind = 'park'` and `park_id` set. That is deliberate: scoring, the feed, chat
+  and flagging all work on it with no special cases. It must never touch `hood_state` —
+  collecting a park takes nothing from anybody. Once-per-season is enforced both in
+  `evaluateCollect()` and by a partial unique index that excludes reverted rows, so a
+  claim the group threw out frees the park up again.
+- **A card's art is seeded, not random.** `card_seed` is hashed from
+  (player, park, season) and stored on the claim, so a card renders identically every
+  time. `ParkCard.jsx` reads the seed for the hatch, foil and corners, the season for
+  the palette, and the value for the rarity. Never generate card art from Math.random
+  or a timestamp — the whole point is that it is stable.
 - **A reinforce does not arm the steal lock.** A conquer and a steal do. If a reinforce
   locked the Hood, a player could shield one indefinitely on a 72-hour timer.
 - **Losing a Hood costs no points.** The superseded claim keeps its `points_awarded` and
@@ -102,13 +113,15 @@ changing one, read the test first — it says why.
 ## Testing
 
 ```bash
-npm test        # 94 tests, no server needed, touches nothing in data/
+npm test        # 115 tests, no server needed, touches nothing in data/
 ```
 
 - `test/game.test.js` — the rules, driving the game module directly. Time is simulated by
   winding `hood_state` clocks backwards, not by waiting.
 - `test/api.test.js` — boots the real server on port 8199 against a temp database and
   walks the whole thing over HTTP, including real JPEGs through the sharp pipeline.
+- `test/parks.test.js` — Parkemon GO. Seeds four parks by hand rather than importing
+  1,513, so the suite never touches the network.
 - `test/reproject.test.js` — the importer's coordinate maths, against fixtures lifted
   from the City's own files.
 

@@ -33,6 +33,11 @@ const migrations = db.transaction(() => {
   const addedDifficulty = addColumn('hoods', 'difficulty', 'INTEGER NOT NULL DEFAULT 25');
   addColumn('hoods', 'escalations', 'INTEGER NOT NULL DEFAULT 0');
 
+  // Parkemon GO rides in the claims ledger, so park collections need two columns there.
+  addColumn('claims', 'park_id', 'INTEGER REFERENCES parks(id)');
+  addColumn('claims', 'card_seed', 'TEXT');
+  addColumn('parks', 'set_number', 'INTEGER');
+
   if (addedDifficulty) {
     // Backfill from the seed, then work out how many escalations each Hood had already
     // banked under the old flat-25 scheme so nobody silently loses value they had

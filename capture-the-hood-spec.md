@@ -192,6 +192,82 @@ visible first flag is most of what makes it work.
 
 ---
 
+## 1.8 Parkemon GO
+
+A sub-game inside every Hood, and the only part of Capture the Hood that nobody competes
+over.
+
+Every Toronto park has the same municipal sign with the park's name on it. Photograph one
+and you **collect** that park: it pays points and prints you a collectable card.
+
+- **1,513 parks**, from the City of Toronto `parks-and-recreation-facilities` dataset,
+  each filed under the Hood its coordinates fall inside.
+- Each park is worth **5 to 100 points**, purely by distance from the city centre. No
+  isolation term, unlike a Hood's difficulty score: a park is somewhere you go, not
+  something you hold against anybody.
+- **Each park is collectable once per season per player.** Everyone can collect the same
+  park; there is no owner, no stealing, no cooldown, and nothing to lose.
+- Park points go into the **same total** as territory. Somebody can top the table without
+  holding a single Hood.
+- Collections ride in the same `claims` ledger with `claim_kind = 'park'`, which is what
+  makes scoring, the feed, chat and **flagging** work on them unchanged. A collection
+  reverted by flags cancels its points and frees the park to be collected again.
+
+Reached from the map: tap a Hood, then the **Parkemon GO** button on its sheet. That
+opens the ~60 parks in that Hood as a list sorted by value, or as pins on a map.
+
+### The card
+
+Each collection renders a collectable card — the photo of the sign in the window, the
+park's name on the plate, its value where a Pokémon card puts HP, and a **border unique to
+that card**.
+
+Unique is procedural, not random. The server stores a `card_seed` hashed from
+(player, park, season), so:
+
+- the **season** picks the palette — Fall is amber and rust, Winter ice blue, Spring
+  green, Summer teal, so a card is identifiable across the room
+- the **seed** picks the hatch angle and spacing, the foil sweep, the corner motif and a
+  few degrees of hue drift
+- the **value** picks the rarity, which decides how much the frame shows off: Common
+  (5–24), Uncommon (25–49), Rare (50–74), Legendary (75–100)
+
+Because the seed is stored rather than generated on the fly, a card looks the same every
+time you open the binder — and two players who collect the same park in the same season
+still get visibly different borders.
+
+All of it is inline SVG and CSS. Nothing is rasterised and the Pi never renders a pixel.
+
+### Data
+
+```sql
+parks(
+  id,            -- the city's ASSET_ID, stable across imports
+  name, hood_id, lat, lng, address, amenities, url,
+  value,         -- 5-100 by distance from the city centre
+  distance_km,
+  set_number     -- 1..N alphabetically, printed on the card as "#0123/1513"
+)
+
+claims(... park_id, card_seed)   -- set on claim_kind = 'park' only
+```
+
+`scripts/import-parks.js` fetches the dataset, keeps only `TYPE = 'Park'` (the 277
+community centres and 6 civic centres have no park sign), assigns each to a Hood by
+point-in-polygon against the ward boundaries, and scores them. One park in the city falls
+a few metres outside every ward boundary and is placed by nearest Hood instead of being
+dropped.
+
+A partial unique index enforces once-per-season at the database level:
+
+```sql
+CREATE UNIQUE INDEX idx_park_once_per_season
+  ON claims(player_id, park_id, season_id)
+  WHERE park_id IS NOT NULL AND status != 'reverted';
+```
+
+---
+
 ## 2. Stack
 
 | Layer | Choice | Why |
@@ -367,6 +443,13 @@ GET    /api/leaderboard?season=    current season standings
 GET    /api/leaderboard/champion   all-season totals
 GET    /api/seasons                schedule + which is active
 
+GET    /api/hoods/:id/parks        Parkemon: every park in a Hood + your collection state
+GET    /api/parks/:id             one park + whether you can collect it
+GET    /api/parks/:id/check       dry run
+POST   /api/parks/:id/collect     multipart: photo of the sign
+GET    /api/cards?season=         your binder
+GET    /api/cards/:claimId        one card
+
 GET    /api/feed                   recent claims, paginated
 POST   /api/claims/:id/flag        reason
 DELETE /api/claims/:id/flag        let people withdraw a flag
@@ -482,6 +565,11 @@ see how people actually behave.
   consider requiring the flaggers to be neither the claimant nor the displaced holder, so a
   grudge pair can't revert at will.
 - **Shot-data panel** — read-only EXIF display to inform disputes, or leave it fully blind.
+- **Do parks swamp territory?** 1,513 parks at 5–100 points each is a far bigger pool than
+  25 Hoods, and an afternoon of walking a dense Hood could out-earn a hard-won steal. The
+  levers, if it distorts: scale park values down, cap park points per season, or count
+  them toward a separate Parkemon standing rather than the main total. Watch it in
+  Season 1 — it is the single most likely thing about this build to need rebalancing.
 - **Subject edge cases** — a storefront with a dog outside it satisfies two subjects at
   once, and the declaring player picks whichever is tactically useful. That is either a
   fun bit of angle-shooting or the thing that makes every claim a dispute. Watch it in

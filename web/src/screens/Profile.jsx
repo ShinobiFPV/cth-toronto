@@ -67,6 +67,11 @@ export default function Profile() {
         </Banner>
       )}
 
+      <Link className="btn btn-block" to="/binder" style={{ justifyContent: 'space-between' }}>
+        <span>Parkemon binder</span>
+        <span className="tiny dim">every park card you own</span>
+      </Link>
+
       <div>
         <h2 style={{ marginBottom: '0.5rem' }}>Your Hoods</h2>
         {!mine.length && <div className="empty">None yet. The map is right there.</div>}
@@ -121,6 +126,10 @@ export default function Profile() {
                 )}
                 <li>Losing a Hood costs you nothing. Points are never taken back.</li>
                 <li>{rules.flag_threshold} flags revert a claim and cancel its points.</li>
+                <li><b>Parkemon GO:</b> every Toronto park has a sign with its name on it.
+                    Photograph one and you collect that park for a card, worth 5 to 100 by
+                    how far out it is. Each park once a season, nobody competes over them,
+                    and the points go straight into your total.</li>
                 <li>Honour system: recent photo, taken inside the Hood, actually showing
                     what you declared. Nobody checks. Everybody can flag.</li>
               </ul>

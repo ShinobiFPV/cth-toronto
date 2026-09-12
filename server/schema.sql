@@ -50,6 +50,29 @@ CREATE TABLE IF NOT EXISTS hood_neighbours (
   PRIMARY KEY (hood_id, neighbour_id)
 );
 
+-- ── Parkemon GO ───────────────────────────────────────────────────────────
+-- The sub-game inside each Hood: every Toronto park has a sign with its name on it,
+-- and players collect them. Nobody owns a park and nobody competes over one — each
+-- player may collect each park once per season, and the points just add up.
+CREATE TABLE IF NOT EXISTS parks (
+  id        INTEGER PRIMARY KEY,        -- the city's ASSET_ID, stable across imports
+  name      TEXT NOT NULL,
+  hood_id   INTEGER REFERENCES hoods(id),
+  lat       REAL NOT NULL,
+  lng       REAL NOT NULL,
+  address   TEXT,
+  amenities TEXT,
+  url       TEXT,
+  -- 5-100, purely by distance from the city centre. Unlike a Hood there is no
+  -- isolation term: a park is a destination, not a thing you fight over.
+  value     INTEGER NOT NULL DEFAULT 5,
+  distance_km REAL,
+  -- Position in the set, 1..N alphabetically. Printed on the card as "#0123/1513",
+  -- which is the only reason it exists: a collectable needs a number.
+  set_number INTEGER
+);
+CREATE INDEX IF NOT EXISTS idx_parks_hood ON parks(hood_id, name);
+
 CREATE TABLE IF NOT EXISTS seasons (
   id                 INTEGER PRIMARY KEY,
   name               TEXT NOT NULL,
@@ -96,6 +119,11 @@ CREATE TABLE IF NOT EXISTS claims (
   prev_last_claim_at TEXT,
   prev_locked_until  TEXT,
   reverts_claim_id  INTEGER REFERENCES claims(id),    -- set on reversal rows only
+  -- Set on claim_kind = 'park' only. A park collection rides in this same ledger so
+  -- that scoring, the feed, chat and flagging all work on it for free, but it never
+  -- touches hood_state: collecting a park takes nothing from anybody.
+  park_id           INTEGER REFERENCES parks(id),
+  card_seed         TEXT,                           -- drives the collectable card art
   created_at        TEXT NOT NULL
 );
 
@@ -103,6 +131,13 @@ CREATE INDEX IF NOT EXISTS idx_claims_hood    ON claims(hood_id, created_at DESC
 CREATE INDEX IF NOT EXISTS idx_claims_season  ON claims(season_id, status);
 CREATE INDEX IF NOT EXISTS idx_claims_player  ON claims(player_id, status);
 CREATE INDEX IF NOT EXISTS idx_claims_created ON claims(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_claims_park   ON claims(park_id, player_id, season_id);
+
+-- One collection per player per park per season. Partial so it only governs park rows,
+-- and excludes reverted ones so a claim the group threw out frees the park up again.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_park_once_per_season
+  ON claims(player_id, park_id, season_id)
+  WHERE park_id IS NOT NULL AND status != 'reverted';
 
 CREATE TABLE IF NOT EXISTS hood_state (
   hood_id        INTEGER PRIMARY KEY REFERENCES hoods(id),

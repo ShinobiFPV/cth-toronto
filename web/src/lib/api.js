@@ -61,6 +61,13 @@ export const api = {
   champion: () => request('/leaderboard/champion'),
   seasons: () => request('/seasons'),
 
+  // Parkemon GO
+  parksInHood: (hoodId) => request(`/hoods/${hoodId}/parks`),
+  park: (id) => request(`/parks/${id}`),
+  parkCheck: (id) => request(`/parks/${id}/check`),
+  cards: (season) => request(`/cards${season ? `?season=${season}` : ''}`),
+  card: (claimId) => request(`/cards/${claimId}`),
+
   // chat
   chat: (before) => request(`/chat${before ? `?before=${before}` : ''}`),
   say: (body) => request('/chat', { method: 'POST', body: { body } }),
@@ -68,13 +75,19 @@ export const api = {
 
 /**
  * Upload with progress. fetch() still cannot report upload progress, and a 40 MB
- * drone frame over a phone connection absolutely needs a bar, so this one call uses
+ * drone frame over a phone connection absolutely needs a bar, so these two calls use
  * XMLHttpRequest.
  */
-export function uploadClaim(hoodId, formData, onProgress) {
+export const uploadClaim = (hoodId, formData, onProgress) =>
+  upload(`/api/hoods/${hoodId}/claim`, formData, onProgress);
+
+export const uploadPark = (parkId, formData, onProgress) =>
+  upload(`/api/parks/${parkId}/collect`, formData, onProgress);
+
+function upload(url, formData, onProgress) {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
-    xhr.open('POST', `/api/hoods/${hoodId}/claim`);
+    xhr.open('POST', url);
     xhr.withCredentials = true;
     xhr.upload.addEventListener('progress', (e) => {
       if (e.lengthComputable) onProgress?.(e.loaded / e.total);

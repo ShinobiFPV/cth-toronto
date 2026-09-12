@@ -600,3 +600,178 @@ button, input, select, textarea { font: inherit; color: inherit; }
     border-right: 2px solid var(--border);
   }
 }
+
+/* ── Parkemon GO ───────────────────────────────────────────────────────────
+   The collectable card. The frame is an inline SVG behind everything; this
+   lays the photo, the plate and the footer on top of it. Sizes are fixed in
+   px because a trading card has a physical size in your head — it should not
+   reflow into a banner on a wide screen. */
+
+.pcard {
+  position: relative;
+  width: 320px;
+  height: 448px;
+  margin: 0;
+  flex: none;
+  color: #fff;
+  font-family: var(--mono);
+  user-select: none;
+}
+.pcard-compact { width: 160px; height: 224px; }
+
+.pcard-frame { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+.pcard-inner {
+  position: absolute;
+  inset: 14px;
+  display: grid;
+  grid-template-rows: auto 1fr auto auto;
+  gap: 6px;
+  padding: 8px;
+  background: var(--pc-paper);
+  border: 2px solid rgba(0, 0, 0, 0.45);
+}
+.pcard-compact .pcard-inner { inset: 8px; padding: 5px; gap: 3px; }
+
+.pcard-head { display: flex; align-items: center; gap: 6px; }
+
+.pcard-name {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--display);
+  font-size: 0.78rem;
+  line-height: 1.15;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.7);
+}
+.pcard-compact .pcard-name { font-size: 0.5rem; -webkit-line-clamp: 2; }
+
+.pcard-value {
+  flex: none;
+  font-family: var(--display);
+  font-size: 1.35rem;
+  line-height: 1;
+  padding: 2px 6px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 2px solid rgba(255, 255, 255, 0.55);
+  text-shadow: 0 1px 2px #000;
+}
+.pcard-compact .pcard-value { font-size: 0.8rem; border-width: 1px; padding: 1px 3px; }
+
+.pcard-window {
+  position: relative;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.5);
+  border: 2px solid rgba(0, 0, 0, 0.55);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.25);
+}
+.pcard-window img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.pcard-compact .pcard-window { border-width: 1px; }
+
+.pcard-nophoto {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  font-size: 0.65rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  opacity: 0.5;
+}
+
+.pcard-body { font-size: 0.62rem; line-height: 1.35; }
+.pcard-where { text-transform: uppercase; letter-spacing: 0.06em; opacity: 0.9; }
+.pcard-addr { opacity: 0.6; }
+.pcard-compact .pcard-body { font-size: 0.45rem; }
+
+.pcard-foot {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.55rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding-top: 4px;
+  border-top: 1px solid rgba(255, 255, 255, 0.25);
+}
+.pcard-rarity { font-weight: 700; }
+.pcard-season { flex: 1; text-align: center; opacity: 0.75; }
+.pcard-no { opacity: 0.6; font-variant-numeric: tabular-nums; }
+.pcard-compact .pcard-foot { font-size: 0.4rem; }
+
+/* A legendary earns a slow sheen. Nothing else animates. */
+.pcard-legendary .pcard-frame { animation: pcard-sheen 6s ease-in-out infinite; }
+@keyframes pcard-sheen {
+  0%, 100% { filter: saturate(1) brightness(1); }
+  50%      { filter: saturate(1.25) brightness(1.12); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pcard-legendary .pcard-frame { animation: none; }
+}
+
+/* ── The binder, and the park map ─────────────────────────────────────────── */
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 0.8rem;
+  justify-items: center;
+}
+
+.park-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.55rem 0.8rem;
+  border-bottom: 1px solid var(--rule);
+  cursor: pointer;
+  background: none;
+  border-left: 0;
+  border-right: 0;
+  border-top: 0;
+  width: 100%;
+  text-align: left;
+  color: inherit;
+}
+.park-row:last-child { border-bottom: 0; }
+.park-row[aria-pressed='true'] { background: rgba(var(--accent-rgb), 0.08); }
+.park-row.got { opacity: 0.6; }
+
+.park-value {
+  flex: none;
+  min-width: 2.4rem;
+  text-align: right;
+  font-family: var(--display);
+  font-size: 0.9rem;
+}
+
+/* Rarity is the one place a second colour is allowed, because it is the card's
+   whole vocabulary. Kept out of the map so territory colours stay unambiguous. */
+.r-common    { color: #9AA4B0; }
+.r-uncommon  { color: #3FD66A; }
+.r-rare      { color: #35C4FF; }
+.r-legendary { color: var(--accent); }
+
+.park-pin {
+  border-radius: 50%;
+  border: 2px solid #05070A;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.3);
+}
+
+.progress-bar {
+  height: 6px;
+  background: var(--surface-2);
+  border: 2px solid var(--border);
+  overflow: hidden;
+}
+.progress-bar > i { display: block; height: 100%; background: var(--accent); }
+
+/* A map embedded in a scrolling screen has no height to inherit, so it gets told
+   explicitly how much of the viewport it may have. */
+.map-wrap-inline {
+  height: calc(100dvh - var(--header-h) - var(--tabbar-h) - var(--safe-top) - var(--safe-bottom));
+  min-height: 320px;
+  margin: 0 -0.9rem;
+}

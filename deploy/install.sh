@@ -87,6 +87,32 @@ grep -q '^CTH_JWT_SECRET=.\+' "$APP_DIR/.env" \
   || { echo "   !! CTH_JWT_SECRET is empty in .env — the app refuses to start in production." >&2; exit 1; }
 ok "CTH_JWT_SECRET is set"
 
+# ── Game data ────────────────────────────────────────────────────────────────
+# The 25 Hoods ship as a seed, but the 1,513 parks do not — Parkemon GO is simply
+# missing until the importer has run once. Safe to skip if they are already there.
+say "Parks (Parkemon GO)"
+park_count=$(sudo -u "$SVC_USER" node -e "
+  const D = require('$APP_DIR/node_modules/better-sqlite3');
+  try {
+    const db = new D(process.argv[1], { readonly: true });
+    process.stdout.write(String(db.prepare('SELECT COUNT(*) AS n FROM parks').get().n));
+    db.close();
+  } catch { process.stdout.write('0'); }
+" "$DATA_DIR/cth.sqlite" 2>/dev/null || echo 0)
+
+if [ "${park_count:-0}" -gt 0 ]; then
+  ok "$park_count parks already imported"
+else
+  if sudo -u "$SVC_USER" env CTH_DB="$DATA_DIR/cth.sqlite"        node "$APP_DIR/scripts/import-parks.js" >/tmp/cth-parks.log 2>&1; then
+    ok "$(tail -3 /tmp/cth-parks.log | head -1)"
+  else
+    ok "park import failed — Parkemon GO will be empty until you re-run it:"
+    ok "  cd $APP_DIR && node scripts/import-parks.js"
+    tail -3 /tmp/cth-parks.log >&2 || true
+  fi
+  rm -f /tmp/cth-parks.log
+fi
+
 # ── systemd ──────────────────────────────────────────────────────────────────
 say "systemd units"
 units=(cth.service cth-rollover.service cth-rollover.timer cth-backup.service cth-backup.timer)

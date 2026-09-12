@@ -87,7 +87,18 @@ Downloads the 25-ward GeoJSON from City of Toronto Open Data, simplifies it to ~
 for the map layer, and fills in the `hoods` table. Safe to re-run at any time — it never
 touches game state.
 
-> This writes `web/public/hoods.min.geojson`, but the app serves `web/dist/`. Either run
+Then the parks for Parkemon GO — 1,513 of them, assigned to Hoods by point-in-polygon,
+so this must run *after* the boundaries:
+
+```bash
+node scripts/import-parks.js
+```
+
+Unlike the Hoods there is no committed seed for parks (1,513 rows is not a source file),
+so this step is required rather than a convenience. `deploy/install.sh` runs it for you on
+a fresh install; re-run it by hand if the city ever revises the dataset.
+
+> The boundary import writes `web/public/hoods.min.geojson`, but the app serves `web/dist/`. Either run
 > it once on the Pi **and** once locally before a deploy (the built copy is what ships),
 > or just run it locally and let `deploy.ps1` carry the result. Running it locally is the
 > normal path; it is listed here so a from-scratch Pi install is self-sufficient.

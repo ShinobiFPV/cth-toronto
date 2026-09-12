@@ -69,8 +69,14 @@ claimRoutes.post('/:id/flag', requireAuth, (req, res, next) => {
 
     if (result.duplicate) throw badRequest('ALREADY_FLAGGED', 'You have already flagged this claim.');
 
-    const label = hoodLabel(claim.hood_id,
+    // Name the park for a Parkemon claim: "flagged Alice's claim on Hood 25" tells
+    // nobody which of its 68 parks is in dispute.
+    const hood = hoodLabel(claim.hood_id,
       db.prepare('SELECT name FROM hoods WHERE id = ?').get(claim.hood_id).name);
+    const park = claim.park_id
+      ? db.prepare('SELECT name FROM parks WHERE id = ?').get(claim.park_id)
+      : null;
+    const label = park ? `${park.name} (${hood})` : hood;
     const claimant = db.prepare('SELECT display_name FROM players WHERE id = ?').get(claim.player_id);
 
     // Flags go to chat: the spec is explicit that a visible first flag is most of
