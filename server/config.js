@@ -32,7 +32,7 @@ const bool = (key, fallback) => {
 };
 
 export const config = {
-  port: num('CTH_PORT', 8093),
+  port: num('CTH_PORT', 8094),
   host: process.env.CTH_HOST || '0.0.0.0',
   isProd: process.env.NODE_ENV === 'production',
 

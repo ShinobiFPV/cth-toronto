@@ -65,7 +65,7 @@ npm run install:all        # server deps + web deps
 npm run import-hoods       # fetch the 25 Hood boundaries from City of Toronto Open Data
 npm run invite             # mint an invite code — the first player to use one is admin
 npm run build              # build the PWA into web/dist
-npm start                  # http://localhost:8093
+npm start                  # http://localhost:8094
 ```
 
 For frontend work, run the API and Vite side by side — Vite proxies `/api`, `/media`

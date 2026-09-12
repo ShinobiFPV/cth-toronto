@@ -6,7 +6,7 @@ Guidance for Claude Code working in this repository.
 
 **Capture the Hood: Toronto** — a photo-based territory game over the 25 City of Toronto
 wards, for a private friend group of about six people. Node + SQLite backend, React PWA
-frontend, deployed to the Raspberry Pi 5 (`shinobi`, 192.168.1.203) on port **8093** and
+frontend, deployed to the Raspberry Pi 5 (`shinobi`, 192.168.1.203) on port **8094** and
 exposed at `cth.shintech.online` through the existing Cloudflare Tunnel.
 
 `capture-the-hood-spec.md` is the design document this was built from and is kept in sync
@@ -14,7 +14,8 @@ with the code. If you change a rule, change the spec too.
 
 This is a standalone project in the ShinTech workspace with its own deploy. It shares
 nothing with `imq2`, `shinlink-os` or `port-manager` except the physical Pi and the house
-visual style. Port 8091 is Site Editor, 8092 is shintech-forms, 8093 is this.
+visual style. On shinobi, 8091 is Site Editor, 8092 is shintech-forms, 8093 is MedFam
+(and the default for port-manager's shinnode agent), 8094 is this.
 
 ## The one thing that matters
 
