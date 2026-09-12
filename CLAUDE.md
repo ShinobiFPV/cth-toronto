@@ -134,7 +134,7 @@ changing one, read the test first — it says why.
 ## Testing
 
 ```bash
-npm test        # 176 tests, no server needed, touches nothing in data/
+npm test        # 181 tests, no server needed, touches nothing in data/
 ```
 
 - `test/game.test.js` — the rules, driving the game module directly. Time is simulated by
@@ -192,6 +192,14 @@ There is no linter and no CI. Validate frontend changes by running the app
   onto black.
 - **`applyAppearance()` runs in `main.jsx` before `createRoot`**, not in a `useEffect`.
   Moving it into React gives every load a flash of the wrong theme.
+- **A bottom sheet's action button must be inside `.sheet-actions`.** That footer is
+  sticky, because sheet content has no fixed height — a 4:3 preview, a caption being
+  typed, a banner and an error can all be on screen at once, which pushed Collect and
+  Conquer past the bottom edge of a 667px phone. They were reachable by scrolling the
+  sheet, but nothing said the sheet scrolled, so the action simply looked absent. This
+  was reported from a real iPhone; `test/sheets.test.js` holds the structure in place,
+  and the sheet's `scroll-padding-bottom` is what stops a focused caption box being
+  parked behind the button.
 - **Leaflet sizing.** The map lives in a grid row and is measured before layout settles,
   so `MapScreen` calls `invalidateSize()` on the next frame and keeps a `ResizeObserver`.
   Removing that leaves Toronto fitted to the wrong viewport.

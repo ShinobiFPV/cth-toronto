@@ -577,7 +577,11 @@ displays "needs an animal photo" or "reinforce available in 14h" up front.
    unclaimed Hoods in neutral grey with their point value at the centroid. Tap a Hood →
    bottom sheet with holder, their photo, the subject you need, and the action button,
    which reads **Conquer (+25)**, **Steal (+100)**, **Reinforce (+25)**, or a countdown.
-2. **Capture** — camera launch, subject selector, target Hood confirmation.
+2. **Capture** — camera launch, subject selector, target Hood confirmation. The action
+   button sits in a **sticky footer** at the bottom of the sheet: the content above it
+   varies in height (preview, caption, banners) and on a small phone the button
+   otherwise falls off the bottom edge, where it is technically scrollable to and
+   practically invisible.
 3. **Standings** — current season table + Champion table, toggled.
 4. **Feed** — reverse-chronological claims with thumbnails and a flag button on each.
 5. **Chat** — persistent global room. Auto-post system messages for every claim:

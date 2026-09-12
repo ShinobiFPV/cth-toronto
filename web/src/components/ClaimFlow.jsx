@@ -198,22 +198,26 @@ export default function ClaimFlow({ hood, onClose, onDone }) {
 
         {error && <Banner kind="bad">{error}</Banner>}
 
-        {busy && (
-          <div>
-            <div style={{ height: 6, background: 'var(--surface-2)', border: '2px solid var(--border)' }}>
-              <div style={{ height: '100%', width: `${Math.round(progress * 100)}%`, background: 'var(--accent)' }} />
+        {/* Pinned: three steps, a preview and an honour-system note do not fit above the
+            fold on a small phone, and the action must never need hunting for. */}
+        <div className="sheet-actions">
+          {busy && (
+            <div>
+              <div className="progress-bar">
+                <i style={{ width: `${Math.round(progress * 100)}%` }} />
+              </div>
+              <div className="tiny dim" style={{ marginTop: '0.3rem' }}>
+                {progress < 1 ? `Uploading ${Math.round(progress * 100)}%` : 'Processing on the server…'}
+              </div>
             </div>
-            <div className="tiny dim" style={{ marginTop: '0.3rem' }}>
-              {progress < 1 ? `Uploading ${Math.round(progress * 100)}%` : 'Processing on the server…'}
-            </div>
-          </div>
-        )}
+          )}
 
-        <button className="btn btn-primary btn-block"
-                disabled={!subject || !file || busy || !viewer.can_claim}
-                onClick={submit}>
-          {busy ? 'Sending…' : `${verb} (+${viewer.points})`}
-        </button>
+          <button className="btn btn-primary btn-block"
+                  disabled={!subject || !file || busy || !viewer.can_claim}
+                  onClick={submit}>
+            {busy ? 'Sending…' : `${verb} (+${viewer.points})`}
+          </button>
+        </div>
       </div>
     </>
   );

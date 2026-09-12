@@ -355,6 +355,33 @@ button, input, select, textarea { font: inherit; color: inherit; }
 }
 .sheet-body { padding: 0.8rem; }
 
+/* The action footer of a bottom sheet — Conquer / Collect, and the progress bar that
+   replaces it mid-upload.
+   
+   It is sticky rather than just last, because the content above it is not a fixed
+   height: a 4:3 preview, a caption the player is typing, a cooldown banner and an
+   error can all be on screen at once, and on a 667px phone that pushes the button
+   past the bottom edge. It was reachable by scrolling the sheet, but nothing said the
+   sheet scrolled, so the one button that must always be pressable looked absent.
+   Pinning it also survives the iOS keyboard shrinking the viewport.
+   
+   The negative margins let it span the full sheet width inside the padded body, and
+   the opaque background stops content sliding visibly underneath it. */
+.sheet-actions {
+  position: sticky;
+  /* Sticks to the sheet's scrollport, which already sits above the sheet's own
+     safe-area padding — so the button clears the home indicator without this rule
+     having to know anything about it. */
+  bottom: 0;
+  z-index: 1;
+  margin: 0.2rem -0.8rem -0.8rem;
+  padding: 0.7rem 0.8rem;
+  background: var(--surface);
+  border-top: 2px solid var(--border);
+  display: grid;
+  gap: 0.5rem;
+}
+
 .row {
   display: flex;
   align-items: center;
@@ -516,6 +543,9 @@ button, input, select, textarea { font: inherit; color: inherit; }
   z-index: 2001;
   max-height: 88dvh;
   overflow-y: auto;
+  /* Leave room for the sticky action footer when the browser scrolls a focused field
+     into view — otherwise tapping the caption box parks it behind the button. */
+  scroll-padding-bottom: 5rem;
   background: var(--surface);
   border-top: 2px solid var(--accent);
   padding-bottom: var(--safe-bottom);
