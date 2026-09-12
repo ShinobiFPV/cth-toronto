@@ -1,8 +1,15 @@
-# Capture the Hood: Toronto — Build Spec
+# Parkemans Go — Build Spec
 
-A photo-based territory game for a small private friend group. Players conquer Toronto's
-25 city wards ("Hoods") by posting recent photos taken inside them, with a
-rock-paper-scissors layer based on what the photo is *of*.
+A photo game for a small private friend group, in two halves.
+
+**Parkemans** (§1.8) is the half it ended up named after: every Toronto park has the same
+municipal sign with its name on it, there are 1,513 of them, and photographing one
+collects that park and prints you a collectable card. Nobody competes over parks.
+
+**Capture the Hood** (§1.1–1.7) is the other half, and the game's original name: players
+conquer Toronto's 25 city wards ("Hoods") by posting recent photos taken inside them,
+with a rock-paper-scissors layer based on what the photo is *of*. Points from both halves
+land in the same total.
 
 **The game runs on the honour system.** The server does not verify where or when a photo
 was taken. Players police each other through flagging. This is a deliberate design choice
@@ -218,7 +225,7 @@ visible first flag is most of what makes it work.
 
 ## 1.8 Parkemans GO
 
-A sub-game inside every Hood, and the only part of Capture the Hood that nobody competes
+A sub-game inside every Hood, and the only part of the game that nobody competes
 over.
 
 Every Toronto park has the same municipal sign with the park's name on it. Photograph one
@@ -658,6 +665,14 @@ displays "needs an animal photo" or "reinforce available in 14h" up front.
    chat too — visible accusations are the enforcement mechanism.
 6. **Hood detail** — full claim history with every photo ever posted there. This becomes a
    genuinely nice artifact by the end of the year.
+7. **Cards** — the binder, reachable from the tab bar because the collection is what the
+   app is named after. Anybody's binder (§1.8), and the way into offers (§1.8a).
+8. **Offers** — incoming and outgoing trades.
+
+The tab bar is Map / Cards / Feed / Standings / Chat, and carries two badges: unread chat,
+and trade offers waiting on you. The offers badge is fed by `trades_pending` on `/me` and
+moves the moment an offer arrives over the WebSocket — with six players and no push
+notifications, a badge is the only way somebody learns an offer is sitting there.
 
 Design direction: dark UI, high-contrast player colours, map is the hero. Match the
 ShinTech house style — pick an accent colour for this one the way the product pages each

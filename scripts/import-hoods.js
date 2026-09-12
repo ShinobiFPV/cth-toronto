@@ -134,7 +134,7 @@ async function main() {
 
   const out = {
     type: 'FeatureCollection',
-    name: 'Capture the Hood — Toronto Hoods',
+    name: 'Parkemans Go — Toronto Hoods',
     attribution: 'Contains information licensed under the Open Government Licence – Toronto.',
     source: 'City of Toronto Open Data, dataset city-wards (25-ward model, 2018)',
     generated_at: new Date().toISOString(),

@@ -4,12 +4,24 @@ Guidance for Claude Code working in this repository.
 
 ## What this is
 
-**Capture the Hood: Toronto** — a photo-based territory game over the 25 City of Toronto
-wards, for a private friend group of about six people. Node + SQLite backend, React PWA
-frontend, deployed to the Raspberry Pi 5 (`shinobi`, 192.168.1.203) on port **8096** and
-exposed at `cth.shintech.online` through the existing Cloudflare Tunnel.
+**Parkemans Go** — collect the 1,513 park signs of Toronto, and hold its 25 wards
+("Hoods") with your camera. For a private friend group of about six people. Node +
+SQLite backend, React PWA frontend, deployed to the Raspberry Pi 5 (`shinobi`,
+192.168.1.203) on port **8096** and exposed at `cth.shintech.online` through the
+existing Cloudflare Tunnel.
 
-`capture-the-hood-spec.md` is the design document this was built from and is kept in sync
+It was called **Capture the Hood: Toronto** and was renamed once the parks turned out to
+be the best part of it. The territory half is unchanged and still speaks of Hoods,
+conquering and stealing — only the product name moved.
+
+**Every infrastructure identifier is still `cth`** and must stay that way unless somebody
+deliberately migrates them: the systemd units (`cth.service`, `cth-backup`,
+`cth-rollover`), `/srv/cth` and `/srv/backups/cth`, every `CTH_*` env var, and the
+hostname `cth.shintech.online`. The hostname especially: a PWA's identity is its origin,
+so changing it would orphan every installed copy on everybody's phone — new origin, new
+app, no session, no stored appearance.
+
+`parkemans-go-spec.md` is the design document this was built from and is kept in sync
 with the code. If you change a rule, change the spec too.
 
 This is a standalone project in the ShinTech workspace with its own deploy. It shares
@@ -141,6 +153,17 @@ changing one, read the test first — it says why.
   says you beat yourself.
 
 ## Conventions
+
+- **The tab bar is Map / Cards / Feed / Standings / Chat**, and `Tab` takes a `badge`.
+  Two are wired: unread chat, and `session.trades_pending` for offers waiting on you.
+  The offers badge is live — the store calls `refreshMe()` on a `trade_offered` /
+  `trade_resolved` frame addressed to this player, because a notification badge that
+  only appears on reload is not a notification. Five labels fit down to 320px; check
+  that before adding a sixth.
+- **The app is Parkemans Go; the sub-game inside it is just "parks".** A button reading
+  "Play Parkemans GO" inside an app of that name is a button offering to launch the app
+  you are already in, so the Hood sheet says **Collect parks** and the parks screen is
+  titled **Parks**. The *card* and the *binder* keep their own names.
 
 - **Never say "ward" in player-facing text.** They are Hoods, rendered as
   `Hood 13 — Toronto Centre` via `hoodLabel()`.

@@ -92,7 +92,7 @@ export default function Profile() {
       )}
 
       <Link className="btn btn-block" to="/binder" style={{ justifyContent: 'space-between' }}>
-        <span>Parkemans binder</span>
+        <span>Card binder</span>
         <span className="tiny dim">your cards, and everybody else's</span>
       </Link>
 
@@ -223,7 +223,7 @@ export default function Profile() {
         Map tiles © <a href="https://carto.com/attributions">CARTO</a>, data ©{' '}
         <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors.
         <br />
-        Capture the Hood is a ShinTech Electronics build. You are playing{' '}
+        Parkemans Go is a ShinTech Electronics build. You are playing{' '}
         {article(SUBJECTS[0])}-beats-{BEATS[SUBJECTS[0]]} with your camera. Go outside.
         <br />
         {/* So "is my phone actually running the new version?" is a readable fact rather

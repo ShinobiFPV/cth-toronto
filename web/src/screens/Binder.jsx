@@ -156,7 +156,7 @@ export default function Binder() {
       {!loading && !cards.length && (
         <div className="empty">
           {isMine
-            ? 'Nothing here yet. Open a Hood on the map and tap Parkemans GO.'
+            ? 'Nothing here yet. Open a Hood on the map and tap Collect parks.'
             : 'They have not collected anything yet.'}
         </div>
       )}

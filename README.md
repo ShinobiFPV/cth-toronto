@@ -1,9 +1,17 @@
-# Capture the Hood: Toronto
+# Parkemans Go
 
-**Six friends. Twenty-five neighbourhoods. One thousand five hundred and thirteen park signs. No referee.**
+**Six friends. One thousand five hundred and thirteen park signs. Twenty-five neighbourhoods. No referee.**
 
-It's Risk, except the board is Toronto, the armies are photographs, and the rules are
-enforced entirely by people yelling at each other in a group chat.
+Every park in Toronto has the same municipal sign with the park's name on it. Photograph
+one and you collect it, and it prints you a card. Do that 1,513 times and you have seen
+the entire city.
+
+The other half is Risk, except the board is Toronto, the armies are photographs, and the
+rules are enforced entirely by people yelling at each other in a group chat.
+
+> It used to be called **Capture the Hood: Toronto**, back when the territory game was
+> the point. Then everybody started going to parks instead, so the app is named after
+> what people actually do with it.
 
 <p align="center">
   <img src="docs/screenshots/02-map.png" width="380" alt="The map: Toronto's 25 Hoods, each filled in its owner's colour, unclaimed ones showing what they're worth">
@@ -116,7 +124,18 @@ points and its XP forever, however many hands the card goes through afterwards. 
 is no way to launder points, no way to buy a season, and no reason to be precious about
 a spare. It's your shelf you're rearranging, not the table.
 
-Offers show up in chat, because that's how anybody finds out anything around here. A
+<table>
+<tr>
+<td width="50%"><img src="docs/screenshots/17-offers.png" alt="The offers screen: a gift waiting, with both cards tappable"></td>
+<td width="50%"><img src="docs/screenshots/18-badge.png" alt="The tab bar with a badge on Cards showing one offer waiting"></td>
+</tr>
+<tr>
+<td align="center"><em>Somebody has offered you a spare.</em></td>
+<td align="center"><em>The badge tells you before you go looking.</em></td>
+</tr>
+</table>
+
+Offers show up in chat too, because that's how anybody finds out anything around here. A
 card keeps the collector's name printed on it, so the Rouge Park legendary in your binder
 will always say who got on the bus for it.
 
@@ -309,7 +328,7 @@ deploy/                  systemd units, nginx vhost, backups, install.sh
 
 `server/lib/game.js` is the only file that decides who owns a Hood; everything else is
 presentation. Deployment is in `SETUP.md`, the design doc is
-`capture-the-hood-spec.md`, and the notes-to-self are in `CLAUDE.md`.
+`parkemans-go-spec.md`, and the notes-to-self are in `CLAUDE.md`.
 
 ---
 

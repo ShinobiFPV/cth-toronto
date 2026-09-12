@@ -2,7 +2,7 @@
   "name": "cth-toronto",
   "version": "1.0.0",
   "private": true,
-  "description": "Capture the Hood: Toronto — photo-based territory game over the 25 City of Toronto wards",
+  "description": "Parkemans Go — collect Toronto's 1,513 park signs, and hold its 25 Hoods, by camera",
   "type": "module",
   "engines": {
     "node": ">=20"

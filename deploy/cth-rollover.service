@@ -1,5 +1,5 @@
 [Unit]
-Description=Capture the Hood season rollover check
+Description=Parkemans Go season rollover check
 After=network.target
 
 [Service]

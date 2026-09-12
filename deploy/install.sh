@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# One-time privileged install for Capture the Hood on shinobi.
+# One-time privileged install for Parkemans Go on shinobi.
 #
 # Everything in here needs root, which is why it is not part of deploy.ps1 — same
 # convention as the other ShinTech services. Run it once, from a real terminal so sudo

@@ -95,6 +95,16 @@ export function GameProvider({ children }) {
         } else if (type === 'claim_created') {
           refreshHoods().catch(() => {});
           refreshMe().catch(() => {});
+        } else if (type === 'trade_offered' || type === 'trade_resolved') {
+          // The badge counts offers waiting on you, so it has to move when one arrives
+          // rather than on the next reload. Both parties care: one gains a pending
+          // offer, the other loses one. Everybody else can ignore the frame.
+          // The effect re-runs on login and logout, so the captured session is always
+          // the player this socket belongs to.
+          const me = session?.player?.id;
+          if (me && (payload?.to?.id === me || payload?.from?.id === me)) {
+            refreshMe().catch(() => {});
+          }
         } else if (type === 'caption_changed') {
           // Nothing in the ledger moved, so patch the one field rather than refetching
           // 25 Hoods. Anyone with that Hood's sheet open sees the new line.

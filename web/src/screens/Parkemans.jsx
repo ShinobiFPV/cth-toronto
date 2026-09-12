@@ -83,7 +83,7 @@ export default function Parkemans() {
             </button>
           </div>
 
-          <h1>Parkemans GO</h1>
+          <h1>Parks</h1>
           <p className="tiny dim" style={{ margin: '0.3rem 0 0.8rem' }}>
             {hood.label} · photograph the sign, keep the card. Each park once a season.
           </p>

@@ -35,7 +35,7 @@ const FLOWS = [
   { file: 'web/src/components/ParkCollect.jsx', action: 'Collect' },
   { file: 'web/src/components/ClaimFlow.jsx', action: 'Conquer / Steal / Reinforce' },
   // The Hood sheet was missed the first time round, and it is the one carrying two
-  // actions: the claim and Play Parkemans GO, which was reported invisible.
+  // actions: the claim and the parks button under it, which was reported invisible.
   { file: 'web/src/components/HoodSheet.jsx', action: 'the Hood sheet action' },
 ];
 
@@ -78,13 +78,16 @@ describe('the sheet action footer', () => {
       'installed there is no toolbar, so do not leave a gap that looks like a mistake');
   });
 
-  test('Play Parkemans GO is in the footer too, not below the fold', () => {
+  test('the parks button is in the footer too, not below the fold', () => {
     const src = read('web/src/components/HoodSheet.jsx');
     const footer = src.indexOf('className="sheet-actions"');
-    const parkemans = src.indexOf('Play Parkemans GO');
+    // Matched on the class rather than the label: the label has been reworded once
+    // already (it read "Play Parkemans GO" until the app took that name), and what
+    // matters here is where the button sits.
+    const parks = src.indexOf('btn-parkemans');
     assert.notEqual(footer, -1);
-    assert.notEqual(parkemans, -1);
-    assert.ok(parkemans > footer,
+    assert.notEqual(parks, -1, 'the Hood sheet must still offer its parks');
+    assert.ok(parks > footer,
       'it sits under the claim action, so it is the first thing to fall off the screen');
   });
 

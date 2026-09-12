@@ -1,6 +1,6 @@
 import { NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { useGame } from './lib/store.jsx';
-import { MapIcon, FeedIcon, CupIcon, ChatIcon } from './components/icons.jsx';
+import { MapIcon, FeedIcon, CupIcon, ChatIcon, CardIcon } from './components/icons.jsx';
 import { Spinner } from './components/bits.jsx';
 import MapScreen from './screens/MapScreen.jsx';
 import Feed from './screens/Feed.jsx';
@@ -49,6 +49,10 @@ export default function App() {
 
       <nav className="tabbar">
         <Tab to="/" icon={MapIcon} label="Map" />
+        {/* The collection is the point of the app, so it gets a tab. The badge counts
+            trade offers waiting on you — the binder's own Offers link is the next tap,
+            and it carries the same number. */}
+        <Tab to="/binder" icon={CardIcon} label="Cards" badge={session?.trades_pending ?? 0} />
         <Tab to="/feed" icon={FeedIcon} label="Feed" />
         <Tab to="/standings" icon={CupIcon} label="Standings" />
         <Tab to="/chat" icon={ChatIcon} label="Chat" badge={unreadChat} />
@@ -74,7 +78,7 @@ function Header() {
   return (
     <header className="header">
       <NavLink to="/me" className="brand" style={{ textDecoration: 'none', color: 'inherit' }}>
-        CAPTURE THE <b>HOOD</b>
+        PARKEMANS <b>GO</b>
       </NavLink>
 
       <span className="spacer" />

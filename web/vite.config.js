@@ -31,9 +31,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'hoods.min.geojson', 'fonts/*.woff2'],
       manifest: {
-        name: 'Capture the Hood: Toronto',
-        short_name: 'Capture the Hood',
-        description: 'Conquer Toronto\u2019s 25 Hoods with your camera.',
+        name: 'Parkemans Go',
+        short_name: 'Parkemans',
+        description: 'Collect Toronto\u2019s park signs, and hold its 25 Hoods with your camera.',
         theme_color: '#0B0D10',
         background_color: '#0B0D10',
         display: 'standalone',

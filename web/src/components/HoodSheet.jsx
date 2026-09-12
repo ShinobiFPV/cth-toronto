@@ -146,7 +146,7 @@ export default function HoodSheet({ hoodId, onClose }) {
 
               <Link className="btn btn-block btn-parkemans" to={`/hood/${hood.id}/parks`}
                     onClick={onClose}>
-                <span>Play Parkemans GO</span>
+                <span>Collect parks</span>
                 {hood.parks?.total > 0 && (
                   <span className="btn-sub">
                     {hood.parks.collected}/{hood.parks.total}

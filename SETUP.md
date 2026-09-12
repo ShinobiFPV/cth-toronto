@@ -1,4 +1,4 @@
-# Setting up Capture the Hood on shinobi
+# Setting up Parkemans Go on shinobi
 
 One-time install. After this, `.\deploy.ps1` from ScarlettWitch does everything.
 

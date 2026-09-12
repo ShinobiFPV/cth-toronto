@@ -1,4 +1,4 @@
-// Capture the Hood: Toronto — server entry point.
+// Parkemans Go — server entry point.
 // Express for the API, ws for chat and live map updates, static hosting for the PWA.
 import http from 'node:http';
 import fs from 'node:fs';
@@ -141,7 +141,7 @@ attachWebSocket(server);
 
 server.listen(config.port, config.host, () => {
   const season = activeSeason();
-  console.log(`[cth] Capture the Hood listening on http://${config.host}:${config.port}`);
+  console.log(`[cth] Parkemans Go listening on http://${config.host}:${config.port}`);
   console.log(`[cth] db=${config.dbPath}`);
   console.log(`[cth] media=${config.mediaDir}`);
   console.log(`[cth] season=${season ? season.name : 'none active'}`);
