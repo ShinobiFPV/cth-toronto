@@ -151,9 +151,9 @@ visible first flag is most of what makes it work.
 
 Add `exifr` only if you want the read-only shot-data panel from 1.4.
 
-Port **8094**. (The spec originally called for 8093, but MedFam already listens there
-and it is also `shinnode`'s documented default; 8091 is Site Editor, 8092 is
-shintech-forms.)
+Port **8096**. (This spec originally said 8093, but MedFam already listens there and it
+is `shinnode`'s documented default too. 8094 and 8095 are claimed by imq2's HUD and the
+shinlink bridge. 8096 is free on shinobi and unclaimed across the workspace.)
 
 Media lives at `/srv/cth/media/`. **Put this on external storage if you have it** — a
 season of drone photos will grind the SD card.
@@ -349,11 +349,11 @@ Hoods once they cross 72 hours. It's free points sitting there, and players will
 
 ## 8. Deployment
 
-- systemd unit `cth.service` running `node server/index.js` on port 8094, `Restart=always`.
-- nginx vhost proxying `/` → 8094 with `proxy_set_header Upgrade`/`Connection` for the
+- systemd unit `cth.service` running `node server/index.js` on port 8096, `Restart=always`.
+- nginx vhost proxying `/` → 8096 with `proxy_set_header Upgrade`/`Connection` for the
   WebSocket, and `client_max_body_size 60M` for drone files.
 - Add `cth.shintech.online` as an ingress hostname on the existing Cloudflare Tunnel
-  (`d8cc689f-a605-4400-95b8-b2e3b059e325`) → `http://localhost:8094`. WebSockets traverse
+  (`d8cc689f-a605-4400-95b8-b2e3b059e325`) → `http://localhost:8096`. WebSockets traverse
   the tunnel fine. Note the Cloudflare free-plan 100 MB request body cap — not a problem
   for stills.
 - Nightly `sqlite3 .backup` of the DB plus an rsync of `/srv/cth/media` to wherever your Pi

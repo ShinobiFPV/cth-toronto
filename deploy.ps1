@@ -85,7 +85,7 @@ ssh $Target 'sudo -n systemctl restart cth'
 if ($LASTEXITCODE -ne 0) { Fail 'systemctl restart failed' }
 
 Start-Sleep -Seconds 2
-$health = ssh $Target 'curl -sf --max-time 5 http://127.0.0.1:8094/api/health || echo FAILED'
+$health = ssh $Target 'curl -sf --max-time 5 http://127.0.0.1:8096/api/health || echo FAILED'
 if ($health -match 'FAILED' -or -not $health) {
     Write-Host $health
     ssh $Target 'sudo -n journalctl -u cth -n 40 --no-pager'

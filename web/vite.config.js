@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
 // In dev, Vite serves the UI and proxies everything stateful to the Node server.
-const API = process.env.CTH_DEV_API || 'http://127.0.0.1:8094';
+const API = process.env.CTH_DEV_API || 'http://127.0.0.1:8096';
 
 export default defineConfig({
   plugins: [

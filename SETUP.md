@@ -100,7 +100,7 @@ sudo systemctl enable --now cth
 sudo systemctl enable --now cth-rollover.timer
 sudo systemctl enable --now cth-backup.timer
 systemctl status cth --no-pager
-curl -s localhost:8094/api/health
+curl -s localhost:8096/api/health
 ```
 
 Let `shinobi` restart the service without a password prompt, the same way the other
@@ -128,13 +128,13 @@ cth vhost is named, so it does not compete with either for the default server.
 ## 9 · Cloudflare Tunnel
 
 Add `cth.shintech.online` as an ingress hostname on the existing tunnel
-(`d8cc689f-a605-4400-95b8-b2e3b059e325`), pointing at `http://localhost:8094`.
+(`d8cc689f-a605-4400-95b8-b2e3b059e325`), pointing at `http://localhost:8096`.
 
 In `/etc/cloudflared/config.yml`, **above** the catch-all 404 rule:
 
 ```yaml
   - hostname: cth.shintech.online
-    service: http://localhost:8094
+    service: http://localhost:8096
 ```
 
 ```bash
@@ -172,7 +172,7 @@ capture flow is the only place the game is actually played.
 systemctl status cth
 journalctl -u cth -f
 systemctl list-timers 'cth-*'
-curl -s localhost:8094/api/health
+curl -s localhost:8096/api/health
 
 # What the rollover would do, without doing it
 cd /home/shinobi/cth && node scripts/rollover.js --dry-run
