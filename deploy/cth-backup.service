@@ -4,4 +4,8 @@ Description=Capture the Hood nightly backup
 [Service]
 Type=oneshot
 User=shinobi
+WorkingDirectory=/home/shinobi/cth
+# backup.sh reads CTH_DB / CTH_MEDIA / CTH_BACKUP_DIR from the same .env the app uses,
+# so the backup can never drift away from where the data actually lives.
+EnvironmentFile=/home/shinobi/cth/.env
 ExecStart=/home/shinobi/cth/deploy/backup.sh

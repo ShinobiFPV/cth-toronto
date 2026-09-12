@@ -99,8 +99,9 @@ There is no linter and no CI. Validate frontend changes by running the app
   `deploy.ps1` never copies `node_modules`; it runs `npm ci` on the Pi.
 - **Never back up the database with `cp`.** It runs in WAL mode — a plain copy without
   the `-wal` sidecar silently loses every write since the last checkpoint, and the result
-  opens cleanly while missing a week of claims. Use `sqlite3 .backup`, which
-  `deploy/backup.sh` does.
+  opens cleanly while missing a week of claims. `deploy/backup.sh` uses SQLite's online
+  backup API through better-sqlite3 — not the `sqlite3` CLI, which is not installed on
+  shinobi.
 - **HEIC.** sharp on the Pi usually has no HEIC decoder. The web client converts with
   `heic2any` before upload; the server falls back to `heic-convert`; if both fail the
   player gets a "switch to Most Compatible" message. `heic2any` is 1.3 MB and is

@@ -189,9 +189,11 @@ sudo chown -R shinobi:shinobi /srv/cth
 sudo systemctl start cth
 ```
 
-The backups are made with `sqlite3 .backup`, so each one is already a consistent
-single-file snapshot with no WAL sidecar to reunite. Never back this database up with
-`cp` — in WAL mode that silently drops every write since the last checkpoint.
+Each backup is a consistent single-file snapshot with no WAL sidecar to reunite —
+`deploy/backup.sh` takes it through SQLite's online backup API via better-sqlite3,
+because the `sqlite3` CLI is not installed on this box and node already is. Never back
+this database up with `cp`: in WAL mode that silently drops every write since the last
+checkpoint.
 
 ## Testing HEIC on a real iPhone
 
