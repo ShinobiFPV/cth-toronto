@@ -73,6 +73,41 @@ CREATE TABLE IF NOT EXISTS parks (
 );
 CREATE INDEX IF NOT EXISTS idx_parks_hood ON parks(hood_id, name);
 
+-- ── Trading ────────────────────────────────────────────────────────────────
+-- Cards change hands; scores do not. A claim's points_awarded and xp_awarded stay with
+-- whoever earned them by walking to the park, which is why holding is tracked here
+-- rather than by moving `claims.player_id`. Mutable state alongside the append-only
+-- ledger, exactly like hood_state.
+--
+-- Sparse on purpose: a row exists only for a card that has moved. The holder of a card
+-- is COALESCE(card_holdings.holder_id, claims.player_id), so an untraded card needs no
+-- row and there is nothing to backfill.
+CREATE TABLE IF NOT EXISTS card_holdings (
+  claim_id       INTEGER PRIMARY KEY REFERENCES claims(id),
+  holder_id      INTEGER NOT NULL REFERENCES players(id),
+  from_player_id INTEGER REFERENCES players(id),   -- who handed it over
+  acquired_at    TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_holdings_holder ON card_holdings(holder_id);
+
+-- Offers, append-only apart from their status. One card for one card, or for nothing —
+-- a null want_claim_id is a gift.
+CREATE TABLE IF NOT EXISTS trades (
+  id             INTEGER PRIMARY KEY,
+  from_player_id INTEGER NOT NULL REFERENCES players(id),
+  to_player_id   INTEGER NOT NULL REFERENCES players(id),
+  offer_claim_id INTEGER NOT NULL REFERENCES claims(id),
+  want_claim_id  INTEGER REFERENCES claims(id),
+  message        TEXT,
+  -- pending | accepted | declined | cancelled | stale
+  -- 'stale' is what an offer becomes when one of its cards has moved on since.
+  status         TEXT NOT NULL DEFAULT 'pending',
+  created_at     TEXT NOT NULL,
+  resolved_at    TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_trades_to ON trades(to_player_id, status, id DESC);
+CREATE INDEX IF NOT EXISTS idx_trades_from ON trades(from_player_id, status, id DESC);
+
 CREATE TABLE IF NOT EXISTS seasons (
   id                 INTEGER PRIMARY KEY,
   name               TEXT NOT NULL,

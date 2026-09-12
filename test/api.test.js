@@ -117,6 +117,8 @@ function rewind(hoodId, hours) {
 
 let alice, bob, carol;
 let carolCard;
+let tradeId;
+let aliceId;
 
 /**
  * Seed a park directly. The suite must never need the network, and the importer's
@@ -529,6 +531,131 @@ describe('the API end to end', () => {
     const carols = await bob(`/cards/${carolCard}`);
     assert.notEqual(data.card.card_seed, carols.data.card.card_seed,
       'the art is seeded per player, which is the point of looking at a binder');
+  });
+
+  // ── Trading over HTTP ──
+  //
+  // The one thing these have to prove is that a trade moves a card and leaves every
+  // score exactly where it was. Everything else about trading is convenience; that is
+  // the part that would quietly ruin the game.
+  test('a card can be offered, and the offer lands in the other player\u2019s list', async () => {
+    const { data: players } = await bob('/players');
+    aliceId = players.players.find((p) => p.handle === 'alice').id;
+
+    // Bob collected Far Test Park in the test above, so it is his to offer.
+    const { data: his } = await bob('/cards');
+    const card = his.cards.find((c) => c.park.name === 'Far Test Park');
+
+    const { status, data } = await bob('/trades', {
+      method: 'POST',
+      body: { to_player_id: aliceId, offer_claim_id: card.claim_id, message: 'spare one' },
+    });
+    assert.equal(status, 201);
+    assert.equal(data.trade.status, 'pending');
+    assert.equal(data.trade.is_gift, true, 'no want side means a gift');
+    assert.equal(data.trade.offer.park_name, 'Far Test Park');
+    assert.equal(data.trade.message, 'spare one');
+    tradeId = data.trade.id;
+
+    // Chat is how the other player finds out.
+    const chat = await alice('/chat');
+    assert.ok(chat.data.messages.some((m) => /offered Alice Far Test Park as a gift/.test(m.body)));
+
+    const list = await alice('/trades');
+    assert.equal(list.data.incoming.length, 1);
+    assert.equal(list.data.pending_incoming, 1);
+    assert.equal(list.data.outgoing.length, 0);
+
+    const mine = await alice('/me');
+    assert.equal(mine.data.trades_pending, 1, 'so the app can badge it on load');
+  });
+
+  test('accepting moves the card and leaves every score untouched', async () => {
+    const before = (await alice('/leaderboard')).data.standings
+      .map((r) => `${r.player.handle}:${r.points}:${r.level}`).join('|');
+
+    const { status, data } = await alice(`/trades/${tradeId}/accept`, { method: 'POST' });
+    assert.equal(status, 200);
+    assert.equal(data.trade.status, 'accepted');
+    assert.equal(data.cards[0].park.name, 'Far Test Park');
+    assert.equal(data.cards[0].holder.handle, 'alice', 'she has it now');
+    assert.equal(data.cards[0].player.handle, 'bob', 'he is still the one who went there');
+    assert.equal(data.cards[0].traded, true);
+
+    const after = (await alice('/leaderboard')).data.standings
+      .map((r) => `${r.player.handle}:${r.points}:${r.level}`).join('|');
+    assert.equal(after, before, 'not one point and not one level may move');
+
+    // The card is in her binder and gone from his.
+    const hers = await alice('/cards');
+    assert.ok(hers.data.cards.some((c) => c.park.name === 'Far Test Park'));
+    assert.equal(hers.data.summary.cards_received, 1);
+    assert.equal(hers.data.summary.season_collected, 0, 'she still collected nothing herself');
+
+    const his = await bob('/cards');
+    assert.ok(!his.data.cards.some((c) => c.park.name === 'Far Test Park'));
+    assert.equal(his.data.summary.cards_given_away, 1);
+    assert.equal(his.data.summary.season_points, 95, 'and he keeps the points he walked for');
+
+    const chat = await bob('/chat');
+    assert.ok(chat.data.messages.some((m) => /Alice accepted Far Test Park from Bob/.test(m.body)));
+  });
+
+  test('an offer cannot be accepted twice', async () => {
+    const { status, data } = await alice(`/trades/${tradeId}/accept`, { method: 'POST' });
+    assert.equal(status, 400);
+    assert.equal(data.error, 'TRADE_NOT_PENDING');
+  });
+
+  test('you cannot offer a card you no longer hold', async () => {
+    const { data: his } = await bob('/cards');
+    assert.equal(his.cards.length, 0, 'bob traded his only card away');
+
+    const { status, data } = await bob('/trades', {
+      method: 'POST',
+      body: { to_player_id: aliceId, offer_claim_id: carolCard },
+    });
+    assert.equal(status, 400);
+    assert.equal(data.error, 'CARD_NOT_HELD');
+  });
+
+  test('an offer can be withdrawn by its sender and declined by its recipient', async () => {
+    const { data: hers } = await alice('/cards');
+    const card = hers.cards[0];
+    const { data: players } = await alice('/players');
+    const bobId = players.players.find((p) => p.handle === 'bob').id;
+
+    const sent = await alice('/trades', {
+      method: 'POST', body: { to_player_id: bobId, offer_claim_id: card.claim_id },
+    });
+    assert.equal(sent.status, 201);
+
+    // The wrong player can do neither.
+    const notYours = await carol(`/trades/${sent.data.trade.id}/decline`, { method: 'POST' });
+    assert.equal(notYours.status, 403);
+    assert.equal(notYours.data.error, 'NOT_YOUR_TRADE');
+
+    const withdrawn = await alice(`/trades/${sent.data.trade.id}`, { method: 'DELETE' });
+    assert.equal(withdrawn.status, 200);
+    assert.equal(withdrawn.data.trade.status, 'cancelled');
+
+    // And the card never moved.
+    const still = await alice('/cards');
+    assert.ok(still.data.cards.some((c) => c.claim_id === card.claim_id));
+  });
+
+  test('trading with yourself is refused', async () => {
+    const { data: hers } = await alice('/cards');
+    const { data: players } = await alice('/players');
+    const { status, data } = await alice('/trades', {
+      method: 'POST',
+      body: {
+        to_player_id: players.players.find((p) => p.handle === 'alice').id,
+        offer_claim_id: hers.cards[0].claim_id,
+      },
+    });
+    assert.equal(status, 400);
+    assert.equal(data.error, 'TRADE_WITH_SELF');
   });
 
   test('a binder for a player who does not exist is a 404, not an empty one', async () => {

@@ -11,6 +11,7 @@ import Login from './screens/Login.jsx';
 import Profile from './screens/Profile.jsx';
 import Parkemans from './screens/Parkemans.jsx';
 import Binder from './screens/Binder.jsx';
+import Trades from './screens/Trades.jsx';
 
 export default function App() {
   const { session, booting, unreadChat } = useGame();
@@ -41,6 +42,7 @@ export default function App() {
           <Route path="/hood/:id/parks" element={<Parkemans />} />
           <Route path="/binder" element={<Binder />} />
           <Route path="/binder/:playerId" element={<Binder />} />
+          <Route path="/trades" element={<Trades />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>

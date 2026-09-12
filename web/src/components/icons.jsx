@@ -38,6 +38,11 @@ export const FlagIcon = (p) => svg(<>
   <path d="M5 4h13l-3 4 3 4H5z" />
 </>, p);
 
+// Two cards passing each other: arrows out and back.
+export const SwapIcon = (p) => svg(<>
+  <path d="M4 8h13l-4-4M20 16H7l4 4" />
+</>, p);
+
 // A collectable card: a frame, a window for the photo, and a line of text under it.
 export const CardIcon = (p) => svg(<>
   <rect x="4" y="3" width="16" height="18" />

@@ -17,6 +17,7 @@ import { hoodRoutes } from './routes/hoods.js';
 import { claimRoutes } from './routes/claims.js';
 import { miscRoutes } from './routes/misc.js';
 import { parkRoutes } from './routes/parks.js';
+import { tradeRoutes } from './routes/trades.js';
 import { activeSeason } from './lib/seasons.js';
 
 await ensureMediaDirs();
@@ -45,6 +46,7 @@ app.use('/api/hoods', hoodRoutes);
 app.use('/api/claims', claimRoutes);
 app.use('/api', miscRoutes);
 app.use('/api', parkRoutes);
+app.use('/api', tradeRoutes);
 
 // Photos are behind the login. Originals in particular exist for dispute review, and
 // nothing in this game should be linkable to someone who is not playing it.

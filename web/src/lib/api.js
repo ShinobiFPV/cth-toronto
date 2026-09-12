@@ -79,6 +79,14 @@ export const api = {
   },
   card: (claimId) => request(`/cards/${claimId}`),
 
+  // Trading. A trade moves the card and never a score, so none of this touches
+  // /leaderboard — see the spec's §1.8a.
+  trades: () => request('/trades'),
+  offerTrade: (body) => request('/trades', { method: 'POST', body }),
+  acceptTrade: (id) => request(`/trades/${id}/accept`, { method: 'POST' }),
+  declineTrade: (id) => request(`/trades/${id}/decline`, { method: 'POST' }),
+  cancelTrade: (id) => request(`/trades/${id}`, { method: 'DELETE' }),
+
   // chat
   chat: (before) => request(`/chat${before ? `?before=${before}` : ''}`),
   say: (body) => request('/chat', { method: 'POST', body: { body } }),

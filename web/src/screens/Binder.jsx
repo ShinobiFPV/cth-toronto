@@ -5,12 +5,13 @@
 // so a collection is something to show off rather than something to protect, and
 // looking at what everybody else pulled is most of why a card game is fun.
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import { useGame } from '../lib/store.jsx';
-import { BackIcon, CloseIcon } from '../components/icons.jsx';
-import { Spinner } from '../components/bits.jsx';
+import { BackIcon, CloseIcon, SwapIcon } from '../components/icons.jsx';
+import { Banner, Spinner } from '../components/bits.jsx';
 import ParkCard from '../components/ParkCard.jsx';
+import TradeOffer from '../components/TradeOffer.jsx';
 
 const RARITY_ORDER = ['legendary', 'rare', 'uncommon', 'common'];
 
@@ -23,6 +24,8 @@ export default function Binder() {
   const [scope, setScope] = useState('season');
   const [zoom, setZoom] = useState(null);
   const [rarity, setRarity] = useState('all');
+  const [offering, setOffering] = useState(null);
+  const [note, setNote] = useState(null);
 
   const viewing = playerId ? Number(playerId) : null;
   const isMine = viewing == null || viewing === me?.id;
@@ -54,7 +57,16 @@ export default function Binder() {
         <button className="btn btn-sm btn-ghost" onClick={() => navigate(-1)}>
           <BackIcon style={{ width: 14, height: 14 }} /> Back
         </button>
+        <span className="grow" />
+        <Link className="btn btn-sm btn-ghost" to="/trades">
+          <SwapIcon style={{ width: 14, height: 14 }} /> Offers
+          {(session?.trades_pending ?? 0) > 0 && (
+            <span className="chip chip-accent">{session.trades_pending}</span>
+          )}
+        </Link>
       </div>
+
+      {note && <Banner kind="ok">{note}</Banner>}
 
       <h1>
         {isMine ? 'Binder' : `${data?.player?.display_name ?? 'Their'}’s binder`}
@@ -88,18 +100,30 @@ export default function Binder() {
 
       {s && (
         <div className="sheet" style={{ marginBottom: '0.9rem' }}>
+          {/* Collected and held are different questions once cards can be traded, and
+              the labels have to say which is which — otherwise a binder holding a
+              traded card reads as "0 collected" above a grid with a card in it. */}
           <div className="row">
-            <span className="grow dim">{s.season?.name ?? 'This season'}</span>
+            <span className="grow dim">Collected {s.season?.name ?? 'this season'}</span>
             <b className="num">{s.season_collected}</b>
             <span className="tiny dim">/ {s.parks_total} parks</span>
           </div>
           <div className="row">
-            <span className="grow dim">Points from parks this season</span>
+            <span className="grow dim">Points earned from parks, this season</span>
             <b className="num">{s.season_points}</b>
           </div>
           <div className="row">
-            <span className="grow dim">Distinct parks, all time</span>
+            <span className="grow dim">Distinct parks collected, all time</span>
             <b className="num">{s.distinct_parks_all_time}</b>
+          </div>
+          <div className="row">
+            <span className="grow dim">
+              Cards on the shelf
+              {(s.cards_received > 0 || s.cards_given_away > 0) && (
+                <span className="tiny"> · {s.cards_received} in, {s.cards_given_away} out</span>
+              )}
+            </span>
+            <b className="num">{s.cards_held}</b>
           </div>
           {Object.keys(s.by_rarity ?? {}).length > 0 && (
             <div className="row" style={{ gap: '0.5rem', flexWrap: 'wrap' }}>
@@ -139,18 +163,50 @@ export default function Binder() {
 
       <div className="card-grid">
         {cards.map((c) => (
-          <ParkCard key={c.claim_id} card={c} compact onClick={() => setZoom(c)} />
+          <div key={c.claim_id} className="card-slot">
+            <ParkCard card={c} compact onClick={() => setZoom(c)} />
+            {/* Whose feet got this card. A traded card keeps the collector's name on
+                it, because that is who actually went there. */}
+            {c.traded && (
+              <span className="card-from tiny" title={`Collected by ${c.player.display_name}`}>
+                <i className="dot" style={{ background: c.player.colour }} />
+                {c.player.display_name}
+              </span>
+            )}
+          </div>
         ))}
       </div>
 
       {zoom && (
         <div className="lightbox" onClick={() => setZoom(null)} role="dialog" aria-modal="true">
-          <ParkCard card={zoom} />
+          <div onClick={(e) => e.stopPropagation()} className="stack" style={{ alignItems: 'center' }}>
+            <ParkCard card={zoom} />
+            {/* Only your own binder offers a card, and only when there is somebody to
+                offer it to. */}
+            {isMine && players.length > 1 && (
+              <button className="btn btn-primary" onClick={() => { setOffering(zoom); setZoom(null); }}>
+                <SwapIcon style={{ width: 16, height: 16 }} /> Offer this card
+              </button>
+            )}
+          </div>
           <button className="btn btn-sm" style={{ position: 'fixed', top: '1rem', right: '1rem' }}
                   onClick={() => setZoom(null)} aria-label="Close">
             <CloseIcon style={{ width: 16, height: 16 }} />
           </button>
         </div>
+      )}
+
+      {offering && (
+        <TradeOffer
+          card={offering}
+          onClose={() => setOffering(null)}
+          onSent={(trade) => {
+            setOffering(null);
+            setNote(trade.is_gift
+              ? `${trade.offer.park_name} offered to ${trade.to.display_name}.`
+              : `Offer sent to ${trade.to.display_name}.`);
+          }}
+        />
       )}
     </div>
   );

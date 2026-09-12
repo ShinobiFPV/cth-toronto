@@ -96,6 +96,13 @@ export default function Profile() {
         <span className="tiny dim">your cards, and everybody else's</span>
       </Link>
 
+      <Link className="btn btn-block" to="/trades" style={{ justifyContent: 'space-between' }}>
+        <span>Card offers</span>
+        {(session?.trades_pending ?? 0) > 0
+          ? <span className="chip chip-accent">{session.trades_pending} waiting</span>
+          : <span className="tiny dim">trade cards, not points</span>}
+      </Link>
+
       <div>
         <h2 style={{ marginBottom: '0.5rem' }}>Your Hoods</h2>
         {!mine.length && <div className="empty">None yet. The map is right there.</div>}

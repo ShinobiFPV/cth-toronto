@@ -320,6 +320,12 @@ export function playerSummary(playerId, at = nowIso()) {
     total_points: totalPts,
     hoods_held: holdings,
     reinforce_ready: readyRow,
+    // Trade offers waiting on this player. Lives here so the app knows about them on
+    // load — with six players and no push notifications, an unread count is the only
+    // way somebody finds out an offer arrived while they were not looking.
+    trades_pending: db.prepare(
+      "SELECT COUNT(*) AS n FROM trades WHERE to_player_id = ? AND status = 'pending'")
+      .get(playerId).n,
     // Lifetime, across every season. The one number here that never resets.
     xp: progressFor(playerId),
   };

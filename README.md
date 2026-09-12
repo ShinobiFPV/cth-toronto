@@ -105,6 +105,23 @@ different cards. Legendaries get a slow sheen, because obviously they do.
   <img src="docs/screenshots/06-binder.png" width="300" alt="The binder: a grid of collected park cards">
 </p>
 
+## Trading
+
+Got three Corner Parkettes and no Rouge Park? Open your binder, tap a card, offer it to
+somebody. Ask for one of theirs in return, or just give it away — a gift is a button,
+not a hidden state.
+
+**Trading moves the card, not the score.** Whoever actually walked to the park keeps its
+points and its XP forever, however many hands the card goes through afterwards. So there
+is no way to launder points, no way to buy a season, and no reason to be precious about
+a spare. It's your shelf you're rearranging, not the table.
+
+Offers show up in chat, because that's how anybody finds out anything around here. A
+card keeps the collector's name printed on it, so the Rouge Park legendary in your binder
+will always say who got on the bus for it.
+
+---
+
 **Everybody's binder is open.** Tap a park collection in the feed and you get the card it
 printed; tap a name in the standings and you get their whole binder. There's nothing to
 hide — nobody competes over parks, so a card in somebody else's collection costs you

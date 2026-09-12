@@ -68,6 +68,22 @@ changing one, read the test first — it says why.
   collecting a park takes nothing from anybody. Once-per-season is enforced both in
   `evaluateCollect()` and by a partial unique index that excludes reverted rows, so a
   claim the group threw out frees the park up again.
+- **A trade moves the card and never the score.** `points_awarded` and `xp_awarded` stay
+  on the claim with whoever walked to the park, and `claims.player_id` is never
+  reassigned. Holding lives in `card_holdings` — sparse, so the holder of a card is
+  `COALESCE(card_holdings.holder_id, claims.player_id)` and an untraded card has no row
+  at all. If you ever find yourself moving a score to follow a card, stop: that turns
+  trading into a points laundry, and XP is defined as activity, which is not
+  transferable. `test/trades.test.js` asserts points, XP and the whole leaderboard are
+  byte-identical across a trade.
+- **A binder lists holdings; the summary counts collections.** `cardsOf()` filters on
+  the holder, `collectionSummary()`'s `season_collected` / `season_points` count claims.
+  Both are correct and they are different questions — the UI labels them, or a binder
+  holding a traded card reads as "0 collected" above a card.
+- **Accepting a trade re-checks both holdings inside its transaction**, like
+  `commitClaim` re-runs `evaluateClaim`. The stale marking deliberately happens
+  *outside* that transaction: better-sqlite3 rolls a transaction back when it throws, so
+  marking and then throwing in the same one silently loses the mark. A test caught that.
 - **Cards and binders are public, deliberately.** `GET /cards?player=` reads anybody's
   binder and `GET /cards/:claimId` is not scoped to the owner. That is not an oversight:
   nobody competes over parks, so a card takes nothing from anybody, and comparing pulls
@@ -142,7 +158,7 @@ changing one, read the test first — it says why.
 ## Testing
 
 ```bash
-npm test        # 201 tests, no server needed, touches nothing in data/
+npm test        # 233 tests, no server needed, touches nothing in data/
 ```
 
 - `test/game.test.js` — the rules, driving the game module directly. Time is simulated by
@@ -151,6 +167,9 @@ npm test        # 201 tests, no server needed, touches nothing in data/
   walks the whole thing over HTTP, including real JPEGs through the sharp pipeline.
 - `test/parks.test.js` — Parkemans GO. Seeds four parks by hand rather than importing
   1,513, so the suite never touches the network.
+- `test/trades.test.js` — trading. The first suite in it exists only to assert that a
+  trade changes no points, no XP and no standings; the rest covers the rules, stale
+  offers and the inbox.
 - `test/xp.test.js` — the level curve (asserted to invert exactly across 200 levels), the
   XP schedule, and that XP survives season rollovers, reversals and lost territory.
 - `test/reproject.test.js` — the importer's coordinate maths, against fixtures lifted

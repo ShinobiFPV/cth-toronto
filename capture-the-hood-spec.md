@@ -248,6 +248,48 @@ What is left is the part of a card game that is actually fun — seeing what eve
 pulled. Two players who collect the same park in the same season get visibly different
 cards, so a shared park is a comparison rather than a duplicate.
 
+### 1.8a Trading
+
+Players trade cards. **A trade moves the card and never the score**, and everything else
+about the design follows from that one line.
+
+- `points_awarded` and `xp_awarded` stay on the claim, with whoever earned them by
+  walking to the park. If they moved, six friends handing each other 100-pointers would
+  be a points laundry and the season table would stop meaning anything. XP is worse
+  still: §1.9 defines it as how long you have been doing this, and trading away your own
+  activity is not a coherent idea.
+- So holding is tracked in `card_holdings`, not by reassigning `claims.player_id` —
+  mutable state beside the append-only ledger, the same relationship `hood_state` has
+  with `claims`. The table is **sparse**: a row exists only for a card that has moved,
+  so the holder of a card is `COALESCE(card_holdings.holder_id, claims.player_id)`.
+- **A binder shows what you hold; the summary shows what you collected.** After a trade
+  those are different questions, and both are worth showing — one is your shelf, the
+  other is what scored. A card keeps the collector's name on it, because that is who
+  actually went there.
+- **Duplicates are allowed.** In a card game duplicates are the entire currency of
+  trading. What stays capped is *collecting*: still once per park per season per player.
+
+An offer is one card for one card, or one card for nothing, which is a **gift**. Nothing
+is escrowed — both cards stay where they are until the offer is accepted, and accepting
+re-checks both holdings inside its transaction. The preflight is a courtesy, the accept
+is the ruling, exactly as with a claim. An offer whose cards have moved on becomes
+**stale** rather than sitting pending forever.
+
+| Code | Condition |
+|---|---|
+| `CARD_NOT_HELD` | offering a card you do not hold, or asking for one they do not |
+| `CARD_REVERTED` | the group threw that photo out, so it is not a card |
+| `TRADE_WITH_SELF` | not a trade |
+| `TRADE_ALREADY_OFFERED` | that exact offer is already on the table |
+| `TRADE_NOT_PENDING` | already accepted, declined, withdrawn or lapsed |
+| `NOT_YOUR_TRADE` | accepting or declining somebody else's offer |
+| `TRADE_STALE` | a card in the offer has since moved on |
+
+Offers and acceptances post to chat, because chat is the activity feed and, for six
+players with no push notifications, it is also how anybody learns an offer is waiting.
+Declines and withdrawals do not: a public "X said no to Y" is not something this game
+needs.
+
 ### The card
 
 Each collection renders a collectable card — the photo of the sign in the window, the
@@ -494,6 +536,18 @@ photos(
   created_at
 )
 
+card_holdings(                   -- §1.8a: who holds a traded card. Sparse: a row
+  claim_id, holder_id,           --   exists only for a card that has moved, so the
+  from_player_id, acquired_at    --   holder is COALESCE(holder_id, claims.player_id).
+)
+
+trades(                          -- offers. Append-only apart from status.
+  id, from_player_id, to_player_id,
+  offer_claim_id, want_claim_id, -- a null want side is a gift
+  message, status,               -- pending | accepted | declined | cancelled | stale
+  created_at, resolved_at
+)
+
 claims(                          -- append-only ledger; never UPDATE points
   id, hood_id, player_id, season_id, photo_id,
   claim_kind,                    -- conquer | steal | reinforce | reversal
@@ -552,6 +606,12 @@ GET    /api/parks/:id/check       dry run
 POST   /api/parks/:id/collect     multipart: photo of the sign, caption (optional)
 GET    /api/cards?season=&player= a binder — yours by default, anybody's with ?player=
 GET    /api/cards/:claimId        one card, whoever collected it (the feed opens these)
+
+GET    /api/trades                 offers you are part of, incoming and outgoing
+POST   /api/trades                 to_player_id, offer_claim_id, want_claim_id?, message?
+POST   /api/trades/:id/accept      recipient only; re-checks both holdings (§1.8a)
+POST   /api/trades/:id/decline     recipient only
+DELETE /api/trades/:id             withdraw your own offer
 
 GET    /api/feed                   recent claims, paginated
 PUT    /api/claims/:id/caption     caption — author only; empty clears it (§1.4a)

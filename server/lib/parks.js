@@ -214,6 +214,8 @@ export const commitCollect = db.transaction(({ parkId, playerId, photo, caption 
   };
 });
 
+// `holder_id` is COALESCE(the holdings override, whoever collected it) — see
+// lib/trades.js. A card that has never been traded has no holdings row at all.
 const CARD_SELECT = `
   SELECT c.id AS claim_id, c.player_id, c.season_id, c.points_awarded, c.card_seed,
          c.created_at, c.status, c.flag_count,
@@ -222,13 +224,18 @@ const CARD_SELECT = `
          h.name AS hood_name,
          s.name AS season_name,
          pl.handle, pl.display_name, pl.colour,
-         ph.path_thumb, ph.path_display, ph.caption
+         ph.path_thumb, ph.path_display, ph.caption,
+         COALESCE(hold.holder_id, c.player_id) AS holder_id,
+         hold.acquired_at,
+         hd.handle AS holder_handle, hd.display_name AS holder_name, hd.colour AS holder_colour
     FROM claims c
     JOIN parks   p  ON p.id = c.park_id
     JOIN players pl ON pl.id = c.player_id
     LEFT JOIN hoods   h  ON h.id = p.hood_id
     LEFT JOIN seasons s  ON s.id = c.season_id
-    LEFT JOIN photos  ph ON ph.id = c.photo_id`;
+    LEFT JOIN photos  ph ON ph.id = c.photo_id
+    LEFT JOIN card_holdings hold ON hold.claim_id = c.id
+    LEFT JOIN players hd ON hd.id = hold.holder_id`;
 
 /**
  * How many parks are in the set. Printed on every card as "#0123/1513", so it is read
@@ -256,7 +263,15 @@ export function shapeCard(r) {
       distance_km: r.distance_km,
       set_number: r.set_number,
     },
+    // Who photographed the sign. Printed on the card, and never changes — a trade
+    // moves the card, not the credit for having gone there.
     player: { id: r.player_id, handle: r.handle, display_name: r.display_name, colour: r.colour },
+    // Who has it now. Equal to `player` on a card that has never been traded.
+    holder: r.holder_id === r.player_id
+      ? { id: r.player_id, handle: r.handle, display_name: r.display_name, colour: r.colour }
+      : { id: r.holder_id, handle: r.holder_handle, display_name: r.holder_name, colour: r.holder_colour },
+    traded: r.holder_id !== r.player_id,
+    acquired_at: r.acquired_at ?? null,
     season: { id: r.season_id, name: r.season_name },
     points: r.points_awarded,
     rarity: rarity.key,
@@ -277,12 +292,19 @@ export const getCardByClaim = (claimId) => {
   return row ? shapeCard(row) : null;
 };
 
-/** A player's binder. Newest first, optionally scoped to one season. */
+/**
+ * A player's binder: the cards they **hold**, which after a trade is not the same set
+ * as the cards they collected. Newest first, optionally scoped to one season.
+ *
+ * Scored totals are a separate question and stay with the collector — see
+ * collectionSummary, which counts claims rather than holdings.
+ */
 export function cardsOf(playerId, { seasonId = null, limit = 500 } = {}) {
+  const held = "COALESCE(hold.holder_id, c.player_id) = ?";
   const rows = seasonId
-    ? db.prepare(`${CARD_SELECT} WHERE c.player_id = ? AND c.season_id = ? AND c.status != 'reverted'
+    ? db.prepare(`${CARD_SELECT} WHERE ${held} AND c.season_id = ? AND c.status != 'reverted'
                   ORDER BY c.id DESC LIMIT ?`).all(playerId, seasonId, limit)
-    : db.prepare(`${CARD_SELECT} WHERE c.player_id = ? AND c.status != 'reverted'
+    : db.prepare(`${CARD_SELECT} WHERE ${held} AND c.status != 'reverted'
                   ORDER BY c.id DESC LIMIT ?`).all(playerId, limit);
   return rows.map(shapeCard);
 }
@@ -303,9 +325,14 @@ export function collectionSummary(playerId, at = nowIso()) {
       FROM claims
      WHERE player_id = ? AND park_id IS NOT NULL AND status != 'reverted'`).get(playerId);
 
+  // Held rather than collected, because these chips label the card grid and the grid
+  // shows holdings. The collected figures above are the ones that scored.
   const byRarity = db.prepare(`
-    SELECT p.value FROM claims c JOIN parks p ON p.id = c.park_id
-     WHERE c.player_id = ? AND c.park_id IS NOT NULL AND c.status != 'reverted'
+    SELECT p.value FROM claims c
+      JOIN parks p ON p.id = c.park_id
+      LEFT JOIN card_holdings hold ON hold.claim_id = c.id
+     WHERE COALESCE(hold.holder_id, c.player_id) = ?
+       AND c.park_id IS NOT NULL AND c.status != 'reverted'
        ${season ? 'AND c.season_id = ?' : ''}`)
     .all(...(season ? [playerId, season.id] : [playerId]))
     .reduce((acc, r) => {
@@ -313,6 +340,22 @@ export function collectionSummary(playerId, at = nowIso()) {
       acc[key] = (acc[key] ?? 0) + 1;
       return acc;
     }, {});
+
+  // Holdings, which trading makes a different question from collections. Kept
+  // separate on purpose: the collected numbers are the ones that scored.
+  const held = db.prepare(`
+    SELECT COUNT(*) AS n FROM claims c
+      LEFT JOIN card_holdings hold ON hold.claim_id = c.id
+     WHERE COALESCE(hold.holder_id, c.player_id) = ?
+       AND c.park_id IS NOT NULL AND c.status != 'reverted'`).get(playerId).n;
+
+  const traded = db.prepare(`
+    SELECT
+      (SELECT COUNT(*) FROM card_holdings h JOIN claims c ON c.id = h.claim_id
+        WHERE h.holder_id = ? AND c.player_id != ? AND c.status != 'reverted') AS received,
+      (SELECT COUNT(*) FROM card_holdings h JOIN claims c ON c.id = h.claim_id
+        WHERE c.player_id = ? AND h.holder_id != ? AND c.status != 'reverted') AS given`)
+    .get(playerId, playerId, playerId, playerId);
 
   return {
     parks_total: total,
@@ -322,6 +365,9 @@ export function collectionSummary(playerId, at = nowIso()) {
     distinct_parks_all_time: allTime.parks,
     all_time_points: allTime.pts,
     by_rarity: byRarity,
+    cards_held: held,
+    cards_received: traded.received,
+    cards_given_away: traded.given,
     season,
   };
 }

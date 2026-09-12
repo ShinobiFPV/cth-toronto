@@ -1134,3 +1134,68 @@ button, input, select, textarea { font: inherit; color: inherit; }
 }
 .caption-input:focus { border-color: var(--accent); outline: none; }
 .caption-input::placeholder { color: var(--dim); font-style: normal; }
+
+/* ── Trading ────────────────────────────────────────────────────────────────
+   Cards change hands; scores do not. The UI leans on that being obvious, so an
+   offer is laid out as two cards facing each other rather than as a form. */
+
+.trade-row .sheet-head { padding: 0.6rem 0.7rem; }
+.trade-row.resolved { opacity: 0.65; }
+
+.trade-swap {
+  display: flex;
+  align-items: stretch;
+  gap: 0.5rem;
+}
+
+/* Each side of a swap is a button, because tapping it shows you the actual card. */
+.trade-card {
+  flex: 1 1 0;
+  min-width: 0;
+  display: grid;
+  gap: 0.1rem;
+  padding: 0.5rem 0.6rem;
+  text-align: left;
+  background: var(--bg);
+  border: 2px solid var(--border);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+.trade-card:hover, .trade-card:focus-visible { border-color: var(--accent); }
+.trade-card b { font-size: 0.85rem; }
+
+.trade-arrow {
+  align-self: center;
+  flex: none;
+  font-size: 1.1rem;
+  color: var(--dim);
+}
+
+/* Picking what you want back, out of their binder. */
+.trade-pick {
+  width: 100%;
+  background: none;
+  border: 0;
+  border-bottom: 1px solid var(--rule);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+.trade-pick:last-child { border-bottom: 0; }
+.trade-pick.picked { background: rgba(var(--accent-rgb), 0.12); }
+.trade-pick:hover:not(.picked) { background: var(--surface-2); }
+
+/* A card in the grid that somebody else photographed, with their name under it. */
+.card-slot { position: relative; display: grid; gap: 0.2rem; }
+.card-from {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: var(--dim);
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.card-from .dot { width: 6px; height: 6px; }
