@@ -65,7 +65,7 @@ hoodRoutes.post('/:id/claim', requireAuth, upload.single('photo'), async (req, r
 
     photo = await processUpload(req.file);
     const { result, levelUp, progress } = withLevelUp(req.player.id, () => commitClaim({
-      hoodId, playerId: req.player.id, declaredType, photo,
+      hoodId, playerId: req.player.id, declaredType, photo, caption: req.body?.caption,
     }));
     const { claim, xp } = result;
 

@@ -92,6 +92,7 @@ CREATE TABLE IF NOT EXISTS photos (
   height        INTEGER,
   bytes         INTEGER,
   exif_json     TEXT,                 -- display only; the server never reads it back
+  caption       TEXT,                 -- player-authored flavour; editable, never scored
   created_at    TEXT NOT NULL
 );
 

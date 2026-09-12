@@ -4,12 +4,14 @@ import { useEffect, useRef, useState } from 'react';
 import { uploadPark } from '../lib/api.js';
 import { CameraIcon, CloseIcon } from './icons.jsx';
 import { Banner } from './bits.jsx';
+import { CAPTION_MAX } from './Caption.jsx';
 
 const HEIC = /\.(heic|heif)$/i;
 const isHeic = (f) => HEIC.test(f.name || '') || /image\/hei[cf]/i.test(f.type || '');
 
 export default function ParkCollect({ park, onClose, onDone }) {
   const [file, setFile] = useState(null);
+  const [caption, setCaption] = useState('');
   const [preview, setPreview] = useState(null);
   const [converting, setConverting] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -55,6 +57,7 @@ export default function ParkCollect({ park, onClose, onDone }) {
     try {
       const form = new FormData();
       form.append('photo', file, file.name);
+      if (caption.trim()) form.append('caption', caption.trim());
       const res = await uploadPark(park.id, form, setProgress);
       onDone?.(res.card, res);
     } catch (err) {
@@ -111,6 +114,24 @@ export default function ParkCollect({ park, onClose, onDone }) {
 
         <input ref={cameraInput} type="file" accept="image/*" capture="environment" onChange={pick} hidden />
         <input ref={libraryInput} type="file" accept="image/*" onChange={pick} hidden />
+
+        {/* On a card this becomes the flavour text along the bottom edge. */}
+        {preview && (
+          <div>
+            <input
+              className="caption-input"
+              value={caption}
+              maxLength={CAPTION_MAX}
+              placeholder="Flavour text for the card (optional)"
+              disabled={busy}
+              onChange={(e) => setCaption(e.target.value)}
+            />
+            <div className="cluster tiny dim" style={{ marginTop: '0.3rem' }}>
+              <span className="grow">Printed on the card, under the park.</span>
+              <span>{CAPTION_MAX - caption.length}</span>
+            </div>
+          </div>
+        )}
 
         {error && <Banner kind="bad">{error}</Banner>}
 

@@ -777,6 +777,14 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .pcard-where { text-transform: uppercase; letter-spacing: 0.06em; opacity: 0.9; }
 .pcard-addr { opacity: 0.6; }
 .pcard-compact .pcard-body { font-size: 0.45rem; }
+/* Flavour text: italic, boxed off by a hairline, like the real thing. */
+.pcard-flavour {
+  margin-top: 3px;
+  padding-top: 3px;
+  border-top: 1px solid currentColor;
+  font-style: italic;
+  opacity: 0.75;
+}
 
 .pcard-foot {
   display: flex;
@@ -993,3 +1001,66 @@ button, input, select, textarea { font: inherit; color: inherit; }
 @media (prefers-reduced-motion: reduce) {
   .swatch { transition: none; }
 }
+
+/* ── Captions ──────────────────────────────────────────────────────────────
+   A photo's one line of prose, in the feed, on the Hood sheet, and in a Hood's
+   history. Italic to read as the player's own voice rather than as game copy, and
+   quiet enough that a feed of uncaptioned claims does not look like it is missing
+   something. */
+
+.caption {
+  margin: 0.35rem 0 0;
+  font-style: italic;
+  line-height: 1.4;
+  color: var(--text);
+  /* The hairline does the work a quotation mark would, without the punctuation
+     landing in the middle of somebody's joke. */
+  border-left: 2px solid var(--accent);
+  padding-left: 0.55rem;
+}
+
+/* The pencil rides at the end of the caption itself, so it never takes a row of its
+   own in the feed. */
+.caption-pencil {
+  margin-left: 0.4rem;
+  padding: 0.1rem 0.2rem;
+  background: none;
+  border: 0;
+  color: var(--dim);
+  cursor: pointer;
+  vertical-align: baseline;
+}
+.caption-pencil:hover, .caption-pencil:focus-visible { color: var(--accent-text); }
+
+/* The empty state on your own photo: an invitation, not a nag. */
+.caption-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-top: 0.35rem;
+  padding: 0.2rem 0;
+  background: none;
+  border: 0;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--dim);
+  cursor: pointer;
+}
+.caption-add:hover, .caption-add:focus-visible { color: var(--accent-text); }
+
+.caption-edit { margin-top: 0.4rem; display: grid; gap: 0.4rem; }
+
+.caption-input {
+  width: 100%;
+  min-height: var(--tap);
+  padding: 0.5rem 0.7rem;
+  background: var(--bg);
+  color: var(--text);
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  font: inherit;
+  font-style: italic;
+}
+.caption-input:focus { border-color: var(--accent); outline: none; }
+.caption-input::placeholder { color: var(--dim); font-style: normal; }

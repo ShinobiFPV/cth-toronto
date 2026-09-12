@@ -5,6 +5,7 @@ import { api } from '../lib/api.js';
 import { useGame } from '../lib/store.jsx';
 import { KIND_VERB } from '../lib/game.js';
 import { Subject, PlayerName, FlagButton, When, Spinner, Lightbox } from '../components/bits.jsx';
+import Caption from '../components/Caption.jsx';
 
 export default function Feed() {
   const { player, hoods } = useGame();
@@ -61,6 +62,8 @@ export default function Feed() {
               {c.replaced_photo_type
                 && <span className="tiny dim">was {c.replaced_photo_type}</span>}
             </div>
+
+            <Caption claim={c} onChanged={replace} />
 
             <div className="cluster" style={{ marginTop: '0.35rem' }}>
               <FlagButton claim={c} onChanged={(res) => replace(res.claim)} />

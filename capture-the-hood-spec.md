@@ -134,6 +134,30 @@ entirely — it just gives flaggers something concrete to argue about, mostly ab
 "recent" and "inside the Hood" rules, since the counter layer no longer cares what took
 the shot. Cheap to add, easy to cut.
 
+### 1.4a Captions
+
+Every uploaded photo can carry one line of the player's own prose — territory claims and
+Parkemon collections alike. Optional, free text, capped at `CAPTION_MAX_LENGTH` (200).
+
+- **Written at upload time**, in the capture sheet once there is a photo to caption, and
+  **editable afterwards by its author** — the only thing in the game a player can change
+  after the fact. A caption you can't fix a typo in is a caption nobody writes.
+- **It goes to chat with the claim**, quoted like a flag's reason. Chat is the activity
+  feed (§7); announcing the claim but dropping the one line the player actually wrote
+  would be the wrong half. An *edit* posts nothing — an edit is not an event.
+- **On a park card it is the flavour text**, along the bottom edge, where a real
+  collectable card puts it.
+- Whitespace is collapsed to a single line, because a caption renders next to a thumbnail
+  and inside a one-line chat message. Empty is stored as `NULL`, never as `''`.
+- It **scores nothing**. No points, no XP, no bearing on ownership, cooldowns, or the
+  counter rule. Nothing in the state machine reads it.
+
+Stored on `photos.caption`, not on `claims`. The ledger is append-only and only ever
+UPDATEs `status` and `flag_count`; an editable field has no business in it. A reversal row
+carries no photo, so it cannot be captioned (`NO_PHOTO`), and only the author can write
+one (`NOT_YOUR_CLAIM`) — including on a claim that has since been superseded or reverted,
+since the photo is still theirs and still in the feed.
+
 ### 1.5 Seasons
 
 Four seasons. Suggested schedule (meteorological seasons, starting now):
@@ -457,6 +481,8 @@ photos(
   id, player_id, photo_type,     -- landmark | person | animal (the declared subject)
   path_original, path_display, path_thumb,
   exif_json,                     -- optional, display only, nullable
+  caption,                       -- §1.4a: the player's own line. Editable, so it lives
+                                 --   here and not on the append-only claims row.
   created_at
 )
 
@@ -505,7 +531,7 @@ GET    /api/me
 
 GET    /api/hoods                  25 Hoods + owner, photo type, value, lock + reinforce state
 GET    /api/hoods/:id              detail + claim history + current photo
-POST   /api/hoods/:id/claim        multipart: photo, declared_type
+POST   /api/hoods/:id/claim        multipart: photo, declared_type, caption (optional)
 GET    /api/hoods/:id/history
 
 GET    /api/leaderboard?season=    current season standings (carries xp/level/title)
@@ -515,16 +541,17 @@ GET    /api/seasons                schedule + which is active
 GET    /api/hoods/:id/parks        Parkemon: every park in a Hood + your collection state
 GET    /api/parks/:id             one park + whether you can collect it
 GET    /api/parks/:id/check       dry run
-POST   /api/parks/:id/collect     multipart: photo of the sign
+POST   /api/parks/:id/collect     multipart: photo of the sign, caption (optional)
 GET    /api/cards?season=         your binder
 GET    /api/cards/:claimId        one card
 
 GET    /api/feed                   recent claims, paginated
+PUT    /api/claims/:id/caption     caption — author only; empty clears it (§1.4a)
 POST   /api/claims/:id/flag        reason
 DELETE /api/claims/:id/flag        let people withdraw a flag
 
 GET    /api/chat?before=           message history, paginated
-WS     /ws                         chat + live hood_changed / claim_created events
+WS     /ws                         chat + live hood_changed / claim_created / caption_changed
 ```
 
 One endpoint handles all three actions — the server infers `claim_kind` from who holds the

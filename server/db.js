@@ -38,6 +38,10 @@ const migrations = db.transaction(() => {
   addColumn('claims', 'card_seed', 'TEXT');
   addColumn('parks', 'set_number', 'INTEGER');
 
+  // Captions. On `photos` rather than `claims` because they are editable and the ledger
+  // is not; null means "not captioned", which is what every pre-existing photo is.
+  addColumn('photos', 'caption', 'TEXT');
+
   // XP and levels.
   const addedXp = addColumn('claims', 'xp_awarded', 'INTEGER NOT NULL DEFAULT 0');
 

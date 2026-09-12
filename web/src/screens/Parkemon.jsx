@@ -305,6 +305,7 @@ function ParkSheet({ parkId, onClose, onCollected }) {
                       collected_at: park.collection.created_at,
                       display_url: park.collection.display_url,
                       thumb_url: park.collection.thumb_url,
+                      caption: park.collection.caption,
                     }} />
                   </div>
                 </>

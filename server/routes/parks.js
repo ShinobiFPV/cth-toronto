@@ -66,7 +66,7 @@ parkRoutes.post('/parks/:id/collect', requireAuth, upload.single('photo'), async
 
     photo = await processUpload(req.file);
     const { result, levelUp, progress } = withLevelUp(req.player.id,
-      () => commitCollect({ parkId, playerId: req.player.id, photo }));
+      () => commitCollect({ parkId, playerId: req.player.id, photo, caption: req.body?.caption }));
     const { claim, park, xp } = result;
 
     postMessage({

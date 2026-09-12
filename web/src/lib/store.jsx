@@ -95,6 +95,11 @@ export function GameProvider({ children }) {
         } else if (type === 'claim_created') {
           refreshHoods().catch(() => {});
           refreshMe().catch(() => {});
+        } else if (type === 'caption_changed') {
+          // Nothing in the ledger moved, so patch the one field rather than refetching
+          // 25 Hoods. Anyone with that Hood's sheet open sees the new line.
+          setHoods((prev) => prev.map((h) =>
+            h.active_claim_id === payload.claim_id ? { ...h, caption: payload.caption } : h));
         } else if (type === 'flag_added') {
           setHoods((prev) => prev.map((h) =>
             h.active_claim_id === payload.claim_id ? { ...h, flag_count: payload.count } : h));

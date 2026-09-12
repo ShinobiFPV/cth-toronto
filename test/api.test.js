@@ -86,10 +86,11 @@ async function jpeg(hue = 200) {
   }).jpeg({ quality: 70 }).toBuffer();
 }
 
-async function claimForm(buffer, photoType, name = 'shot.jpg') {
+async function claimForm(buffer, photoType, name = 'shot.jpg', caption = null) {
   const form = new FormData();
   form.append('photo', new Blob([buffer], { type: 'image/jpeg' }), name);
   form.append('photo_type', photoType);
+  if (caption != null) form.append('caption', caption);
   return form;
 }
 
@@ -321,6 +322,65 @@ describe('the API end to end', () => {
     assert.ok(data.feed.length >= 3);
     assert.equal(data.feed[0].claim_kind, 'steal');
     assert.ok(data.feed[0].thumb_url);
+  });
+
+  // Captions travel as a multipart field beside the photo, which is the one part of this
+  // no unit test can see: multer has to hand it over as req.body.caption.
+  test('a caption sent with the upload survives the round trip and reaches chat', async () => {
+    // Hood 1 is Etobicoke North: unclaimed, and not adjacent to any Hood another test
+    // claims, so carol's 24h adjacency cooldown lands where nothing else is looking.
+    const { status, data } = await carol('/hoods/1/claim', {
+      method: 'POST',
+      raw: await claimForm(await jpeg(60), 'animal', 'shot.jpg',
+        '  raccoon   with   a whole slice  '),
+    });
+    assert.equal(status, 201);
+    assert.equal(data.claim.caption, 'raccoon with a whole slice', 'trimmed and collapsed to one line');
+    assert.equal(data.claim.can_caption, true, 'your own photo offers the pencil');
+    assert.match(data.claim.summary, /— "raccoon with a whole slice"$/);
+
+    const chat = await bob('/chat');
+    assert.ok(chat.data.messages.some((m) => /raccoon with a whole slice/.test(m.body)),
+      'the caption should be in the announcement, not just the feed');
+
+    const list = await bob('/feed');
+    const mine = list.data.feed.find((c) => c.id === data.claim.id);
+    assert.equal(mine.caption, 'raccoon with a whole slice');
+    assert.equal(mine.can_caption, false, 'a photo that is not yours does not');
+  });
+
+  test('the owner can rewrite a caption, and nobody else can', async () => {
+    const { data } = await carol('/feed');
+    const mine = data.feed.find((c) => c.can_caption && c.caption);
+
+    const edit = await carol(`/claims/${mine.id}/caption`,
+      { method: 'PUT', body: { caption: 'raccoon, with a whole slice' } });
+    assert.equal(edit.status, 200);
+    assert.equal(edit.data.claim.caption, 'raccoon, with a whole slice');
+
+    const theft = await bob(`/claims/${mine.id}/caption`,
+      { method: 'PUT', body: { caption: 'bob was here' } });
+    assert.equal(theft.status, 403);
+    assert.equal(theft.data.error, 'NOT_YOUR_CLAIM');
+
+    const after = await bob('/feed');
+    assert.equal(after.data.feed.find((c) => c.id === mine.id).caption,
+      'raccoon, with a whole slice', 'the edit stands and the attempt changed nothing');
+  });
+
+  test('an empty caption clears it rather than storing blank text', async () => {
+    const { data } = await carol('/feed');
+    const mine = data.feed.find((c) => c.can_caption);
+    const cleared = await carol(`/claims/${mine.id}/caption`,
+      { method: 'PUT', body: { caption: '   ' } });
+    assert.equal(cleared.status, 200);
+    assert.equal(cleared.data.caption, null);
+    assert.equal(cleared.data.claim.caption, null);
+  });
+
+  test('a claim uploaded without a caption simply has none', async () => {
+    const { data } = await alice('/hoods/13');
+    assert.equal(data.hood.caption, null, 'Hood 13 was conquered before captions existed here');
   });
 
   test('a reinforce reports the subject it replaced, not a player it "beat"', async () => {

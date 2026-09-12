@@ -85,6 +85,9 @@ export const config = {
 
   // Uploads
   maxUploadBytes: num('CTH_MAX_UPLOAD_MB', 60) * 1024 * 1024,
+  // A caption is flavour, not an essay. Long enough for a joke about the raccoon,
+  // short enough to sit under a thumbnail and on a park card without reflowing it.
+  CAPTION_MAX_LENGTH: num('CTH_CAPTION_MAX_LENGTH', 200),
   // sharp on the Pi usually ships without an HEIC decoder; heic-convert is the
   // fallback. Set false to reject HEIC outright with a "use Most Compatible" message.
   heicServerFallback: bool('CTH_HEIC_SERVER_FALLBACK', true),

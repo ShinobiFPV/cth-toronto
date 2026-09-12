@@ -14,6 +14,7 @@ import { GameError, notFound } from './errors.js';
 import { activeSeason } from './seasons.js';
 import { hoodLabel } from './hood-seed.js';
 import { xpFor } from './xp.js';
+import { cleanCaption } from './captions.js';
 
 /** Rarity tiers, driven by the park's value. Drives the card art, nothing mechanical. */
 export const RARITIES = [
@@ -77,7 +78,7 @@ export function listParksInHood(hoodId, playerId, at = nowIso()) {
 
   const mine = season ? new Map(db.prepare(`
     SELECT c.park_id, c.id, c.points_awarded, c.card_seed, c.created_at, c.status,
-           ph.path_thumb, ph.path_display
+           ph.path_thumb, ph.path_display, ph.caption
       FROM claims c
  LEFT JOIN photos ph ON ph.id = c.photo_id
      WHERE c.player_id = ? AND c.season_id = ? AND c.park_id IS NOT NULL
@@ -96,6 +97,7 @@ const shapeCollection = (r) => ({
   status: r.status,
   thumb_url: r.path_thumb ? `/media/${r.path_thumb}` : null,
   display_url: r.path_display ? `/media/${r.path_display}` : null,
+  caption: r.caption ?? null,
 });
 
 /** How a Hood's Parkemon progress looks in one line, for the Hood sheet and the map. */
@@ -160,7 +162,7 @@ export function evaluateCollect({ parkId, playerId, at = nowIso() }) {
  * Collect a park. One transaction: photo row, ledger row, done. Nothing to update in
  * hood_state, because nothing changed hands.
  */
-export const commitCollect = db.transaction(({ parkId, playerId, photo }) => {
+export const commitCollect = db.transaction(({ parkId, playerId, photo, caption = null }) => {
   const at = nowIso();
   const evaluation = evaluateCollect({ parkId, playerId, at });
   if (!evaluation.ok) {
@@ -175,11 +177,12 @@ export const commitCollect = db.transaction(({ parkId, playerId, photo }) => {
 
   const photoRow = db.prepare(`
     INSERT INTO photos (player_id, photo_type, path_original, path_display, path_thumb,
-                        width, height, bytes, exif_json, created_at)
+                        width, height, bytes, exif_json, caption, created_at)
     VALUES (@player_id, 'park_sign', @path_original, @path_display, @path_thumb,
-            @width, @height, @bytes, @exif_json, @created_at)`)
+            @width, @height, @bytes, @exif_json, @caption, @created_at)`)
     .run({
       player_id: playerId,
+      caption: cleanCaption(caption),
       path_original: photo.path_original,
       path_display: photo.path_display,
       path_thumb: photo.path_thumb,
@@ -214,7 +217,7 @@ const CARD_SELECT = `
          h.name AS hood_name,
          s.name AS season_name,
          pl.handle, pl.display_name, pl.colour,
-         ph.path_thumb, ph.path_display
+         ph.path_thumb, ph.path_display, ph.caption
     FROM claims c
     JOIN parks   p  ON p.id = c.park_id
     JOIN players pl ON pl.id = c.player_id
@@ -259,6 +262,8 @@ export function shapeCard(r) {
     collected_at: r.created_at,
     thumb_url: r.path_thumb ? `/media/${r.path_thumb}` : null,
     display_url: r.path_display ? `/media/${r.path_display}` : null,
+    // Flavour text, in the same place a real card puts it.
+    caption: r.caption ?? null,
   };
 }
 

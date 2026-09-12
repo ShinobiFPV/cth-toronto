@@ -4,6 +4,7 @@ import { db, nowIso } from '../db.js';
 import { config } from '../config.js';
 import { requireAuth } from '../lib/auth.js';
 import { revertClaim } from '../lib/game.js';
+import { setCaption } from '../lib/captions.js';
 import { shapeClaim } from '../lib/views.js';
 import { broadcast, postMessage } from '../lib/hub.js';
 import { badRequest, notFound, forbidden } from '../lib/errors.js';
@@ -14,7 +15,7 @@ export const claimRoutes = Router();
 const fullClaim = (id) => db.prepare(`
   SELECT c.*, p.handle, p.display_name, p.colour,
          b.handle AS beaten_handle, b.display_name AS beaten_name,
-         ph.path_thumb, ph.path_display, ph.exif_json,
+         ph.path_thumb, ph.path_display, ph.exif_json, ph.caption,
          h.name AS hood_name
     FROM claims c
     JOIN players p ON p.id = c.player_id
@@ -33,6 +34,25 @@ claimRoutes.get('/:id', requireAuth, (req, res, next) => {
         FROM flags f JOIN players p ON p.id = f.player_id
        WHERE f.claim_id = ? ORDER BY f.id`).all(claim.id),
   });
+});
+
+/**
+ * Write or clear the caption on your own photo. A caption is flavour, so this is the one
+ * thing in the game a player can change after the fact — and even here nothing in the
+ * ledger moves: the write lands on `photos`, not on the claim.
+ *
+ * Allowed on a superseded or reverted claim too. The photo is still yours and still in
+ * the feed, so being able to fix a typo on it does not depend on still holding the Hood.
+ */
+claimRoutes.put('/:id/caption', requireAuth, (req, res, next) => {
+  try {
+    const claimId = Number(req.params.id);
+    const caption = setCaption({ claimId, playerId: req.player.id, caption: req.body?.caption });
+    // No chat post: the claim already announced itself, and an edit is not an event.
+    // The feed does need to catch up, though.
+    broadcast('caption_changed', { claim_id: claimId, caption });
+    res.json({ claim: shapeClaim(fullClaim(claimId), req.player.id), caption });
+  } catch (err) { next(err); }
 });
 
 claimRoutes.post('/:id/flag', requireAuth, (req, res, next) => {

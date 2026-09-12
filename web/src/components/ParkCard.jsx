@@ -185,6 +185,11 @@ export default function ParkCard({ card, compact = false, onClick }) {
           {!compact && card.park.address && (
             <div className="pcard-addr">{card.park.address}</div>
           )}
+          {/* Flavour text, exactly where a real card puts it. Only on the full card —
+              at thumbnail size there is no room and it would just be a grey smear. */}
+          {!compact && card.caption && (
+            <div className="pcard-flavour">{card.caption}</div>
+          )}
         </div>
 
         <footer className="pcard-foot">

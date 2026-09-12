@@ -14,6 +14,7 @@ import { GameError, badRequest, notFound } from './errors.js';
 import { activeSeason } from './seasons.js';
 import { hoodLabel } from './hood-seed.js';
 import { xpFor } from './xp.js';
+import { cleanCaption } from './captions.js';
 
 /**
  * What `playerId` can do at `hoodId` right now.
@@ -161,7 +162,7 @@ function reinforcePointsThisSeason(playerId, seasonId) {
  * client ran minutes ago, while the player walked back to their car, may no longer
  * hold. The preflight is a courtesy; this is the ruling.
  */
-export const commitClaim = db.transaction(({ hoodId, playerId, declaredType, photo }) => {
+export const commitClaim = db.transaction(({ hoodId, playerId, declaredType, photo, caption = null }) => {
   const at = nowIso();
   const season = activeSeason(at);
   if (!season) {
@@ -187,12 +188,13 @@ export const commitClaim = db.transaction(({ hoodId, playerId, declaredType, pho
 
   const photoRow = db.prepare(`
     INSERT INTO photos (player_id, photo_type, path_original, path_display, path_thumb,
-                        width, height, bytes, exif_json, created_at)
+                        width, height, bytes, exif_json, caption, created_at)
     VALUES (@player_id, @photo_type, @path_original, @path_display, @path_thumb,
-            @width, @height, @bytes, @exif_json, @created_at)`)
+            @width, @height, @bytes, @exif_json, @caption, @created_at)`)
     .run({
       player_id: playerId,
       photo_type: declaredType,
+      caption: cleanCaption(caption),
       path_original: photo.path_original,
       path_display: photo.path_display,
       path_thumb: photo.path_thumb,
@@ -335,7 +337,7 @@ export function getClaim(id) {
     SELECT c.*, p.handle AS handle, p.display_name AS display_name, p.colour AS colour,
            b.handle AS beaten_handle, b.display_name AS beaten_name,
            h.name AS hood_name,
-           ph.path_thumb, ph.path_display, ph.exif_json
+           ph.path_thumb, ph.path_display, ph.exif_json, ph.caption
       FROM claims c
       JOIN players p ON p.id = c.player_id
       JOIN hoods   h ON h.id = c.hood_id

@@ -103,6 +103,15 @@ changing one, read the test first — it says why.
 - **Scores are always derived** — `SUM(points_awarded)` over the ledger, filtered by
   `season_id` for a season and unfiltered for the Champion table. There is no
   denormalised running total anywhere and there must never be one.
+- **A caption is the one mutable thing in the game, and it lives on `photos`.** Not on
+  `claims` — the ledger only ever UPDATEs `status` and `flag_count`, and an editable
+  field in there would be the exception that rots the rule. `photos.caption` is null or
+  content, never `''`; `cleanCaption()` is the only way text gets in, from both upload
+  routes and the edit route, so collapsing and the length cap cannot be bypassed. A
+  caption scores nothing and the state machine never reads it.
+- **A caption edit posts no chat message.** The claim already announced itself, and an
+  edit is not an event — it broadcasts `caption_changed`, which the client uses to patch
+  the one field rather than refetching 25 Hoods.
 - **A reinforce's `beaten_player_id` is yourself.** `shapeClaim()` deliberately exposes
   `beaten` only for steals, and `replaced_photo_type` for reinforces, so no card ever
   says you beat yourself.
@@ -114,8 +123,8 @@ changing one, read the test first — it says why.
 - All timestamps are ISO-8601 UTC strings. They sort lexicographically, so string
   comparison is a valid time comparison — the whole codebase relies on this.
 - Every failure the client might act on gets a stable error code (`HOOD_LOCKED`,
-  `REINFORCE_TOO_SOON`, `WEAK_TYPE`, `SAME_TYPE`, …) via `GameError`. The UI branches on
-  the code, never on the message text.
+  `REINFORCE_TOO_SOON`, `WEAK_TYPE`, `SAME_TYPE`, `NOT_YOUR_CLAIM`, …) via `GameError`.
+  The UI branches on the code, never on the message text.
 - Every tunable lives in `server/config.js`, driven by env vars. The spec's §10 "open
   decisions" are all levers there — escalation cap, reinforce season cap, flag threshold,
   whether the displaced holder's flag counts.
@@ -125,7 +134,7 @@ changing one, read the test first — it says why.
 ## Testing
 
 ```bash
-npm test        # 152 tests, no server needed, touches nothing in data/
+npm test        # 176 tests, no server needed, touches nothing in data/
 ```
 
 - `test/game.test.js` — the rules, driving the game module directly. Time is simulated by

@@ -8,6 +8,7 @@ import { uploadClaim } from '../lib/api.js';
 import { SUBJECTS, SUBJECT_BLURB, KIND_VERB, article, until } from '../lib/game.js';
 import { SUBJECT_ICON, CameraIcon, CloseIcon } from './icons.jsx';
 import { Banner } from './bits.jsx';
+import { CAPTION_MAX } from './Caption.jsx';
 
 const HEIC = /\.(heic|heif)$/i;
 const isHeic = (f) => HEIC.test(f.name || '') || /image\/hei[cf]/i.test(f.type || '');
@@ -17,6 +18,7 @@ export default function ClaimFlow({ hood, onClose, onDone }) {
   const allowed = viewer.required_types ?? SUBJECTS;
 
   const [subject, setSubject] = useState(allowed.length === 1 ? allowed[0] : null);
+  const [caption, setCaption] = useState('');
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
   const [converting, setConverting] = useState(false);
@@ -68,6 +70,7 @@ export default function ClaimFlow({ hood, onClose, onDone }) {
       const form = new FormData();
       form.append('photo', file, file.name);
       form.append('photo_type', subject);
+      if (caption.trim()) form.append('caption', caption.trim());
       const res = await uploadClaim(hood.id, form, setProgress);
       onDone?.(res.claim, res);
     } catch (err) {
@@ -166,6 +169,26 @@ export default function ClaimFlow({ hood, onClose, onDone }) {
                  onChange={pick} hidden />
           <input ref={libraryInput} type="file" accept="image/*" onChange={pick} hidden />
         </div>
+
+        {/* Optional, and shown only once there is a photo — an empty caption box above
+            an empty photo slot is two prompts for one action. */}
+        {preview && (
+          <div>
+            <h2 style={{ marginBottom: '0.5rem' }}>3 · Caption <span className="tiny dim">optional</span></h2>
+            <input
+              className="caption-input"
+              value={caption}
+              maxLength={CAPTION_MAX}
+              placeholder="Say something about this photo"
+              disabled={busy}
+              onChange={(e) => setCaption(e.target.value)}
+            />
+            <div className="cluster tiny dim" style={{ marginTop: '0.3rem' }}>
+              <span className="grow">Goes to chat with the claim. You can change it later.</span>
+              <span>{CAPTION_MAX - caption.length}</span>
+            </div>
+          </div>
+        )}
 
         <div className="tiny dim">
           Honour system: the photo has to be recent, shot inside {hood.label}, and it has

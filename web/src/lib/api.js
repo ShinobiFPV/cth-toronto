@@ -53,6 +53,10 @@ export const api = {
   // ledger
   feed: (before) => request(`/feed${before ? `?before=${before}` : ''}`),
   claimDetail: (id) => request(`/claims/${id}`),
+  // Captions are the one thing a player can change after the fact. Sending an empty
+  // string clears it.
+  setCaption: (id, caption) =>
+    request(`/claims/${id}/caption`, { method: 'PUT', body: { caption } }),
   flag: (id, reason) => request(`/claims/${id}/flag`, { method: 'POST', body: { reason } }),
   unflag: (id) => request(`/claims/${id}/flag`, { method: 'DELETE' }),
 

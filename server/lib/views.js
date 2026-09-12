@@ -18,7 +18,7 @@ export function listHoods(viewerId = null, at = nowIso()) {
   const rows = db.prepare(`
     SELECT h.*, s.owner_id, s.active_claim_id, s.photo_type, s.last_claim_at, s.locked_until,
            p.handle AS owner_handle, p.display_name AS owner_name, p.colour AS owner_colour,
-           ph.path_thumb, ph.path_display,
+           ph.path_thumb, ph.path_display, ph.caption,
            c.created_at AS claimed_at, c.claim_kind, c.flag_count
       FROM hoods h
       JOIN hood_state s ON s.hood_id = h.id
@@ -55,6 +55,7 @@ function shapeHood(r, viewerId, at) {
     locked_until: r.locked_until && r.locked_until > at ? r.locked_until : null,
     thumb_url: r.path_thumb ? `/media/${r.path_thumb}` : null,
     display_url: r.path_display ? `/media/${r.path_display}` : null,
+    caption: r.caption ?? null,
     neighbours: neighboursOf(r.id),
     // Parkemon progress belongs on the Hood, not on hood.viewer: the sheet reads
     // hood.parks, and burying it in viewer is what stopped the button rendering.
@@ -101,7 +102,7 @@ export function hoodDetail(hoodId, viewerId = null, at = nowIso()) {
   const r = db.prepare(`
     SELECT h.*, s.owner_id, s.active_claim_id, s.photo_type, s.last_claim_at, s.locked_until,
            p.handle AS owner_handle, p.display_name AS owner_name, p.colour AS owner_colour,
-           ph.path_thumb, ph.path_display,
+           ph.path_thumb, ph.path_display, ph.caption,
            c.created_at AS claimed_at, c.claim_kind, c.flag_count
       FROM hoods h
       JOIN hood_state s ON s.hood_id = h.id
@@ -118,7 +119,7 @@ export function hoodHistory(hoodId, viewerId = null) {
   const rows = db.prepare(`
     SELECT c.*, p.handle, p.display_name, p.colour,
            b.handle AS beaten_handle, b.display_name AS beaten_name,
-           ph.path_thumb, ph.path_display, ph.exif_json, ph.width, ph.height,
+           ph.path_thumb, ph.path_display, ph.exif_json, ph.caption, ph.width, ph.height,
            h.name AS hood_name,
            pk.name AS park_name, pk.value AS park_value
       FROM claims c
@@ -160,6 +161,10 @@ export function shapeClaim(r, viewerId = null) {
     replaced_photo_type: r.claim_kind === 'reinforce' ? r.beaten_photo_type : null,
     thumb_url: r.path_thumb ? `/media/${r.path_thumb}` : null,
     display_url: r.path_display ? `/media/${r.path_display}` : null,
+    caption: r.caption ?? null,
+    // Only your own captions are editable, and the client should not have to work out
+    // whose photo it is from two other fields to know whether to offer a pencil.
+    can_caption: viewerId != null && r.player_id === viewerId && !!r.photo_id,
     shot_data: r.exif_json ? JSON.parse(r.exif_json) : null,
     reverts_claim_id: r.reverts_claim_id ?? null,
     park: r.park_id ? { id: r.park_id, name: r.park_name, value: r.park_value } : null,
@@ -172,15 +177,19 @@ export function shapeClaim(r, viewerId = null) {
 export function claimSummary(r) {
   const who = r.display_name || r.handle;
   const where = hoodLabel(r.hood_id, r.hood_name);
+  // Chat is the activity feed (spec §7), so a caption belongs in the announcement —
+  // otherwise the one line the player actually wrote is the one line chat omits.
+  // Quoted like a flag's reason, for consistency.
+  const said = r.caption ? ` — "${r.caption}"` : '';
   switch (r.claim_kind) {
     case 'conquer':
-      return `${who} conquered ${where} with ${article(r.photo_type)} photo (+${r.points_awarded})`;
+      return `${who} conquered ${where} with ${article(r.photo_type)} photo (+${r.points_awarded})${said}`;
     case 'steal':
-      return `${who} stole ${where} from ${r.beaten_name || r.beaten_handle} with ${article(r.photo_type)} photo (+${r.points_awarded})`;
+      return `${who} stole ${where} from ${r.beaten_name || r.beaten_handle} with ${article(r.photo_type)} photo (+${r.points_awarded})${said}`;
     case 'reinforce':
-      return `${who} reinforced ${where} with ${article(r.photo_type)} photo (+${r.points_awarded})`;
+      return `${who} reinforced ${where} with ${article(r.photo_type)} photo (+${r.points_awarded})${said}`;
     case 'park':
-      return `${who} collected ${r.park_name ?? 'a park'} in ${where} (+${r.points_awarded})`;
+      return `${who} collected ${r.park_name ?? 'a park'} in ${where} (+${r.points_awarded})${said}`;
     case 'reversal':
       return `${who}'s claim on ${where} was reverted by flags — points cancelled`;
     default:
@@ -198,7 +207,7 @@ export function feed({ before = null, limit = 30, viewerId = null } = {}) {
 const FEED_SQL = `
   SELECT c.*, p.handle, p.display_name, p.colour,
          b.handle AS beaten_handle, b.display_name AS beaten_name,
-         ph.path_thumb, ph.path_display, ph.exif_json,
+         ph.path_thumb, ph.path_display, ph.exif_json, ph.caption,
          h.name AS hood_name,
          pk.name AS park_name, pk.value AS park_value
     FROM claims c

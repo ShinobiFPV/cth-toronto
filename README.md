@@ -137,6 +137,25 @@ Institution.
 
 ---
 
+## Say something about it
+
+Every photo can carry a line. Write it when you upload, or add it later from the feed —
+it's the one thing in the whole game you're allowed to change your mind about.
+
+<table>
+<tr>
+<td width="50%"><img src="docs/screenshots/15-captions.png" alt="The feed: one claim captioned, the rest offering a quiet add-a-caption"></td>
+<td width="50%"><img src="docs/screenshots/16-card-flavour.png" alt="A legendary park card with the caption printed as flavour text"></td>
+</tr>
+</table>
+
+Your caption goes to chat with the claim, shows up under the photo everywhere the photo
+shows up, and on a park card it gets printed along the bottom as **flavour text**, exactly
+where a real card puts it. It's worth zero points. That's the point — it's the only place
+in here to be funny instead of competitive.
+
+---
+
 ## Make it yours
 
 The profile screen has a **mode** switch and eight **accent** colours. Light mode isn't a

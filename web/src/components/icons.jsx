@@ -38,6 +38,12 @@ export const FlagIcon = (p) => svg(<>
   <path d="M5 4h13l-3 4 3 4H5z" />
 </>, p);
 
+// Straight-edged, like everything else here: a nib, a shaft, and the line it leaves.
+export const PencilIcon = (p) => svg(<>
+  <path d="M4 20h4L20 8l-4-4L4 16z" />
+  <path d="M14 6l4 4" />
+</>, p);
+
 export const CloseIcon = (p) => svg(<path d="M5 5l14 14M19 5L5 19" />, p);
 export const BackIcon = (p) => svg(<path d="M15 4l-8 8 8 8" />, p);
 export const LockIcon = (p) => svg(<>

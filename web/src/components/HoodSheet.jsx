@@ -7,6 +7,7 @@ import { article, until, ago, GATE_CODES, difficultyBand } from '../lib/game.js'
 import { CloseIcon, LockIcon } from './icons.jsx';
 import { Subject, PlayerName, FlagButton, Banner, Lightbox } from './bits.jsx';
 import ClaimFlow from './ClaimFlow.jsx';
+import Caption from './Caption.jsx';
 
 export default function HoodSheet({ hoodId, onClose }) {
   const { hoodById, player, refreshHoods } = useGame();
@@ -73,6 +74,15 @@ export default function HoodSheet({ hoodId, onClose }) {
                 <PlayerName player={hood.owner} you={player} />
                 {hood.photo_type && <Subject type={hood.photo_type} className="chip chip-accent" />}
               </div>
+
+              {/* The Hood shape carries the holding photo's caption, so this stands in a
+                  claim-shaped object rather than fetching the claim just to read one line. */}
+              {hood.active_claim_id && (
+                <Caption
+                  claim={{ id: hood.active_claim_id, caption: hood.caption, can_caption: !!v.is_mine }}
+                  onChanged={() => refreshHoods().catch(() => {})}
+                />
+              )}
 
               {/* What this Hood costs to reach, and therefore what it pays. */}
               <div className="row" style={{ padding: 0, border: 0, gap: '0.5rem' }}>

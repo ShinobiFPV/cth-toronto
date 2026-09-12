@@ -9,6 +9,7 @@ import { article, ago, until, KIND_VERB, GATE_CODES, difficultyBand } from '../l
 import { BackIcon, LockIcon } from '../components/icons.jsx';
 import { Subject, PlayerName, FlagButton, Banner, Spinner, Lightbox, When } from '../components/bits.jsx';
 import ShotData from '../components/ShotData.jsx';
+import Caption from '../components/Caption.jsx';
 
 export default function HoodDetail() {
   const { id } = useParams();
@@ -99,6 +100,8 @@ export default function HoodDetail() {
                   && <span className="tiny dim">was {c.replaced_photo_type}</span>}
                 {c.status === 'superseded' && <span className="chip">superseded</span>}
               </div>
+
+              <Caption claim={c} onChanged={replace} />
 
               <ShotData data={c.shot_data} />
 
