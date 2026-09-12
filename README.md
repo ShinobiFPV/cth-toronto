@@ -72,15 +72,15 @@ entirely because of drones. One flight should not hand somebody the whole west e
 
 ---
 
-## Parkemon GO
+## Parkemans GO
 
 Every park in Toronto has the same municipal sign with the park's name on it. There are
 **1,513 of them**. Photograph one and you collect that park, and it prints you a card.
 
 <table>
 <tr>
-<td width="50%"><img src="docs/screenshots/05-parkemon.png" alt="The Parkemon GO list for one Hood, sorted by value"></td>
-<td width="50%"><img src="docs/screenshots/07-card.png" alt="A legendary Parkemon card with a foil border"></td>
+<td width="50%"><img src="docs/screenshots/05-parkemans.png" alt="The Parkemans GO list for one Hood, sorted by value"></td>
+<td width="50%"><img src="docs/screenshots/07-card.png" alt="A legendary Parkemans card with a foil border"></td>
 </tr>
 <tr>
 <td align="center"><em>68 parks in Rouge Park alone. Sorted by value, because you're planning a route.</em></td>
@@ -104,6 +104,12 @@ different cards. Legendaries get a slow sheen, because obviously they do.
 <p align="center">
   <img src="docs/screenshots/06-binder.png" width="300" alt="The binder: a grid of collected park cards">
 </p>
+
+**Everybody's binder is open.** Tap a park collection in the feed and you get the card it
+printed; tap a name in the standings and you get their whole binder. There's nothing to
+hide — nobody competes over parks, so a card in somebody else's collection costs you
+absolutely nothing, and the same park is still sitting there waiting for you. It just
+means you get to see that they went all the way out to Rouge Park and you didn't.
 
 ---
 
@@ -276,7 +282,7 @@ amber) because the map already spends every other colour on somebody's territory
 
 ```
 server/lib/game.js    ←  the claim state machine. This is the game.
-server/lib/parks.js      Parkemon: collection rules, card seeds, the binder
+server/lib/parks.js      Parkemans: collection rules, card seeds, the binder
 server/lib/views.js      read models; every score derived from the ledger
 server/lib/xp.js         XP, the level curve, the titles
 web/src/components/ParkCard.jsx    the card art — inline SVG, seeded

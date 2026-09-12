@@ -38,6 +38,13 @@ export const FlagIcon = (p) => svg(<>
   <path d="M5 4h13l-3 4 3 4H5z" />
 </>, p);
 
+// A collectable card: a frame, a window for the photo, and a line of text under it.
+export const CardIcon = (p) => svg(<>
+  <rect x="4" y="3" width="16" height="18" />
+  <rect x="7" y="6" width="10" height="8" />
+  <path d="M7 17h7" />
+</>, p);
+
 // Straight-edged, like everything else here: a nib, a shaft, and the line it leaves.
 export const PencilIcon = (p) => svg(<>
   <path d="M4 20h4L20 8l-4-4L4 16z" />

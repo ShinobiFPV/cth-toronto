@@ -92,8 +92,8 @@ export default function Profile() {
       )}
 
       <Link className="btn btn-block" to="/binder" style={{ justifyContent: 'space-between' }}>
-        <span>Parkemon binder</span>
-        <span className="tiny dim">every park card you own</span>
+        <span>Parkemans binder</span>
+        <span className="tiny dim">your cards, and everybody else's</span>
       </Link>
 
       <div>
@@ -155,7 +155,7 @@ export default function Profile() {
                     is worth a big bonus.</li>
                 <li>Losing a Hood costs you nothing. Points are never taken back.</li>
                 <li>{rules.flag_threshold} flags revert a claim and cancel its points.</li>
-                <li><b>Parkemon GO:</b> every Toronto park has a sign with its name on it.
+                <li><b>Parkemans GO:</b> every Toronto park has a sign with its name on it.
                     Photograph one and you collect that park for a card, worth 5 to 100 by
                     how far out it is. Each park once a season, nobody competes over them,
                     and the points go straight into your total.</li>
@@ -195,13 +195,14 @@ export default function Profile() {
         <h2 style={{ marginBottom: '0.5rem' }}>Players</h2>
         <div className="sheet">
           {players.map((p) => (
-            <div key={p.id} className="row">
+            <Link key={p.id} className="row" to={p.id === player?.id ? '/binder' : `/binder/${p.id}`}
+                  style={{ color: 'inherit', textDecoration: 'none' }}>
               <i className="dot" style={{ background: p.colour }} />
               <span className="grow">{p.display_name}</span>
               <span className="tiny dim">
-                {hoods.filter((h) => h.owner?.id === p.id).length} Hoods
+                {hoods.filter((h) => h.owner?.id === p.id).length} Hoods · binder
               </span>
-            </div>
+            </Link>
           ))}
         </div>
       </div>

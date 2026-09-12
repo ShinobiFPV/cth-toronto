@@ -1,4 +1,4 @@
-// Parkemon GO, scoped to one Hood. Reached from the Hood sheet on the main map.
+// Parkemans GO, scoped to one Hood. Reached from the Hood sheet on the main map.
 //
 // Two ways to look at the same ~60 parks: pins on a map for when you are out walking,
 // and a list sorted by value for when you are planning a route. The list is the default
@@ -31,7 +31,7 @@ const rarityColours = () => ({
   legendary: cssVar('--accent', '#FFB020'),
 });
 
-export default function Parkemon() {
+export default function Parkemans() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { refreshMe } = useGame();
@@ -83,7 +83,7 @@ export default function Parkemon() {
             </button>
           </div>
 
-          <h1>Parkemon GO</h1>
+          <h1>Parkemans GO</h1>
           <p className="tiny dim" style={{ margin: '0.3rem 0 0.8rem' }}>
             {hood.label} · photograph the sign, keep the card. Each park once a season.
           </p>

@@ -116,6 +116,19 @@ function rewind(hoodId, hours) {
 }
 
 let alice, bob, carol;
+let carolCard;
+
+/**
+ * Seed a park directly. The suite must never need the network, and the importer's
+ * 1,513 real parks are not the subject of these tests.
+ */
+function seedPark(id, name, hoodId, value) {
+  const db = new Database(DB);
+  db.prepare(`INSERT OR IGNORE INTO parks (id, name, hood_id, lat, lng, value, distance_km, set_number)
+              VALUES (?, ?, ?, 43.65, -79.38, ?, ?, ?)`)
+    .run(id, name, hoodId, value, value / 4, id - 7000);
+  db.close();
+}
 
 describe('the API end to end', () => {
   test('health reports the active season before anyone has registered', async () => {
@@ -446,6 +459,82 @@ describe('the API end to end', () => {
     assert.equal(said.status, 201);
     const { data } = await carol('/chat');
     assert.ok(data.messages.some((m) => m.body === 'that was my nephew' && m.handle === 'bob'));
+  });
+
+  // ── Parkemans GO over HTTP: collecting, and reading somebody else's binder ──
+  //
+  // Binders are public on purpose (spec §1.8): nobody competes over parks, so a
+  // collection costs no one anything and is worth showing off. These tests pin down
+  // that a binder is readable by another player AND that it never mixes two players up.
+  test('a park can be collected, and the response carries the printed card', async () => {
+    seedPark(7001, 'Test Parkette', 13, 40);
+    seedPark(7002, 'Far Test Park', 25, 95);
+
+    const form = new FormData();
+    form.append('photo', new Blob([await jpeg(140)], { type: 'image/jpeg' }), 'sign.jpg');
+    form.append('caption', 'the sign was behind a hedge');
+    const { status, data } = await carol('/parks/7002/collect', { method: 'POST', raw: form });
+    assert.equal(status, 201);
+    assert.equal(data.card.park.name, 'Far Test Park');
+    assert.equal(data.card.points, 95);
+    assert.equal(data.card.rarity, 'legendary', '95 of 100 is the top tier');
+    assert.ok(data.card.card_seed, 'the card art needs its seed');
+    assert.equal(data.card.caption, 'the sign was behind a hedge', 'flavour text on the card');
+    assert.equal(data.card.player.handle, 'carol', 'a card knows whose it is');
+    carolCard = data.card.claim_id;
+  });
+
+  test('your own binder is the default, and it only holds your own cards', async () => {
+    const mine = await alice('/cards');
+    assert.equal(mine.status, 200);
+    assert.equal(mine.data.is_you, true);
+    assert.equal(mine.data.player.handle, 'alice');
+    assert.equal(mine.data.cards.length, 0, 'alice has collected nothing');
+
+    const theirs = await carol('/cards');
+    assert.equal(theirs.data.is_you, true);
+    assert.equal(theirs.data.cards.length, 1);
+    assert.equal(theirs.data.summary.season_collected, 1);
+  });
+
+  test("another player's binder is readable, and flagged as not yours", async () => {
+    const { data: players } = await alice('/players');
+    const carolId = players.players.find((p) => p.handle === 'carol').id;
+
+    const { status, data } = await alice(`/cards?player=${carolId}`);
+    assert.equal(status, 200);
+    assert.equal(data.is_you, false, 'so the UI can say whose binder this is');
+    assert.equal(data.player.handle, 'carol');
+    assert.ok(data.player.colour, 'and colour it like the rest of the game does');
+    assert.equal(data.cards.length, 1);
+    assert.equal(data.cards[0].park.name, 'Far Test Park');
+    assert.equal(data.summary.season_points, 95);
+  });
+
+  test('a card is fetchable by anybody, which is what the feed opens', async () => {
+    const { status, data } = await bob(`/cards/${carolCard}`);
+    assert.equal(status, 200);
+    assert.equal(data.card.park.name, 'Far Test Park');
+    assert.equal(data.card.player.handle, 'carol');
+    assert.ok(data.card.set_size > 0, 'the card prints #n/total');
+  });
+
+  test('the same park collected twice gives two visibly different cards', async () => {
+    const form = new FormData();
+    form.append('photo', new Blob([await jpeg(180)], { type: 'image/jpeg' }), 'sign.jpg');
+    const { status, data } = await bob('/parks/7002/collect', { method: 'POST', raw: form });
+    assert.equal(status, 201);
+    assert.equal(data.card.points, 95, 'worth the same to both of them');
+
+    const carols = await bob(`/cards/${carolCard}`);
+    assert.notEqual(data.card.card_seed, carols.data.card.card_seed,
+      'the art is seeded per player, which is the point of looking at a binder');
+  });
+
+  test('a binder for a player who does not exist is a 404, not an empty one', async () => {
+    const { status, data } = await alice('/cards?player=999999');
+    assert.equal(status, 404);
+    assert.equal(data.error, 'PLAYER_NOT_FOUND');
   });
 
   test('a non-image upload is refused', async () => {

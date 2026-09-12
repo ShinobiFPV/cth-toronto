@@ -1,4 +1,4 @@
-// Parkemon GO endpoints. The park map is scoped to one Hood, because that is how you
+// Parkemans GO endpoints. The park map is scoped to one Hood, because that is how you
 // reach it — you tap a Hood, then you play the sub-game inside it.
 import { Router } from 'express';
 import multer from 'multer';
@@ -87,15 +87,37 @@ parkRoutes.post('/parks/:id/collect', requireAuth, upload.single('photo'), async
   }
 });
 
-/** The binder. `?season=` scopes it; omit for everything ever collected. */
-parkRoutes.get('/cards', requireAuth, (req, res) => {
+/**
+ * A binder. `?season=` scopes it; omit for everything ever collected. `?player=` reads
+ * somebody else's, and defaults to your own.
+ *
+ * Other players' binders are open on purpose. Nobody competes over parks (spec §1.8) —
+ * a card in your binder takes nothing from anyone — so a collection is something to
+ * show off rather than something to hide, and half the fun of a card game is looking
+ * at what everybody else pulled. The cards are visible in the feed and in chat the
+ * moment they are collected anyway.
+ */
+parkRoutes.get('/cards', requireAuth, (req, res, next) => {
   const seasonId = req.query.season ? Number(req.query.season) : null;
+  const playerId = req.query.player ? Number(req.query.player) : req.player.id;
+
+  const player = db.prepare('SELECT id, handle, display_name, colour FROM players WHERE id = ?')
+    .get(playerId);
+  if (!player) return next(notFound('PLAYER_NOT_FOUND', 'No player with that id.'));
+
   res.json({
-    cards: cardsOf(req.player.id, { seasonId }),
-    summary: collectionSummary(req.player.id),
+    player,
+    is_you: player.id === req.player.id,
+    cards: cardsOf(player.id, { seasonId }),
+    summary: collectionSummary(player.id),
   });
 });
 
+/**
+ * One card, by the claim that produced it. Not scoped to the owner — this is what the
+ * feed opens when you tap somebody else's collection, and it is the same information
+ * the feed already shows, laid out as the card it printed.
+ */
 parkRoutes.get('/cards/:claimId', requireAuth, (req, res, next) => {
   const card = getCardByClaim(Number(req.params.claimId));
   if (!card) return next(notFound('CARD_NOT_FOUND', 'No card with that id.'));

@@ -57,7 +57,7 @@ function shapeHood(r, viewerId, at) {
     display_url: r.path_display ? `/media/${r.path_display}` : null,
     caption: r.caption ?? null,
     neighbours: neighboursOf(r.id),
-    // Parkemon progress belongs on the Hood, not on hood.viewer: the sheet reads
+    // Parkemans progress belongs on the Hood, not on hood.viewer: the sheet reads
     // hood.parks, and burying it in viewer is what stopped the button rendering.
     // Safe with a null viewer — the per-player counts just come back as 0.
     parks: parkProgress(r.id, viewerId, at),
@@ -270,7 +270,7 @@ export function leaderboard(seasonId = null) {
       conquers: kinds[p.id]?.conquer ?? 0,
       steals: kinds[p.id]?.steal ?? 0,
       reinforces: kinds[p.id]?.reinforce ?? 0,
-      // Parkemon GO points count toward the same total, but it is worth seeing the
+      // Parkemans GO points count toward the same total, but it is worth seeing the
       // split: somebody can be top of the table without holding a single Hood.
       parks: kinds[p.id]?.park ?? 0,
       xp: xpByPlayer[p.id] ?? 0,

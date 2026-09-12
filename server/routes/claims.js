@@ -89,7 +89,7 @@ claimRoutes.post('/:id/flag', requireAuth, (req, res, next) => {
 
     if (result.duplicate) throw badRequest('ALREADY_FLAGGED', 'You have already flagged this claim.');
 
-    // Name the park for a Parkemon claim: "flagged Alice's claim on Hood 25" tells
+    // Name the park for a Parkemans claim: "flagged Alice's claim on Hood 25" tells
     // nobody which of its 68 parks is in dispute.
     const hood = hoodLabel(claim.hood_id,
       db.prepare('SELECT name FROM hoods WHERE id = ?').get(claim.hood_id).name);

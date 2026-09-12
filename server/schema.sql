@@ -50,7 +50,7 @@ CREATE TABLE IF NOT EXISTS hood_neighbours (
   PRIMARY KEY (hood_id, neighbour_id)
 );
 
--- ── Parkemon GO ───────────────────────────────────────────────────────────
+-- ── Parkemans GO ───────────────────────────────────────────────────────────
 -- The sub-game inside each Hood: every Toronto park has a sign with its name on it,
 -- and players collect them. Nobody owns a park and nobody competes over one — each
 -- player may collect each park once per season, and the points just add up.

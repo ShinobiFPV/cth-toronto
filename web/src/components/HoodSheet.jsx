@@ -144,9 +144,9 @@ export default function HoodSheet({ hoodId, onClose }) {
                 {v.action_label}
               </button>
 
-              <Link className="btn btn-block btn-parkemon" to={`/hood/${hood.id}/parks`}
+              <Link className="btn btn-block btn-parkemans" to={`/hood/${hood.id}/parks`}
                     onClick={onClose}>
-                <span>Play Parkemon GO</span>
+                <span>Play Parkemans GO</span>
                 {hood.parks?.total > 0 && (
                   <span className="btn-sub">
                     {hood.parks.collected}/{hood.parks.total}

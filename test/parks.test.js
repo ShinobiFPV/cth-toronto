@@ -1,4 +1,4 @@
-// Parkemon GO: the collection rules, the card seed, and how park points join the score.
+// Parkemans GO: the collection rules, the card seed, and how park points join the score.
 import { test, before, beforeEach, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -194,7 +194,7 @@ describe('a Hood\'s parks', () => {
 
   test('progress hangs off the Hood itself, which is where the sheet reads it', async () => {
     // Regression: this lived on hood.viewer.parks for one release, and the
-    // "Play Parkemon GO" button — which reads hood.parks — silently never rendered.
+    // "Play Parkemans GO" button — which reads hood.parks — silently never rendered.
     const { listHoods } = await import('../server/lib/views.js');
     collect(9003, alice);
 
@@ -302,5 +302,34 @@ describe('the binder', () => {
     assert.equal(summary.season_collected, 0);
     assert.equal(summary.season_points, 0);
     assert.deepEqual(summary.by_rarity, {});
+  });
+
+  // Binders are public: nobody competes over parks, so a collection is something to
+  // show off rather than protect, and one player's binder never leaks another's.
+  test('a binder holds only its own player’s cards', () => {
+    collect(9001, alice);
+    collect(9002, alice);
+    collect(9001, bob);
+
+    assert.equal(parks.cardsOf(alice).length, 2);
+    assert.equal(parks.cardsOf(bob).length, 1);
+    assert.deepEqual(parks.cardsOf(bob).map((c) => c.park.id), [9001]);
+    assert.equal(parks.collectionSummary(bob).season_collected, 1);
+  });
+
+  test('a card says whose it is, so a binder can be read by somebody else', () => {
+    const { claim } = collect(9004, bob);
+    const card = parks.getCardByClaim(claim.claim_id);
+    assert.equal(card.player.id, bob);
+    assert.ok(card.player.display_name, 'the feed needs a name to put on it');
+    assert.ok(card.player.colour);
+  });
+
+  test('the same park collected by two players gives two different cards', () => {
+    // The whole reason looking at somebody else's binder is interesting.
+    const mine = collect(9002, alice).claim;
+    const theirs = collect(9002, bob).claim;
+    assert.notEqual(mine.card_seed, theirs.card_seed, 'the art is seeded per player');
+    assert.equal(mine.points, theirs.points, 'but the park is worth the same to both');
   });
 });

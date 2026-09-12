@@ -1,4 +1,4 @@
-// The Parkemon card.
+// The Parkemans card.
 //
 // Every collection renders one of these: the photo of the park sign in the window, the
 // park's name on the plate, its value where a Pokémon card would put HP, and a border

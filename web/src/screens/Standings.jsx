@@ -1,6 +1,7 @@
 // Season table and Champion table, toggled. Both are the same ledger; the only
 // difference is whether the query filters by season (spec §1.6).
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import { useGame } from '../lib/store.jsx';
 import { Spinner } from '../components/bits.jsx';
@@ -75,7 +76,14 @@ export default function Standings() {
                   </span>
                 </td>
                 <td className="r">{row.hoods_held}</td>
-                <td className="r tiny dim">{row.park_points || '—'}</td>
+                <td className="r tiny">
+                  {row.parks > 0 ? (
+                    <Link className="binder-link" to={`/binder/${row.player.id}`}
+                          title={`See ${row.player.display_name}'s binder`}>
+                      {row.park_points}
+                    </Link>
+                  ) : <span className="dim">—</span>}
+                </td>
                 <td className="r num">{row.points}</td>
               </tr>
             ))}

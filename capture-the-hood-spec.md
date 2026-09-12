@@ -137,7 +137,7 @@ the shot. Cheap to add, easy to cut.
 ### 1.4a Captions
 
 Every uploaded photo can carry one line of the player's own prose — territory claims and
-Parkemon collections alike. Optional, free text, capped at `CAPTION_MAX_LENGTH` (200).
+Parkemans collections alike. Optional, free text, capped at `CAPTION_MAX_LENGTH` (200).
 
 - **Written at upload time**, in the capture sheet once there is a photo to caption, and
   **editable afterwards by its author** — the only thing in the game a player can change
@@ -216,7 +216,7 @@ visible first flag is most of what makes it work.
 
 ---
 
-## 1.8 Parkemon GO
+## 1.8 Parkemans GO
 
 A sub-game inside every Hood, and the only part of Capture the Hood that nobody competes
 over.
@@ -237,8 +237,16 @@ and you **collect** that park: it pays points and prints you a collectable card.
   makes scoring, the feed, chat and **flagging** work on them unchanged. A collection
   reverted by flags cancels its points and frees the park to be collected again.
 
-Reached from the map: tap a Hood, then the **Parkemon GO** button on its sheet. That
+Reached from the map: tap a Hood, then the **Parkemans GO** button on its sheet. That
 opens the ~60 parks in that Hood as a list sorted by value, or as pins on a map.
+
+**Cards and binders are public.** Any player can open any other player's binder, and any
+card is viewable from the feed or a Hood's history by tapping the collection that printed
+it. This follows from the sub-game's one rule: nobody competes over parks, so a card in
+somebody's binder takes nothing from anybody, and there is nothing to gain by hiding it.
+What is left is the part of a card game that is actually fun — seeing what everybody else
+pulled. Two players who collect the same park in the same season get visibly different
+cards, so a shared park is a comparison rather than a duplicate.
 
 ### The card
 
@@ -538,12 +546,12 @@ GET    /api/leaderboard?season=    current season standings (carries xp/level/ti
 GET    /api/leaderboard/champion   all-season totals
 GET    /api/seasons                schedule + which is active
 
-GET    /api/hoods/:id/parks        Parkemon: every park in a Hood + your collection state
+GET    /api/hoods/:id/parks        Parkemans: every park in a Hood + your collection state
 GET    /api/parks/:id             one park + whether you can collect it
 GET    /api/parks/:id/check       dry run
 POST   /api/parks/:id/collect     multipart: photo of the sign, caption (optional)
-GET    /api/cards?season=         your binder
-GET    /api/cards/:claimId        one card
+GET    /api/cards?season=&player= a binder — yours by default, anybody's with ?player=
+GET    /api/cards/:claimId        one card, whoever collected it (the feed opens these)
 
 GET    /api/feed                   recent claims, paginated
 PUT    /api/claims/:id/caption     caption — author only; empty clears it (§1.4a)
@@ -722,7 +730,7 @@ see how people actually behave.
 - **Do parks swamp territory?** 1,513 parks at 5–100 points each is a far bigger pool than
   25 Hoods, and an afternoon of walking a dense Hood could out-earn a hard-won steal. The
   levers, if it distorts: scale park values down, cap park points per season, or count
-  them toward a separate Parkemon standing rather than the main total. Watch it in
+  them toward a separate Parkemans standing rather than the main total. Watch it in
   Season 1 — it is the single most likely thing about this build to need rebalancing.
 - **Subject edge cases** — a storefront with a dog outside it satisfies two subjects at
   once, and the declaring player picks whichever is tactically useful. That is either a

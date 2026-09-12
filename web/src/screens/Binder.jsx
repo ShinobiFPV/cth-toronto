@@ -1,7 +1,11 @@
-// The binder: every park card you own. The reason to keep collecting once the points
-// stop mattering.
+// The binder: every park card somebody owns. The reason to keep collecting once the
+// points stop mattering.
+//
+// Anybody's binder, not just your own — /binder/:playerId. Nobody competes over parks,
+// so a collection is something to show off rather than something to protect, and
+// looking at what everybody else pulled is most of why a card game is fun.
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import { useGame } from '../lib/store.jsx';
 import { BackIcon, CloseIcon } from '../components/icons.jsx';
@@ -12,22 +16,26 @@ const RARITY_ORDER = ['legendary', 'rare', 'uncommon', 'common'];
 
 export default function Binder() {
   const navigate = useNavigate();
-  const { session } = useGame();
+  const { playerId } = useParams();
+  const { session, players, player: me } = useGame();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [scope, setScope] = useState('season');
   const [zoom, setZoom] = useState(null);
   const [rarity, setRarity] = useState('all');
 
+  const viewing = playerId ? Number(playerId) : null;
+  const isMine = viewing == null || viewing === me?.id;
+
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    api.cards(scope === 'season' ? session?.season?.id : null)
+    api.cards(scope === 'season' ? session?.season?.id : null, viewing)
       .then((r) => !cancelled && setData(r))
       .catch(() => {})
       .finally(() => !cancelled && setLoading(false));
     return () => { cancelled = true; };
-  }, [scope, session?.season?.id]);
+  }, [scope, session?.season?.id, viewing]);
 
   const cards = useMemo(() => {
     const list = [...(data?.cards ?? [])];
@@ -48,10 +56,35 @@ export default function Binder() {
         </button>
       </div>
 
-      <h1>Binder</h1>
+      <h1>
+        {isMine ? 'Binder' : `${data?.player?.display_name ?? 'Their'}’s binder`}
+      </h1>
       <p className="tiny dim" style={{ margin: '0.3rem 0 0.9rem' }}>
-        Every park sign you have photographed. Each park comes back around next season.
+        {isMine
+          ? 'Every park sign you have photographed. Each park comes back around next season.'
+          : 'Every park sign they have photographed. Nobody competes over parks, so this '
+            + 'costs you nothing — and the same parks are still there for you.'}
       </p>
+
+      {/* Whose binder. Yours first, then everybody else — this is the whole point of
+          making collections public, so it is a control rather than a deep link. */}
+      {players.length > 1 && (
+        <div className="cluster" style={{ marginBottom: '0.8rem' }}>
+          {[...players].sort((a, b) => (a.id === me?.id ? -1 : b.id === me?.id ? 1 : 0))
+            .map((p) => {
+              const active = p.id === (viewing ?? me?.id);
+              return (
+                <button key={p.id}
+                        className={`btn btn-sm ${active ? 'btn-primary' : 'btn-ghost'}`}
+                        aria-pressed={active}
+                        onClick={() => navigate(p.id === me?.id ? '/binder' : `/binder/${p.id}`)}>
+                  <i className="dot" style={{ background: p.colour }} />
+                  {p.id === me?.id ? 'You' : p.display_name}
+                </button>
+              );
+            })}
+        </div>
+      )}
 
       {s && (
         <div className="sheet" style={{ marginBottom: '0.9rem' }}>
@@ -98,7 +131,9 @@ export default function Binder() {
 
       {!loading && !cards.length && (
         <div className="empty">
-          Nothing here yet. Open a Hood on the map and tap Parkemon GO.
+          {isMine
+            ? 'Nothing here yet. Open a Hood on the map and tap Parkemans GO.'
+            : 'They have not collected anything yet.'}
         </div>
       )}
 

@@ -65,11 +65,18 @@ export const api = {
   champion: () => request('/leaderboard/champion'),
   seasons: () => request('/seasons'),
 
-  // Parkemon GO
+  // Parkemans GO
   parksInHood: (hoodId) => request(`/hoods/${hoodId}/parks`),
   park: (id) => request(`/parks/${id}`),
   parkCheck: (id) => request(`/parks/${id}/check`),
-  cards: (season) => request(`/cards${season ? `?season=${season}` : ''}`),
+  // Omit playerId for your own binder; pass one to read somebody else's.
+  cards: (season, playerId) => {
+    const q = new URLSearchParams();
+    if (season) q.set('season', season);
+    if (playerId) q.set('player', playerId);
+    const qs = q.toString();
+    return request(`/cards${qs ? `?${qs}` : ''}`);
+  },
   card: (claimId) => request(`/cards/${claimId}`),
 
   // chat

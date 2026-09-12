@@ -1,4 +1,4 @@
-// Parkemon GO: the sub-game inside each Hood.
+// Parkemans GO: the sub-game inside each Hood.
 //
 // Every Toronto park has the same green sign with the park's name on it. You photograph
 // the sign, you collect the park, you get a card. Each park is collectable once per
@@ -31,6 +31,11 @@ export const rarityOf = (value) =>
  * The card's art seed. Deterministic from player, park and season, so the same
  * collection always renders the same card — and two players collecting the same park in
  * the same season still get visibly different borders.
+ *
+ * The salt keeps the game's old name on purpose. It is a hash input, not a label: every
+ * card_seed already stored on a claim was derived from this exact string, and changing
+ * it would only mean future seeds come from a different one than past seeds for no
+ * visible gain. Renaming Parkemon to Parkemans stopped here.
  */
 export const cardSeed = (playerId, parkId, seasonId) =>
   crypto.createHash('sha256')
@@ -100,7 +105,7 @@ const shapeCollection = (r) => ({
   caption: r.caption ?? null,
 });
 
-/** How a Hood's Parkemon progress looks in one line, for the Hood sheet and the map. */
+/** How a Hood's Parkemans progress looks in one line, for the Hood sheet and the map. */
 export function parkProgress(hoodId, playerId, at = nowIso()) {
   const season = activeSeason(at);
   const total = db.prepare('SELECT COUNT(*) AS n FROM parks WHERE hood_id = ?').get(hoodId).n;

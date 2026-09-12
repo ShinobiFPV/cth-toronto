@@ -4,8 +4,10 @@ import { Link } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import { useGame } from '../lib/store.jsx';
 import { KIND_VERB } from '../lib/game.js';
+import { CardIcon } from '../components/icons.jsx';
 import { Subject, PlayerName, FlagButton, When, Spinner, Lightbox } from '../components/bits.jsx';
 import Caption from '../components/Caption.jsx';
+import CardLightbox from '../components/CardLightbox.jsx';
 
 export default function Feed() {
   const { player, hoods } = useGame();
@@ -13,6 +15,7 @@ export default function Feed() {
   const [before, setBefore] = useState(null);
   const [loading, setLoading] = useState(true);
   const [zoomed, setZoomed] = useState(null);
+  const [cardClaim, setCardClaim] = useState(null);
 
   const load = useCallback(async (cursor) => {
     const { feed, next_before } = await api.feed(cursor);
@@ -36,7 +39,7 @@ export default function Feed() {
         <article key={c.id} className={`claim ${c.status === 'reverted' ? 'reverted' : ''}`}>
           {c.thumb_url
             ? <img className="claim-thumb" src={c.thumb_url} alt="" loading="lazy"
-                   onClick={() => setZoomed(c.display_url)} />
+                   onClick={() => (c.park ? setCardClaim(c.id) : setZoomed(c.display_url))} />
             : <div className="claim-thumb" aria-hidden="true" />}
 
           <div className="grow">
@@ -56,7 +59,13 @@ export default function Feed() {
                 {KIND_VERB[c.claim_kind]}{c.points ? ` +${c.points}` : ''}
               </span>
               {c.park
-                ? <span className="tiny dim truncate">{c.park.name}</span>
+                ? (
+                  <button className="btn btn-sm btn-ghost" onClick={() => setCardClaim(c.id)}
+                          title={`See the ${c.park.name} card`}>
+                    <CardIcon style={{ width: 14, height: 14 }} />
+                    {c.park.name}
+                  </button>
+                )
                 : c.photo_type && <Subject type={c.photo_type} />}
               {c.beaten && <span className="tiny dim">beat {c.beaten.display_name}</span>}
               {c.replaced_photo_type
@@ -79,6 +88,7 @@ export default function Feed() {
       )}
 
       <Lightbox src={zoomed} onClose={() => setZoomed(null)} />
+      <CardLightbox claimId={cardClaim} onClose={() => setCardClaim(null)} />
     </>
   );
 }

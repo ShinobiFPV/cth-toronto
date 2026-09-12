@@ -62,12 +62,20 @@ changing one, read the test first — it says why.
   `server/db.js` is the only thing allowed to write it. The rollover increments
   `escalations` and calls it; the importer refreshes `difficulty` and calls it. Never
   UPDATE that column directly.
-- **Parkemon collections are claims too.** A park collection is a row in `claims` with
+- **Parkemans collections are claims too.** A park collection is a row in `claims` with
   `claim_kind = 'park'` and `park_id` set. That is deliberate: scoring, the feed, chat
   and flagging all work on it with no special cases. It must never touch `hood_state` —
   collecting a park takes nothing from anybody. Once-per-season is enforced both in
   `evaluateCollect()` and by a partial unique index that excludes reverted rows, so a
   claim the group threw out frees the park up again.
+- **Cards and binders are public, deliberately.** `GET /cards?player=` reads anybody's
+  binder and `GET /cards/:claimId` is not scoped to the owner. That is not an oversight:
+  nobody competes over parks, so a card takes nothing from anybody, and comparing pulls
+  is most of what makes a card game fun. Territory claims are a different matter — do
+  not copy this openness onto anything anyone can lose.
+- **The game is called Parkemans GO.** It was Parkemon until the rename; the only place
+  the old spelling survives is the `cth-parkemon:` salt inside `cardSeed()`, which is a
+  hash input already baked into every stored `card_seed`. Leave it.
 - **A card's art is seeded, not random.** `card_seed` is hashed from
   (player, park, season) and stored on the claim, so a card renders identically every
   time. `ParkCard.jsx` reads the seed for the hatch, foil and corners, the season for
@@ -134,14 +142,14 @@ changing one, read the test first — it says why.
 ## Testing
 
 ```bash
-npm test        # 192 tests, no server needed, touches nothing in data/
+npm test        # 201 tests, no server needed, touches nothing in data/
 ```
 
 - `test/game.test.js` — the rules, driving the game module directly. Time is simulated by
   winding `hood_state` clocks backwards, not by waiting.
 - `test/api.test.js` — boots the real server on port 8199 against a temp database and
   walks the whole thing over HTTP, including real JPEGs through the sharp pipeline.
-- `test/parks.test.js` — Parkemon GO. Seeds four parks by hand rather than importing
+- `test/parks.test.js` — Parkemans GO. Seeds four parks by hand rather than importing
   1,513, so the suite never touches the network.
 - `test/xp.test.js` — the level curve (asserted to invert exactly across 200 levels), the
   XP schedule, and that XP survives season rollovers, reversals and lost territory.
@@ -210,7 +218,7 @@ There is no linter and no CI. Validate frontend changes by running the app
   pushed Collect and Conquer clean past the bottom edge. `min-height: 0` on
   `.bottom-sheet > .sheet-body` is what lets the body shrink and scroll instead of
   growing and shoving the footer out; without it the bug returns exactly as it was.
-  Both actions on the Hood sheet belong there too — the claim *and* Play Parkemon GO,
+  Both actions on the Hood sheet belong there too — the claim *and* Play Parkemans GO,
   which sits under it and was therefore the first thing to disappear.
 - **The bottom of the screen is not yours, and its height cannot be guessed.** A
   `position: fixed; bottom: 0` element anchors to the **layout** viewport, which on iOS

@@ -35,7 +35,7 @@ const FLOWS = [
   { file: 'web/src/components/ParkCollect.jsx', action: 'Collect' },
   { file: 'web/src/components/ClaimFlow.jsx', action: 'Conquer / Steal / Reinforce' },
   // The Hood sheet was missed the first time round, and it is the one carrying two
-  // actions: the claim and Play Parkemon GO, which was reported invisible.
+  // actions: the claim and Play Parkemans GO, which was reported invisible.
   { file: 'web/src/components/HoodSheet.jsx', action: 'the Hood sheet action' },
 ];
 
@@ -78,13 +78,13 @@ describe('the sheet action footer', () => {
       'installed there is no toolbar, so do not leave a gap that looks like a mistake');
   });
 
-  test('Play Parkemon GO is in the footer too, not below the fold', () => {
+  test('Play Parkemans GO is in the footer too, not below the fold', () => {
     const src = read('web/src/components/HoodSheet.jsx');
     const footer = src.indexOf('className="sheet-actions"');
-    const parkemon = src.indexOf('Play Parkemon GO');
+    const parkemans = src.indexOf('Play Parkemans GO');
     assert.notEqual(footer, -1);
-    assert.notEqual(parkemon, -1);
-    assert.ok(parkemon > footer,
+    assert.notEqual(parkemans, -1);
+    assert.ok(parkemans > footer,
       'it sits under the claim action, so it is the first thing to fall off the screen');
   });
 

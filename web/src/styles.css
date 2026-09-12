@@ -753,7 +753,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
   }
 }
 
-/* ── Parkemon GO ───────────────────────────────────────────────────────────
+/* ── Parkemans GO ───────────────────────────────────────────────────────────
    The collectable card. The frame is an inline SVG behind everything; this
    lays the photo, the plate and the footer on top of it. Sizes are fixed in
    px because a trading card has a physical size in your head — it should not
@@ -936,18 +936,28 @@ button, input, select, textarea { font: inherit; color: inherit; }
   margin: 0 -0.9rem;
 }
 
-/* The Parkemon button sits directly under the claim action and matches its geometry,
+/* The Parkemans button sits directly under the claim action and matches its geometry,
    so the two read as a pair. Outlined in the accent rather than filled, because two
    filled buttons stacked would each be shouting that they are the main thing. */
-.btn-parkemon {
+/* A park-points figure in the standings that is also the door to that binder. Dim
+   like the column it lives in, underlined so it does not hide what it is. */
+.binder-link {
+  color: var(--dim);
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 2px;
+}
+.binder-link:hover, .binder-link:focus-visible { color: var(--accent-text); }
+
+.btn-parkemans {
   min-height: var(--tap);
   border-color: var(--accent);
   color: var(--accent-text);
   font-weight: 700;
   gap: 0.5rem;
 }
-.btn-parkemon:hover { background: rgba(var(--accent-rgb), 0.1); }
-.btn-parkemon .btn-sub {
+.btn-parkemans:hover { background: rgba(var(--accent-rgb), 0.1); }
+.btn-parkemans .btn-sub {
   font-weight: 400;
   opacity: 0.75;
   font-variant-numeric: tabular-nums;

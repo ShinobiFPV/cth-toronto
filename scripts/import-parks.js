@@ -6,7 +6,7 @@
 //   --file   use a local copy of the parks GeoJSON instead of fetching
 //   --hoods  ward boundaries to assign against (default: web/public/hoods.min.geojson)
 //
-// Parkemon GO needs three things per park: a name (it is on the sign, which is what you
+// Parkemans GO needs three things per park: a name (it is on the sign, which is what you
 // photograph), a location, and the Hood it belongs to. The city's
 // `parks-and-recreation-facilities` dataset gives the first two directly; the third comes
 // from a point-in-polygon test against the ward boundaries.
