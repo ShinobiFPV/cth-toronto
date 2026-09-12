@@ -57,7 +57,7 @@ changing one, read the test first — it says why.
   camera is legal. The DB column is still `photo_type` because it is literally the type
   of photo; the values changed, the column name did not.
 - **The adjacency cooldown is conquer-only and per-player.** Conquering an unclaimed Hood
-  closes its neighbours to *that player* for 24h. It does not touch steals or reinforces,
+  closes its neighbours to *that player* for 6h. It does not touch steals or reinforces,
   and it does not stop anyone else. Reverted conquers stop blocking. Several tests
   deliberately use Hoods 1, 13, 16 and 25 because those are pairwise non-adjacent — if you
   "tidy" them into 1, 2, 3 the suite fails, and correctly so.

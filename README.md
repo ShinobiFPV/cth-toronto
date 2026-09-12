@@ -75,7 +75,7 @@ is a whole afternoon and everybody knows it.
 **Steal from somebody and there's a 12-hour lock**, so you two can't trade the same Hood
 back and forth all evening like a pair of idiots.
 
-**Conquer empty ground and its neighbours close to you for 24 hours.** This rule exists
+**Conquer empty ground and its neighbours close to you for six hours.** This rule exists
 entirely because of drones. One flight should not hand somebody the whole west end.
 
 ---

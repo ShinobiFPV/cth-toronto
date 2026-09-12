@@ -65,7 +65,12 @@ export const config = {
   // it for this long. Aimed squarely at the drone advantage: one flight should not hand
   // somebody a whole contiguous block of the city. Steals and reinforces are untouched,
   // and it is per-player — anyone else can still take the neighbour. 0 disables it.
-  ADJACENT_CONQUER_COOLDOWN_HOURS: num('CTH_ADJACENT_CONQUER_COOLDOWN_HOURS', 24),
+  //
+  // Six, not the 24 it launched with: a day meant that walking two adjacent Hoods in an
+  // afternoon was impossible, which punished the people the rule was never aimed at.
+  // Six still stops a single drone flight becoming a contiguous block, and leaves the
+  // neighbour open by the evening.
+  ADJACENT_CONQUER_COOLDOWN_HOURS: num('CTH_ADJACENT_CONQUER_COOLDOWN_HOURS', 6),
   // Per-season cap on reinforce points per player, 0 = uncapped (spec §10 lever).
   REINFORCE_SEASON_CAP: num('CTH_REINFORCE_SEASON_CAP', 0),
 

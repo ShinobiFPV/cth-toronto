@@ -76,9 +76,9 @@ export function evaluateClaim({ hoodId, playerId, declaredType = null, at = nowI
   }
 
   // The adjacent-conquer cooldown (spec §1.3). Conquering unclaimed ground closes that
-  // Hood's neighbours to you for a day, so one drone flight cannot sweep up a whole
-  // contiguous block. Per-player: anybody else may still conquer the neighbour, and
-  // your own steals and reinforces are unaffected.
+  // Hood's neighbours to you for ADJACENT_CONQUER_COOLDOWN_HOURS, so one drone flight
+  // cannot sweep up a whole contiguous block. Per-player: anybody else may still
+  // conquer the neighbour, and your own steals and reinforces are unaffected.
   if (kind === 'conquer' && config.ADJACENT_CONQUER_COOLDOWN_HOURS > 0) {
     const blocker = recentAdjacentConquer(hoodId, playerId, at);
     if (blocker) {

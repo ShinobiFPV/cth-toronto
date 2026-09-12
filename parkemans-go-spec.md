@@ -101,7 +101,7 @@ to `animal`.
 - After a Hood changes hands between players, it is locked from stealing for
   `STEAL_COOLDOWN_HOURS` (default **12**) to prevent instant revenge ping-pong.
 - **Conquering an unclaimed Hood closes that Hood's neighbours to you** for
-  `ADJACENT_CONQUER_COOLDOWN_HOURS` (default **24**). This is the anti-drone lever: from
+  `ADJACENT_CONQUER_COOLDOWN_HOURS` (default **6**, originally 24). This is the anti-drone lever: from
   one vantage point a drone pilot can plausibly shoot several adjacent Hoods in an
   afternoon, and without this the whole west end goes to whoever owns a Mavic. It is
   deliberately narrow:
@@ -677,7 +677,7 @@ can reject before wasting the upload:
 | Code | Condition |
 |---|---|
 | `HOOD_LOCKED` | Steal attempted inside the 12h cooldown |
-| `ADJACENT_COOLDOWN` | Conquer attempted on a Hood bordering one you conquered in the last 24h — returns the eligible timestamp and the Hood responsible |
+| `ADJACENT_COOLDOWN` | Conquer attempted on a Hood bordering one you conquered inside the cooldown — returns the eligible timestamp and the Hood responsible |
 | `REINFORCE_TOO_SOON` | Own Hood, less than 72h since `last_claim_at` — return the eligible timestamp |
 | `WEAK_TYPE` | Declared subject does not beat the current holder's (applies to steal *and* reinforce) |
 | `SAME_TYPE` | Declared subject equals the current holder's |
@@ -827,12 +827,15 @@ see how people actually behave.
   reinforce points per season.
 - **Steal cooldown** — 12h default. Without one, two players will trade the same Hood back
   and forth all afternoon.
-- **Adjacent-conquer cooldown** — 24h default. Watch whether it over-corrects. It bites
-  unevenly by geography: Rouge Park borders only two Hoods, Don Valley West borders seven,
-  and the dense downtown Hoods have few neighbours each — so a walker downtown is barely
-  inconvenienced while someone working the inner suburbs is heavily gated. If it turns out
-  to punish walkers more than pilots, the levers are a shorter window or counting only
-  Hoods conquered on the same day.
+- **Adjacent-conquer cooldown** — **settled at 6h**, down from the 24h it launched with.
+  This section predicted the failure: "if it turns out to punish walkers more than
+  pilots, the levers are a shorter window or counting only Hoods conquered on the same
+  day." It did, and the shorter window is the lever that was pulled. A full day meant two
+  adjacent Hoods could not be walked in one afternoon, which gated exactly the people the
+  rule was never aimed at; six hours still stops one drone flight becoming a contiguous
+  block, and opens the neighbour up by the evening. It remains uneven by geography —
+  Rouge Park borders two Hoods, Don Valley West borders seven — which is inherent to
+  using real adjacency and is the price of the rule meaning anything.
 - **Escalation cap** — with difficulty as the floor, an untouched Rouge Park reaches 125
   by Season 4 while an untouched University-Rosedale reaches 80. `CTH_ESCALATION_CAP`
   clamps the top if that runs away.

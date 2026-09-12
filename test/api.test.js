@@ -343,7 +343,7 @@ describe('the API end to end', () => {
   // no unit test can see: multer has to hand it over as req.body.caption.
   test('a caption sent with the upload survives the round trip and reaches chat', async () => {
     // Hood 1 is Etobicoke North: unclaimed, and not adjacent to any Hood another test
-    // claims, so carol's 24h adjacency cooldown lands where nothing else is looking.
+    // claims, so carol's adjacency cooldown lands where nothing else is looking.
     const { status, data } = await carol('/hoods/1/claim', {
       method: 'POST',
       raw: await claimForm(await jpeg(60), 'animal', 'shot.jpg',
