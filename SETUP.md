@@ -30,9 +30,11 @@ The database and every photo ever posted live under `/srv/cth`, which
 storage.
 
 **You should.** A season of drone stills on an SD card is how SD cards die, and as of
-this writing shinobi's card is 95% full with about 3 GB free, shared with every other
-service on the box. If you have a USB SSD mounted at, say, `/mnt/ssd`, make `/srv/cth` a
-symlink to it *before* running the install:
+this writing shinobi's 59 GB card is 93% full with about 4 GB free, shared with every
+other service on the box. There is a lot of reclaimable space on it if you need more —
+`sudo apt-get clean` alone frees ~2 GB — but none of that changes the underlying
+problem, which is that this game only grows. If you have a USB SSD mounted at, say,
+`/mnt/ssd`, make `/srv/cth` a symlink to it *before* running the install:
 
 ```bash
 sudo mkdir -p /mnt/ssd/cth/media
