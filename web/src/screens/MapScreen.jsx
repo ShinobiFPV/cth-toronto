@@ -5,7 +5,7 @@
 // Leaflet is driven directly rather than through a React wrapper: the layers are
 // created once and then restyled in place on every state change, which keeps the map
 // from flickering each time somebody's claim lands over the socket.
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useGame } from '../lib/store.jsx';
@@ -35,6 +35,61 @@ export default function MapScreen() {
   const mapRef = useRef(null);
   const layersRef = useRef(new Map());      // hood id → { polygon, label }
   const byId = useMemo(() => new Map(hoods.map((h) => [h.id, h])), [hoods]);
+
+  // paint() reads the Hood data through a ref rather than closing over it, which keeps
+  // the callback itself stable. That matters: the layer-creation effect calls paint(),
+  // and if paint changed identity every time the data changed, that effect would tear
+  // the whole map down and rebuild it on every claim.
+  const byIdRef = useRef(byId);
+  byIdRef.current = byId;
+
+  /**
+   * Put the game state onto the layers: owner colour, the reinforce pulse, the blocked
+   * hatch, and the centroid label. Called both when the layers are created and whenever
+   * the data changes, so neither ordering can leave the map unpainted.
+   */
+  const paint = useCallback(() => {
+    const data = byIdRef.current;
+    if (!layersRef.current.size || !data.size) return;
+
+    for (const [id, { polygon, label, pathEl }] of layersRef.current) {
+      const hood = data.get(id);
+      if (!hood) continue;
+      const colour = hoodColour(hood);
+      const ready = hood.viewer?.reinforce_ready;
+      const blocked = hood.viewer?.adjacent_blocked;
+
+      polygon.setStyle({
+        color: colour,
+        weight: hood.owner ? 2 : 1.5,
+        opacity: 0.95,
+        fillColor: colour,
+        fillOpacity: hood.owner ? 0.42 : 0.14,
+        dashArray: hood.owner ? null : '4 4',
+      });
+
+      // The pulse rides on the SVG path itself, so it survives pan and zoom.
+      if (pathEl) {
+        pathEl.classList.toggle('hood-ready', !!ready);
+        pathEl.classList.toggle('hood-blocked', !!blocked);
+        pathEl.setAttribute('aria-label', `${hood.label} — ${
+          hood.owner ? `held by ${hood.owner.display_name}`
+            : blocked ? `unclaimed, but closed to you for ${hood.viewer.countdown}`
+            : `unclaimed, worth ${hood.unclaimed_value}`}`);
+      }
+
+      const el = label.getElement();
+      if (el) {
+        el.innerHTML =
+          `<span class="n" style="color:${hood.owner ? colour : blocked ? '#6B7480' : '#C6CFD8'}">${hood.id}</span>`
+          + (hood.owner ? ''
+            : blocked ? `<span class="v" style="color:#6B7480">${hood.viewer.countdown}</span>`
+            : `<span class="v">+${hood.unclaimed_value}</span>`);
+        el.classList.toggle('hood-ready', !!ready);
+        el.title = hood.label;
+      }
+    }
+  }, []);
 
   // ── the boundary file, fetched once and cached by the service worker ────
   useEffect(() => {
@@ -130,50 +185,19 @@ export default function MapScreen() {
     fit();
     requestAnimationFrame(fit);
 
+    // Paint immediately, in the same tick the layers are created. The effect below
+    // also paints whenever the data changes, but relying on it alone leaves a hole:
+    // if the boundary file resolves after the last Hood update, the layers exist and
+    // nothing ever triggers a repaint, so they keep Leaflet's default blue with blank
+    // labels until you refresh. Painting here as well removes the ordering question
+    // entirely — layers are never left unpainted, whichever half arrives last.
+    paint();
+
     return () => { group.remove(); layersRef.current.clear(); };
-  }, [geo]);
+  }, [geo, paint]);
 
-  // ── restyle on every state change ───────────────────────────────────────
-  useEffect(() => {
-    if (!layersRef.current.size) return;
-    for (const [id, { polygon, label, pathEl }] of layersRef.current) {
-      const hood = byId.get(id);
-      if (!hood) continue;
-      const colour = hoodColour(hood);
-      const ready = hood.viewer?.reinforce_ready;
-      const blocked = hood.viewer?.adjacent_blocked;
-
-      polygon.setStyle({
-        color: colour,
-        weight: hood.owner ? 2 : 1.5,
-        opacity: 0.95,
-        fillColor: colour,
-        fillOpacity: hood.owner ? 0.42 : 0.14,
-        dashArray: hood.owner ? null : '4 4',
-      });
-
-      // The pulse rides on the SVG path itself, so it survives pan and zoom.
-      if (pathEl) {
-        pathEl.classList.toggle('hood-ready', !!ready);
-        pathEl.classList.toggle('hood-blocked', !!blocked);
-        pathEl.setAttribute('aria-label', `${hood.label} — ${
-          hood.owner ? `held by ${hood.owner.display_name}`
-            : blocked ? `unclaimed, but closed to you for ${hood.viewer.countdown}`
-            : `unclaimed, worth ${hood.unclaimed_value}`}`);
-      }
-
-      const el = label.getElement();
-      if (el) {
-        el.innerHTML =
-          `<span class="n" style="color:${hood.owner ? colour : blocked ? '#6B7480' : '#C6CFD8'}">${hood.id}</span>`
-          + (hood.owner ? ''
-            : blocked ? `<span class="v" style="color:#6B7480">${hood.viewer.countdown}</span>`
-            : `<span class="v">+${hood.unclaimed_value}</span>`);
-        el.classList.toggle('hood-ready', !!ready);
-        el.title = hood.label;
-      }
-    }
-  }, [byId]);
+  // ── repaint whenever the game state changes ─────────────────────────────
+  useEffect(() => { paint(); }, [byId, paint]);
 
   const mine = hoods.filter((h) => h.owner?.id === player?.id);
   const richest = hoods.filter((h) => !h.owner)
@@ -212,6 +236,7 @@ export default function MapScreen() {
               <span className="dim truncate">best unclaimed · {richest.id}</span>
             </div>
           )}
+          <div className="map-hint">Refresh the page if the map is not showing info</div>
         </div>
       )}
 

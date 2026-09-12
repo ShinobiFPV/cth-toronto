@@ -792,3 +792,14 @@ button, input, select, textarea { font: inherit; color: inherit; }
   opacity: 0.75;
   font-variant-numeric: tabular-nums;
 }
+
+/* The map's one line of small print. Sits under the legend rows, quiet enough to
+   ignore until the moment you need it. */
+.map-hint {
+  margin-top: 0.35rem;
+  padding-top: 0.35rem;
+  border-top: 1px solid var(--rule);
+  font-size: 0.58rem;
+  line-height: 1.35;
+  color: var(--dim);
+}
