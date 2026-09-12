@@ -107,8 +107,12 @@ Let `shinobi` restart the service without a password prompt, the same way the ot
 services do:
 
 ```bash
-echo 'shinobi ALL=(ALL) NOPASSWD: /bin/systemctl restart cth' | sudo tee /etc/sudoers.d/cth
+# Both paths: sudo's secure_path puts /usr/bin ahead of /bin, so `sudo systemctl`
+# resolves to /usr/bin/systemctl — an entry for /bin/systemctl alone never matches.
+printf '%s
+'   'shinobi ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart cth, /bin/systemctl restart cth'   | sudo tee /etc/sudoers.d/cth
 sudo chmod 440 /etc/sudoers.d/cth
+sudo visudo -c -f /etc/sudoers.d/cth      # never leave a broken sudoers file behind
 ```
 
 ## 8 · nginx
