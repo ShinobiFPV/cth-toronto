@@ -108,26 +108,6 @@ export default function HoodSheet({ hoodId, onClose }) {
                 <Banner kind={GATE_CODES.has(v.error) ? 'info' : 'bad'}>{v.message}</Banner>
               )}
 
-              <button className="btn btn-primary btn-block"
-                      disabled={!v.can_claim}
-                      onClick={() => setClaiming(true)}>
-                {v.action_label}
-              </button>
-
-              {/* The sub-game, directly under the action button and the same shape as it:
-                  collecting parks is half the reason to open a Hood. Rendered
-                  unconditionally — every Hood in Toronto has between 31 and 95 parks, so
-                  hiding it on a missing count only ever hides a working feature. */}
-              <Link className="btn btn-block btn-parkemon" to={`/hood/${hood.id}/parks`}
-                    onClick={onClose}>
-                <span>Play Parkemon GO</span>
-                {hood.parks?.total > 0 && (
-                  <span className="btn-sub">
-                    {hood.parks.collected}/{hood.parks.total}
-                  </span>
-                )}
-              </Link>
-
               <div className="cluster" style={{ justifyContent: 'space-between' }}>
                 <Link className="btn btn-sm btn-ghost" to={`/hood/${hood.id}`} onClick={onClose}>
                   Full history
@@ -148,6 +128,31 @@ export default function HoodSheet({ hoodId, onClose }) {
                   />
                 )}
               </div>
+            </div>
+
+            {/* Both actions live outside the scrolling body, so a Hood with a photo, a
+                cooldown banner and a caption cannot push them off the bottom of the
+                screen. The sub-game sits directly under the claim action and matches
+                its shape: collecting parks is half the reason to open a Hood. It is
+                rendered unconditionally — every Hood in Toronto has between 31 and 95
+                parks, so hiding it on a missing count only ever hides a working
+                feature. */}
+            <div className="sheet-actions">
+              <button className="btn btn-primary btn-block"
+                      disabled={!v.can_claim}
+                      onClick={() => setClaiming(true)}>
+                {v.action_label}
+              </button>
+
+              <Link className="btn btn-block btn-parkemon" to={`/hood/${hood.id}/parks`}
+                    onClick={onClose}>
+                <span>Play Parkemon GO</span>
+                {hood.parks?.total > 0 && (
+                  <span className="btn-sub">
+                    {hood.parks.collected}/{hood.parks.total}
+                  </span>
+                )}
+              </Link>
             </div>
           </>
         )}

@@ -134,7 +134,7 @@ changing one, read the test first — it says why.
 ## Testing
 
 ```bash
-npm test        # 183 tests, no server needed, touches nothing in data/
+npm test        # 192 tests, no server needed, touches nothing in data/
 ```
 
 - `test/game.test.js` — the rules, driving the game module directly. Time is simulated by
@@ -210,11 +210,21 @@ There is no linter and no CI. Validate frontend changes by running the app
   pushed Collect and Conquer clean past the bottom edge. `min-height: 0` on
   `.bottom-sheet > .sheet-body` is what lets the body shrink and scroll instead of
   growing and shoving the footer out; without it the bug returns exactly as it was.
-  A first attempt used `position: sticky` and still failed on a real iPhone, because
-  the bottom strip of the screen belongs to Safari's toolbar and the home indicator —
-  hence `--sheet-lift`, which holds the sheet's contents clear of it and relaxes under
-  `@media (display-mode: standalone)` where there is no toolbar.
-  `test/sheets.test.js` holds all of that in place.
+  Both actions on the Hood sheet belong there too — the claim *and* Play Parkemon GO,
+  which sits under it and was therefore the first thing to disappear.
+- **The bottom of the screen is not yours, and its height cannot be guessed.** A
+  `position: fixed; bottom: 0` element anchors to the **layout** viewport, which on iOS
+  Safari continues underneath the browser toolbar — so the last rows of a sheet get
+  painted where nobody can see them. `position: sticky` did not help, and neither did a
+  fixed 3.5rem of clearance (the reporter still saw "only a sliver"). `lib/viewport.js`
+  measures the real thing from `visualViewport` into `--vv-bottom`, and the sheet uses
+  it **twice, once each**: `bottom: var(--vv-bottom)` to sit on top of the covered strip
+  and `max-height: calc(88dvh - var(--vv-bottom))` to stay inside what is visible.
+  Adding it to `padding-bottom` as well double-counts and squeezes the sheet flat when
+  the keyboard is up — which is the same mechanism as the toolbar, and why the keyboard
+  is handled for free. `--sheet-lift` is now just breathing room and the fallback for a
+  browser with no `visualViewport`. `test/sheets.test.js` holds all of that in place,
+  including the arithmetic.
 - **Leaflet sizing.** The map lives in a grid row and is measured before layout settles,
   so `MapScreen` calls `invalidateSize()` on the next frame and keeps a `ResizeObserver`.
   Removing that leaves Toronto fitted to the wrong viewport.

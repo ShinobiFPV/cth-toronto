@@ -90,11 +90,16 @@
 
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
-  /* How far a bottom sheet's contents are held clear of the bottom of the screen, on
-     top of the safe-area inset. In a browser the bottom strip belongs to Safari's
-     toolbar, which overlays fixed content, so the action button needs real clearance
-     or it cannot be pressed at all. */
-  --sheet-lift: 3.5rem;
+  /* How much of the bottom of the screen is covered by browser UI or the keyboard,
+     measured at run time by lib/viewport.js. A fixed element anchors to the layout
+     viewport, which on iOS Safari runs on underneath the toolbar, so without this the
+     last rows of a sheet are painted where nobody can see them. 0 until measured, and
+     0 forever in a browser with no visualViewport — hence the lift below. */
+  --vv-bottom: 0px;
+  /* Plain breathing room on top of the measured inset, and the whole clearance on a
+     browser too old to measure. Not a toolbar-sized guess any more: guessing is what
+     left the Collect button showing a sliver. */
+  --sheet-lift: 1.25rem;
 
   color-scheme: dark;
 }
@@ -146,8 +151,11 @@
 }
 :root[data-theme='light'] .header .brand { color: #FFFFFF; }
 
+/* Installed as an app there is no browser toolbar to clear, and the measured inset
+   goes to 0 on its own — so this is only about not leaving a gap that looks like a
+   mistake. */
 @media (display-mode: standalone) {
-  :root { --sheet-lift: 1rem; }
+  :root { --sheet-lift: 0.75rem; }
 }
 
 * { box-sizing: border-box; }
@@ -541,9 +549,13 @@ button, input, select, textarea { font: inherit; color: inherit; }
   position: fixed;
   left: 0;
   right: 0;
-  bottom: 0;
+  /* Sit directly on top of whatever owns the bottom of the screen, rather than at the
+     bottom of the layout viewport, which on iOS Safari runs on underneath the toolbar.
+     The inset also caps the height — position it above the covered strip AND keep it
+     inside what is visible, but only count the inset once in each. */
+  bottom: var(--vv-bottom);
   z-index: 2001;
-  max-height: 88dvh;
+  max-height: calc(88dvh - var(--vv-bottom));
   /* A flex column, so the head and the action footer are laid out and only the middle
      scrolls. The button's position then owes nothing to the scroll position, which is
      what an earlier sticky-only version got wrong. */

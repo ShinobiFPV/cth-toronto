@@ -23,6 +23,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { coveredBottom } from '../web/src/lib/viewport.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = (p) => fs.readFileSync(path.join(ROOT, p), 'utf8');
@@ -33,6 +34,9 @@ const CSS = read('web/src/styles.css');
 const FLOWS = [
   { file: 'web/src/components/ParkCollect.jsx', action: 'Collect' },
   { file: 'web/src/components/ClaimFlow.jsx', action: 'Conquer / Steal / Reinforce' },
+  // The Hood sheet was missed the first time round, and it is the one carrying two
+  // actions: the claim and Play Parkemon GO, which was reported invisible.
+  { file: 'web/src/components/HoodSheet.jsx', action: 'the Hood sheet action' },
 ];
 
 describe('the sheet action footer', () => {
@@ -54,14 +58,34 @@ describe('the sheet action footer', () => {
     assert.match(rule[0], /min-height:\s*0/, 'min-height: 0 is what makes the body a scroller');
   });
 
-  test('the sheet holds its contents clear of the bottom of the screen', () => {
+  test('the sheet sits above whatever covers the bottom of the screen', () => {
     const rule = CSS.match(/\.bottom-sheet\s*\{[^}]*\}/s);
-    assert.match(rule[0], /padding-bottom:\s*calc\(var\(--safe-bottom\)\s*\+\s*var\(--sheet-lift\)\)/,
-      'the safe-area inset alone does not clear the browser toolbar');
-    assert.match(CSS, /--sheet-lift:\s*[\d.]+rem/, '--sheet-lift must have a real default');
-    // Installed as an app there is no browser toolbar, so the lift can relax.
+    // A fixed element anchors to the layout viewport, which on iOS Safari runs on
+    // underneath the toolbar. A guessed clearance left the button showing a sliver;
+    // the measured inset is the only thing that tracks a toolbar of unknown height.
+    assert.match(rule[0], /bottom:\s*var\(--vv-bottom\)/,
+      'the sheet must be positioned above the covered strip, not at the layout bottom');
+    assert.match(rule[0], /max-height:\s*calc\(88dvh\s*-\s*var\(--vv-bottom\)\)/,
+      'and it must not be taller than what is visible');
+    assert.match(rule[0], /padding-bottom:\s*calc\(var\(--safe-bottom\)\s*\+\s*var\(--sheet-lift\)\)/);
+    // The inset must be counted once in each of position and height, never added to
+    // the padding as well — doing all three squeezed the sheet flat with the keyboard up.
+    assert.ok(!/padding-bottom:[^;]*--vv-bottom/.test(rule[0]),
+      'the inset is already in `bottom` and `max-height`; adding it to padding double-counts');
+    assert.match(CSS, /--vv-bottom:\s*0px/, 'it needs a 0 default for browsers that cannot measure');
+    assert.match(CSS, /--sheet-lift:\s*[\d.]+rem/);
     assert.match(CSS, /@media \(display-mode: standalone\)\s*\{[^}]*--sheet-lift/s,
-      'standalone should not waste a whole toolbar of space');
+      'installed there is no toolbar, so do not leave a gap that looks like a mistake');
+  });
+
+  test('Play Parkemon GO is in the footer too, not below the fold', () => {
+    const src = read('web/src/components/HoodSheet.jsx');
+    const footer = src.indexOf('className="sheet-actions"');
+    const parkemon = src.indexOf('Play Parkemon GO');
+    assert.notEqual(footer, -1);
+    assert.notEqual(parkemon, -1);
+    assert.ok(parkemon > footer,
+      'it sits under the claim action, so it is the first thing to fall off the screen');
   });
 
   test('.sheet-actions is opaque, so content cannot show through the footer', () => {
@@ -96,6 +120,39 @@ describe('the sheet action footer', () => {
       }
     });
   }
+
+  describe('measuring what is covered', () => {
+    test('a browser toolbar overlaying the layout viewport', () => {
+      // iPhone 15 Pro Max in Safari: 932 layout, 849 visible.
+      assert.equal(coveredBottom({ innerHeight: 932, height: 849 }), 83);
+    });
+
+    test('nothing covering means no offset', () => {
+      assert.equal(coveredBottom({ innerHeight: 932, height: 932 }), 0);
+    });
+
+    test('the keyboard counts, because it is the same problem', () => {
+      assert.equal(coveredBottom({ innerHeight: 932, height: 596 }), 336);
+    });
+
+    test('offsetTop is included, or the inset reads short', () => {
+      // The visible viewport pushed down 40px by a focused field.
+      assert.equal(coveredBottom({ innerHeight: 932, height: 849, offsetTop: 40 }), 43);
+    });
+
+    test('a visible viewport larger than the layout one is not negative', () => {
+      assert.equal(coveredBottom({ innerHeight: 800, height: 860 }), 0);
+    });
+
+    test('a nonsense reading cannot swallow the sheet', () => {
+      // Mid-rotation the two viewports can disagree wildly; 60% is the ceiling.
+      assert.equal(coveredBottom({ innerHeight: 900, height: 10 }), 540);
+    });
+
+    test('fractional pixels round up, since half a toolbar still hides half a button', () => {
+      assert.equal(coveredBottom({ innerHeight: 932.4, height: 849.1 }), 84);
+    });
+  });
 
   test('the photo preview is still capped, so it cannot eat the whole sheet', () => {
     // The footer makes the button reachable; this keeps the rest of the sheet usable.
