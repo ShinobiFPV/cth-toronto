@@ -12,12 +12,15 @@ ExecStart=/usr/bin/node /home/shinobi/cth/server/index.js
 Restart=always
 RestartSec=5
 
-# The DB and the media library live under /srv/cth — put that on external storage if
-# you have it. A season of drone photos will grind an SD card.
+# The database and the media library. ProtectHome below is read-only, so the data
+# directory MUST live outside /home — /srv/cth is created once by hand, see SETUP.md.
+# Put it on external storage if you ever have some: a season of drone photos will
+# grind an SD card.
 ReadWritePaths=/srv/cth
-StateDirectory=cth
 
-# Nothing here needs more than its own directory and the network.
+# Nothing here needs more than its own directory and the network. ReadWritePaths wins
+# over ProtectHome for the paths it names, which is what lets scripts/import-hoods.js
+# write web/public while the rest of /home stays read-only to this unit.
 NoNewPrivileges=yes
 PrivateTmp=yes
 ProtectSystem=strict

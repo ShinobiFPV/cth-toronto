@@ -3,6 +3,7 @@
 #   .\deploy.ps1              build the web client, push, reinstall deps if needed, restart
 #   .\deploy.ps1 -SkipBuild   push the existing web/dist as-is
 #   .\deploy.ps1 -Restart     restart the service without pushing anything
+#   .\deploy.ps1 -ForceInstall  reinstall node_modules even if the lockfile is unchanged
 #
 # Like the other ShinTech deploys, this does NOT install systemd units or the nginx
 # vhost — those are one-time manual steps, see SETUP.md. If you edit anything in
@@ -14,6 +15,7 @@
 param(
     [switch]$SkipBuild,
     [switch]$Restart,
+    [switch]$ForceInstall,
     [string]$Target = 'shinobi@192.168.1.203',
     [string]$RemoteDir = '/home/shinobi/cth'
 )
@@ -61,11 +63,21 @@ if ($LASTEXITCODE -ne 0) { Fail 'push of web/dist failed' }
 ssh $Target "chmod +x $RemoteDir/deploy/backup.sh"
 
 # ── Dependencies ─────────────────────────────────────────────────────────────
-# npm ci is a no-op in wall-clock terms when the lockfile has not moved, and it is the
-# only thing that rebuilds the native modules correctly for arm64.
-Step 'Installing production dependencies on the Pi'
-ssh $Target "cd $RemoteDir && npm ci --omit=dev --no-audit --no-fund"
-if ($LASTEXITCODE -ne 0) { Fail 'npm ci failed on the Pi — the old build is still running' }
+# npm ci is the only thing that installs the native modules correctly for arm64, but it
+# always deletes and rebuilds node_modules — about two minutes on the Pi even when
+# nothing changed. So it runs only when the lockfile has actually moved, tracked by a
+# hash stamped next to the installed tree.
+$lockHash = (Get-FileHash -Algorithm SHA256 package-lock.json).Hash.ToLower()
+$stampPath = "$RemoteDir/node_modules/.cth-lock-hash"
+$remoteHash = (ssh $Target "cat $stampPath 2>/dev/null || true").Trim()
+
+if ($remoteHash -eq $lockHash -and -not $ForceInstall) {
+    Step 'Dependencies unchanged — skipping npm ci'
+} else {
+    Step 'Installing production dependencies on the Pi (lockfile changed)'
+    ssh $Target "cd $RemoteDir && npm ci --omit=dev --no-audit --no-fund && printf '%s' '$lockHash' > $stampPath"
+    if ($LASTEXITCODE -ne 0) { Fail 'npm ci failed on the Pi — the old build is still running' }
+}
 
 # ── Restart and verify ───────────────────────────────────────────────────────
 Step 'Restarting cth'
