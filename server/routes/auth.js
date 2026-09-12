@@ -6,10 +6,11 @@ import {
 } from '../lib/auth.js';
 import { playerSummary } from '../lib/views.js';
 import { postMessage } from '../lib/hub.js';
+import { loginLimiter, registerLimiter } from '../lib/ratelimit.js';
 
 export const authRoutes = Router();
 
-authRoutes.post('/register', async (req, res, next) => {
+authRoutes.post('/register', registerLimiter, async (req, res, next) => {
   try {
     const { invite_code, handle, display_name, password } = req.body ?? {};
     const player = await registerPlayer({
@@ -22,7 +23,7 @@ authRoutes.post('/register', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-authRoutes.post('/login', async (req, res, next) => {
+authRoutes.post('/login', loginLimiter, async (req, res, next) => {
   try {
     const player = await loginPlayer({ handle: req.body?.handle, password: req.body?.password });
     setAuthCookie(res, player);

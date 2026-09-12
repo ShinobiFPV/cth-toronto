@@ -32,6 +32,9 @@ before(async () => {
       CTH_DB: DB,
       CTH_MEDIA: MEDIA,
       CTH_JWT_SECRET: 'api-test-secret',
+      // Generous enough that the rest of the suite never trips it, low enough that the
+      // rate-limit test can reach it without a hundred argon2 hashes.
+      CTH_LOGIN_MAX_ATTEMPTS: '25',
       NODE_ENV: 'test',
     },
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -410,4 +413,32 @@ describe('the API end to end', () => {
     assert.equal(noSuchUser.status, 401);
     assert.equal(wrongPass.data.message, noSuchUser.data.message);
   });
+  test('the sign-in endpoint stops accepting guesses after ten', async () => {
+    // The only door an anonymous stranger can knock on, and argon2 makes every knock
+    // cost about 100ms of Pi CPU — so unlimited guessing is both a password risk and a
+    // way to peg a box that is running other people's services too.
+    // Deliberately not asserting a specific attempt number: this shares one IP bucket
+    // with every other test in the file, so how much budget is left depends on what ran
+    // before. What matters is that the door does eventually shut, and stays shut.
+    const guesser = client();
+    let blockedAt = null;
+    for (let i = 1; i <= 40 && blockedAt === null; i++) {
+      const r = await guesser('/auth/login',
+        { method: 'POST', body: { handle: 'alice', password: `wrong-${i}` } });
+      if (r.status === 429) blockedAt = i;
+      else assert.equal(r.status, 401, `attempt ${i} should be a plain rejection`);
+    }
+    assert.ok(blockedAt, 'the endpoint should stop accepting guesses');
+
+    const again = await guesser('/auth/login',
+      { method: 'POST', body: { handle: 'alice', password: 'wrong-again' } });
+    assert.equal(again.status, 429, 'and stay shut');
+
+    const blocked = await guesser('/auth/login',
+      { method: 'POST', body: { handle: 'alice', password: 'hunter2hunter2' } });
+    assert.equal(blocked.status, 429, 'even the right password waits its turn');
+    assert.equal(blocked.data.error, 'TOO_MANY_ATTEMPTS');
+    assert.ok(blocked.data.retry_after > 0, 'and it says how long');
+  });
+
 });

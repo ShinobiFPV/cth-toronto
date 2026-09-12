@@ -20,8 +20,10 @@ BACKUP_DIR=/srv/backups/cth
 OLD_DATA=/home/shinobi/cth-data
 SVC_USER=shinobi
 PORT=8096
-TUNNEL_ID=d8cc689f-a605-4400-95b8-b2e3b059e325
-HOSTNAME_PUBLIC=cth.shintech.online
+# Read from cloudflared's own config at run time rather than hardcoding it, so this
+# repo carries no infrastructure identifiers. Override with CTH_TUNNEL_ID if needed.
+TUNNEL_ID="${CTH_TUNNEL_ID:-}"
+HOSTNAME_PUBLIC="${CTH_HOSTNAME:-cth.shintech.online}"
 
 do_nginx=false
 do_tunnel=false
@@ -186,6 +188,14 @@ fi
 if $do_tunnel; then
   say "Cloudflare Tunnel ingress"
   cfg=/etc/cloudflared/config.yml
+  if [ -z "$TUNNEL_ID" ] && [ -f "$cfg" ]; then
+    TUNNEL_ID=$(awk '/^[[:space:]]*tunnel:[[:space:]]*/ {print $2; exit}' "$cfg")
+  fi
+  if [ -z "$TUNNEL_ID" ]; then
+    echo "   !! No tunnel id. Set CTH_TUNNEL_ID, or add a 'tunnel:' line to $cfg." >&2
+    exit 1
+  fi
+  ok "tunnel $TUNNEL_ID"
   if grep -q "$HOSTNAME_PUBLIC" "$cfg"; then
     ok "$HOSTNAME_PUBLIC already routed"
   else

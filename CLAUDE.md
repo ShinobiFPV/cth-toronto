@@ -134,6 +134,13 @@ There is no linter and no CI. Validate frontend changes by running the app
   table that already exists, so a new column needs an entry in the migrations block at the
   top of `server/db.js`. Keep those append-only and idempotent: they run on deploy against
   a live database with real claims in it.
+- **Login and registration are the only endpoints a stranger can reach**, and argon2id
+  makes every attempt cost real Pi CPU, so both are rate limited per IP (and login per
+  handle too) in `server/lib/ratelimit.js`. The limits are env-tunable. If you add
+  another unauthenticated route, it needs a limiter.
+- **This repo is public.** No infrastructure identifiers in it — the Cloudflare tunnel id
+  is read out of `/etc/cloudflared/config.yml` at run time rather than written down.
+  Keep it that way.
 - **Native modules** (`better-sqlite3`, `sharp`, `argon2`) are built per-architecture.
   `deploy.ps1` never copies `node_modules`; it runs `npm ci` on the Pi.
 - **Never back up the database with `cp`.** It runs in WAL mode — a plain copy without

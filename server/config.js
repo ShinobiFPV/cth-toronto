@@ -69,6 +69,13 @@ export const config = {
   // Per-season cap on reinforce points per player, 0 = uncapped (spec §10 lever).
   REINFORCE_SEASON_CAP: num('CTH_REINFORCE_SEASON_CAP', 0),
 
+  // Anonymous-facing rate limits. Only login and registration are reachable without
+  // a session, and argon2id makes each attempt cost real Pi CPU.
+  LOGIN_MAX_ATTEMPTS: num('CTH_LOGIN_MAX_ATTEMPTS', 10),
+  LOGIN_WINDOW_MINUTES: num('CTH_LOGIN_WINDOW_MINUTES', 15),
+  REGISTER_MAX_ATTEMPTS: num('CTH_REGISTER_MAX_ATTEMPTS', 10),
+  REGISTER_WINDOW_MINUTES: num('CTH_REGISTER_WINDOW_MINUTES', 60),
+
   // Disputes (spec §1.7 / §10)
   FLAG_THRESHOLD: num('CTH_FLAG_THRESHOLD', 2),
   // §10: "consider requiring the flaggers to be neither the claimant nor the

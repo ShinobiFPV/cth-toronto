@@ -506,7 +506,7 @@ Hoods once they cross 72 hours. It's free points sitting there, and players will
 - nginx vhost proxying `/` → 8096 with `proxy_set_header Upgrade`/`Connection` for the
   WebSocket, and `client_max_body_size 60M` for drone files.
 - Add `cth.shintech.online` as an ingress hostname on the existing Cloudflare Tunnel
-  (`d8cc689f-a605-4400-95b8-b2e3b059e325`) → `http://localhost:8096`. WebSockets traverse
+  → `http://localhost:8096`. WebSockets traverse
   the tunnel fine. Note the Cloudflare free-plan 100 MB request body cap — not a problem
   for stills.
 - Nightly `sqlite3 .backup` of the DB plus an rsync of `/srv/cth/media` to wherever your Pi

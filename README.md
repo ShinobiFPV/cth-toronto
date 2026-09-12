@@ -174,7 +174,7 @@ Then open it on a phone and **Add to Home Screen**, because the capture flow is 
 point and it feels wrong in a browser tab.
 
 ```bash
-npm test                 # 116 tests, no server needed, touches nothing in data/
+npm test                 # 117 tests, no server needed, touches nothing in data/
 ```
 
 | Command | Does what |
