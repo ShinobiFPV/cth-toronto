@@ -6,11 +6,18 @@
 // scrolling the sheet, but nothing said the sheet scrolled, so the action looked absent
 // — reported from a real iPhone as "the collect button is hidden by the UI".
 //
-// The fix is a sticky `.sheet-actions` footer. That is layout, so this file cannot
-// render it; what it can do is hold the structure in place, because the regression is
-// somebody moving the button back out of the footer or dropping `position: sticky`.
-// The pixel behaviour was verified in a real browser at 375x667, 375x420 (keyboard up),
-// 390x844 and 430x932, with and without a 34px home-indicator inset.
+// A first attempt pinned the button with `position: sticky`, which still failed on a
+// real iPhone 15 Pro Max in both Safari and the installed app. Two reasons: the bottom
+// strip of the screen belongs to Safari's toolbar and the home indicator, and a sticky
+// footer is only as reliable as the scroll container under it. So the sheet is now a
+// flex column — head, scrolling body, laid-out footer — and its contents are held clear
+// of the bottom of the screen by `--sheet-lift`.
+//
+// That is layout, so this file cannot render it; what it can do is hold the structure
+// in place, because the regression is somebody putting the button back inside the
+// scrolling body or dropping the lift. The pixel behaviour was verified in a real
+// browser at 430x932 (browser and standalone), 375x667 and 375x420 with the keyboard
+// up, with and without a 34px home-indicator inset.
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -28,29 +35,56 @@ const FLOWS = [
   { file: 'web/src/components/ClaimFlow.jsx', action: 'Conquer / Steal / Reinforce' },
 ];
 
-describe('the sticky sheet action footer', () => {
-  test('.sheet-actions is sticky to the bottom of the scrollport', () => {
-    const rule = CSS.match(/\.sheet-actions\s*\{[^}]*\}/s);
-    assert.ok(rule, '.sheet-actions must exist in styles.css');
-    assert.match(rule[0], /position:\s*sticky/, 'it has to stick, or the button scrolls away');
-    assert.match(rule[0], /bottom:\s*0/, 'sticking to the top of the sheet would be useless');
-    assert.match(rule[0], /background:\s*var\(--surface\)/,
-      'an opaque background, or content slides visibly under the button');
+describe('the sheet action footer', () => {
+  test('the sheet is a flex column, so the footer is laid out and not scrolled', () => {
+    const rule = CSS.match(/\.bottom-sheet\s*\{[^}]*\}/s);
+    assert.ok(rule, '.bottom-sheet must exist in styles.css');
+    assert.match(rule[0], /display:\s*flex/);
+    assert.match(rule[0], /flex-direction:\s*column/);
+    assert.match(rule[0], /overflow:\s*hidden/,
+      'the sheet itself must not scroll, or the footer scrolls away with the content');
   });
 
-  test('the sheet leaves room for the footer when a field is focused', () => {
+  test('only the middle of the sheet scrolls, and it can actually shrink', () => {
+    const rule = CSS.match(/\.bottom-sheet\s*>\s*\.sheet-body\s*\{[^}]*\}/s);
+    assert.ok(rule, '.bottom-sheet > .sheet-body must be the scroller');
+    assert.match(rule[0], /overflow-y:\s*auto/);
+    // Without min-height: 0 a flex child refuses to shrink below its content, the body
+    // grows, and the footer is pushed out of the sheet. That is the entire bug.
+    assert.match(rule[0], /min-height:\s*0/, 'min-height: 0 is what makes the body a scroller');
+  });
+
+  test('the sheet holds its contents clear of the bottom of the screen', () => {
     const rule = CSS.match(/\.bottom-sheet\s*\{[^}]*\}/s);
-    assert.ok(rule);
-    assert.match(rule[0], /scroll-padding-bottom/,
-      'without it, tapping the caption box parks it behind the action button');
-    assert.match(rule[0], /overflow-y:\s*auto/, 'the sheet is the scrollport the footer sticks to');
+    assert.match(rule[0], /padding-bottom:\s*calc\(var\(--safe-bottom\)\s*\+\s*var\(--sheet-lift\)\)/,
+      'the safe-area inset alone does not clear the browser toolbar');
+    assert.match(CSS, /--sheet-lift:\s*[\d.]+rem/, '--sheet-lift must have a real default');
+    // Installed as an app there is no browser toolbar, so the lift can relax.
+    assert.match(CSS, /@media \(display-mode: standalone\)\s*\{[^}]*--sheet-lift/s,
+      'standalone should not waste a whole toolbar of space');
+  });
+
+  test('.sheet-actions is opaque, so content cannot show through the footer', () => {
+    const rule = CSS.match(/\.sheet-actions\s*\{[^}]*\}/s);
+    assert.ok(rule, '.sheet-actions must exist in styles.css');
+    assert.match(rule[0], /background:\s*var\(--surface\)/);
   });
 
   for (const flow of FLOWS) {
-    test(`${flow.action} lives inside the footer`, () => {
+    test(`${flow.action} lives in the footer, outside the scrolling body`, () => {
       const src = read(flow.file);
       const footer = src.indexOf('className="sheet-actions"');
       assert.notEqual(footer, -1, `${flow.file} must wrap its action in .sheet-actions`);
+
+      // The footer has to be a sibling of the body, not its last child, or it scrolls
+      // with the content and the flex layout above buys nothing.
+      const body = src.indexOf('className="sheet-body');
+      assert.notEqual(body, -1);
+      assert.ok(footer > body,
+        'the footer must come after the scrolling body, as a sibling of it');
+      const bodyClose = src.lastIndexOf('      </div>', footer);
+      assert.ok(bodyClose !== -1 && bodyClose < footer,
+        `${flow.file}: .sheet-actions still looks nested inside .sheet-body`);
 
       // The primary block button is the action. Every one of them has to be inside the
       // footer — a second one above it would be exactly the bug coming back.

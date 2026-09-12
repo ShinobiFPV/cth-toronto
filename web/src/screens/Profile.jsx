@@ -7,6 +7,7 @@ import { article, until, SUBJECTS, SUBJECT_BLURB, BEATS } from '../lib/game.js';
 import { Subject, Banner, PlayerName } from '../components/bits.jsx';
 import { BackIcon } from '../components/icons.jsx';
 import Appearance from '../components/Appearance.jsx';
+import { BUILD } from '../lib/build.js';
 
 export default function Profile() {
   const { session, player, players, hoods, signOut } = useGame();
@@ -216,6 +217,10 @@ export default function Profile() {
         <br />
         Capture the Hood is a ShinTech Electronics build. You are playing{' '}
         {article(SUBJECTS[0])}-beats-{BEATS[SUBJECTS[0]]} with your camera. Go outside.
+        <br />
+        {/* So "is my phone actually running the new version?" is a readable fact rather
+            than something inferred from whether a bug still happens. */}
+        <code>build {BUILD}</code>
       </div>
     </div>
   );

@@ -135,24 +135,25 @@ export default function ParkCollect({ park, onClose, onDone }) {
 
         {error && <Banner kind="bad">{error}</Banner>}
 
-        {/* Pinned to the bottom of the sheet: with a preview and a caption on screen at
-            once this button otherwise falls past the bottom edge of a small phone. */}
-        <div className="sheet-actions">
-          {busy && (
-            <div>
-              <div className="progress-bar">
-                <i style={{ width: `${Math.round(progress * 100)}%` }} />
-              </div>
-              <div className="tiny dim" style={{ marginTop: '0.3rem' }}>
-                {progress < 1 ? `Uploading ${Math.round(progress * 100)}%` : 'Printing your card…'}
-              </div>
-            </div>
-          )}
+      </div>
 
-          <button className="btn btn-primary btn-block" disabled={!file || busy} onClick={submit}>
-            {busy ? 'Sending…' : `Collect (+${park.value})`}
-          </button>
-        </div>
+      {/* Outside the scrolling body on purpose: a preview and a caption on screen at
+          once used to push this button past the bottom edge of the phone. */}
+      <div className="sheet-actions">
+        {busy && (
+          <div>
+            <div className="progress-bar">
+              <i style={{ width: `${Math.round(progress * 100)}%` }} />
+            </div>
+            <div className="tiny dim" style={{ marginTop: '0.3rem' }}>
+              {progress < 1 ? `Uploading ${Math.round(progress * 100)}%` : 'Printing your card…'}
+            </div>
+          </div>
+        )}
+
+        <button className="btn btn-primary btn-block" disabled={!file || busy} onClick={submit}>
+          {busy ? 'Sending…' : `Collect (+${park.value})`}
+        </button>
       </div>
     </>
   );

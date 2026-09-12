@@ -134,7 +134,7 @@ changing one, read the test first — it says why.
 ## Testing
 
 ```bash
-npm test        # 181 tests, no server needed, touches nothing in data/
+npm test        # 183 tests, no server needed, touches nothing in data/
 ```
 
 - `test/game.test.js` — the rules, driving the game module directly. Time is simulated by
@@ -192,14 +192,29 @@ There is no linter and no CI. Validate frontend changes by running the app
   onto black.
 - **`applyAppearance()` runs in `main.jsx` before `createRoot`**, not in a `useEffect`.
   Moving it into React gives every load a flash of the wrong theme.
-- **A bottom sheet's action button must be inside `.sheet-actions`.** That footer is
-  sticky, because sheet content has no fixed height — a 4:3 preview, a caption being
-  typed, a banner and an error can all be on screen at once, which pushed Collect and
-  Conquer past the bottom edge of a 667px phone. They were reachable by scrolling the
-  sheet, but nothing said the sheet scrolled, so the action simply looked absent. This
-  was reported from a real iPhone; `test/sheets.test.js` holds the structure in place,
-  and the sheet's `scroll-padding-bottom` is what stops a focused caption box being
-  parked behind the button.
+- **`sw.js` and the app shell must be served `no-store`.** Express sends `max-age=0`,
+  which Cloudflare replaces with its own four-hour TTL on anything ending in `.js`.
+  `sw.js` *is* the precache manifest, so a stale copy pins every phone to the previous
+  build for four hours — in Safari and the installed app alike, because they share one
+  worker. This actually happened: two rounds of a layout fix looked deployed and never
+  reached the reporter's phone. `server/index.js` now sets `no-store` on
+  `sw.js` / `registerSW.js` / `index.html` / the manifest, and `immutable` on the
+  content-hashed `/assets/`. If you add another unhashed file the shell depends on, it
+  belongs in `NEVER_CACHE`.
+- **The build stamp is not decoration.** `__BUILD__` is injected by `vite.config.js`,
+  logged on boot and printed on the profile screen, so "which build is your phone
+  actually running" is a readable fact. It is how the caching bug above was confirmed.
+- **A bottom sheet is a flex column, and its action button lives in `.sheet-actions`
+  outside the scrolling body.** Sheet content has no fixed height — a 4:3 preview, a
+  caption being typed, a banner and an error can all be on screen at once — which
+  pushed Collect and Conquer clean past the bottom edge. `min-height: 0` on
+  `.bottom-sheet > .sheet-body` is what lets the body shrink and scroll instead of
+  growing and shoving the footer out; without it the bug returns exactly as it was.
+  A first attempt used `position: sticky` and still failed on a real iPhone, because
+  the bottom strip of the screen belongs to Safari's toolbar and the home indicator —
+  hence `--sheet-lift`, which holds the sheet's contents clear of it and relaxes under
+  `@media (display-mode: standalone)` where there is no toolbar.
+  `test/sheets.test.js` holds all of that in place.
 - **Leaflet sizing.** The map lives in a grid row and is measured before layout settles,
   so `MapScreen` calls `invalidateSize()` on the next frame and keeps a `ResizeObserver`.
   Removing that leaves Toronto fitted to the wrong viewport.

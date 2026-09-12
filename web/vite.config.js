@@ -1,11 +1,30 @@
+import { execSync } from 'node:child_process';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
+
+/**
+ * A build stamp, shown in the app and logged on boot.
+ *
+ * This exists because a caching bug once left phones running a build from hours
+ * earlier while every fix looked deployed from this side. "What does your profile
+ * screen say?" settles that in one message.
+ */
+const stamp = () => {
+  let sha = '';
+  try {
+    sha = execSync('git rev-parse --short HEAD', { stdio: ['ignore', 'pipe', 'ignore'] })
+      .toString().trim();
+  } catch { /* a tarball with no git is still a legitimate build */ }
+  const when = new Date().toISOString().slice(0, 16).replace('T', ' ');
+  return sha ? `${when}Z · ${sha}` : `${when}Z`;
+};
 
 // In dev, Vite serves the UI and proxies everything stateful to the Node server.
 const API = process.env.CTH_DEV_API || 'http://127.0.0.1:8096';
 
 export default defineConfig({
+  define: { __BUILD__: JSON.stringify(stamp()) },
   plugins: [
     react(),
     VitePWA({
