@@ -905,6 +905,11 @@ button, input, select, textarea { font: inherit; color: inherit; }
 }
 .pcard-compact .pcard-stamp { font-size: 0.42rem; padding: 1px 3px; }
 
+/* The stamp takes its colour from the frame, and a hologram's frame starts on a violet
+   that is too dark to read at this size against the card's near-black plate. Borrow the
+   teal its chip already uses. Steel and gold are bright enough as they are. */
+.pcard-ed-hologram .pcard-stamp { color: #3FE0C8; border-color: #3FE0C8; }
+
 /* A legendary earns a slow sheen. Nothing else animates. */
 .pcard-legendary .pcard-frame { animation: pcard-sheen 6s ease-in-out infinite; }
 @keyframes pcard-sheen {

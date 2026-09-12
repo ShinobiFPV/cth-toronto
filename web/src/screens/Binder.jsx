@@ -30,6 +30,15 @@ export default function Binder() {
   const [offering, setOffering] = useState(null);
   const [note, setNote] = useState(null);
 
+  // Escape closes the zoomed card, as it does in CardLightbox. Without this the two
+  // ways of looking at a card behave differently for no reason.
+  useEffect(() => {
+    if (!zoom) return undefined;
+    const onKey = (e) => e.key === 'Escape' && setZoom(null);
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [zoom]);
+
   const viewing = playerId ? Number(playerId) : null;
   const isMine = viewing == null || viewing === me?.id;
 

@@ -117,7 +117,7 @@ until the season turns.
 | **Hologram** | 1 in 150, one per Hood per season | **+100 XP** |
 
 <p align="center">
-  <img src="docs/screenshots/19-hologram.png" width="340" alt="A hologram edition card with an iridescent frame and a HOLOGRAM stamp">
+  <img src="docs/screenshots/21-card-hologram.png" width="330" alt="A hologram edition card: iridescent frame, HOLOGRAM stamp on the photo, one per Hood per season">
 </p>
 
 They pay **XP, never points** — so a lucky pull is a permanent brag and not a shortcut up
@@ -128,6 +128,14 @@ amber and rust, Winter goes ice blue, Spring green, Summer teal — and a seed d
 (you, the park, the season) picks the hatch angle, the foil sweep and the corner
 flourishes. Two people who collect the same park in the same season still get visibly
 different cards. Legendaries get a slow sheen, because obviously they do.
+
+<p align="center">
+  <img src="docs/screenshots/20-card.png" width="330" alt="A legendary Fall card for Maberley Parkette: brush-script title, the park's value, the photo, its Hood and address, the collector's caption as flavour text, and the set number">
+</p>
+<p align="center">
+  <em>The title is in the same hand as the app's own name. The line above the footer is
+  whatever the collector wrote when they took the photo.</em>
+</p>
 
 <p align="center">
   <img src="docs/screenshots/06-binder.png" width="300" alt="The binder: a grid of collected park cards">
