@@ -78,3 +78,42 @@ export const NEIGHBOUR_SEED = {
 
 /** Neighbours of a Hood, or [] for an id that does not exist. */
 export const neighboursOf = (id) => NEIGHBOUR_SEED[id] ?? [];
+
+/**
+ * Difficulty score per Hood, 5–50: what it is worth to take. Derived from distance from
+ * the city centre and how many Hoods border it — see scripts/lib/difficulty.js for the
+ * formula and why fewer borders means harder.
+ *
+ * Conquering an unclaimed Hood pays its difficulty; stealing a held one pays double.
+ * `npm run import-hoods` recomputes these from the live boundary data.
+ */
+export const DIFFICULTY_SEED = {
+   1: 37,   // Etobicoke North — 17 km, 3 borders
+   2: 29,   // Etobicoke Centre — 14 km, 4 borders
+   3: 31,   // Etobicoke-Lakeshore — 10.6 km, 2 borders
+   4: 14,   // Parkdale-High Park — 6.6 km, 5 borders
+   5: 13,   // York South-Weston — 10.1 km, 7 borders
+   6: 26,   // York Centre — 12.4 km, 4 borders
+   7: 35,   // Humber River-Black Creek — 16.1 km, 3 borders
+   8: 14,   // Eglinton-Lawrence — 8.8 km, 6 borders
+   9:  9,   // Davenport — 5 km, 6 borders
+  10:  9,   // Spadina-Fort York — 2.7 km, 5 borders
+  11:  5,   // University-Rosedale — 2.6 km, 6 borders
+  12: 15,   // Toronto-St. Paul's — 4.4 km, 4 borders
+  13: 14,   // Toronto Centre — 1.8 km, 3 borders
+  14:  8,   // Toronto-Danforth — 4.3 km, 6 borders
+  15:  9,   // Don Valley West — 7.7 km, 7 borders
+  16: 15,   // Don Valley East — 9.2 km, 6 borders
+  17: 29,   // Don Valley North — 14.4 km, 4 borders
+  18: 27,   // Willowdale — 13 km, 4 borders
+  19: 22,   // Beaches-East York — 6.9 km, 3 borders
+  20: 27,   // Scarborough Southwest — 12.7 km, 4 borders
+  21: 26,   // Scarborough Centre — 14.2 km, 5 borders
+  22: 36,   // Scarborough-Agincourt — 16.4 km, 3 borders
+  23: 39,   // Scarborough North — 20.7 km, 4 borders
+  24: 35,   // Scarborough-Guildwood — 18 km, 4 borders
+  25: 50,   // Scarborough-Rouge Park — 23.6 km, 2 borders
+};
+
+/** A Hood's difficulty score, or the mid-range value for an id that does not exist. */
+export const difficultyOf = (id) => DIFFICULTY_SEED[id] ?? 25;

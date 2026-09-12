@@ -31,6 +31,14 @@ CREATE TABLE IF NOT EXISTS hoods (
   centroid_lat   REAL,
   centroid_lng   REAL,
   ever_conquered INTEGER NOT NULL DEFAULT 0,
+  -- What this Hood is worth to take: 5-50, from distance to the city centre and how
+  -- many Hoods border it. Immutable game data, recomputed only by import-hoods.js.
+  difficulty     INTEGER NOT NULL DEFAULT 25,
+  -- How many season rollovers this Hood has survived without ever being conquered.
+  escalations    INTEGER NOT NULL DEFAULT 0,
+  -- Always difficulty + escalations * ESCALATION_STEP, capped. Stored rather than
+  -- computed per-query only because every read wants it; recomputeValues() is the one
+  -- place that maintains it, so it cannot drift.
   unclaimed_value INTEGER NOT NULL DEFAULT 25
 );
 

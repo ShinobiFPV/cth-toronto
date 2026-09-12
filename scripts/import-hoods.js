@@ -20,9 +20,10 @@ import fsp from 'node:fs/promises';
 import path from 'node:path';
 import simplifyMod from '@turf/simplify';
 import centroidMod from '@turf/centroid';
-import { db } from '../server/db.js';
+import { db, recomputeValues } from '../server/db.js';
 import { config, ROOT } from '../server/config.js';
 import { reprojectToWgs84, detectCrs } from './lib/reproject.js';
+import { computeDifficulty } from './lib/difficulty.js';
 
 const simplify = simplifyMod.default ?? simplifyMod;
 const centroid = centroidMod.default ?? centroidMod;
@@ -116,6 +117,17 @@ async function main() {
   }
 
   features.sort((a, b) => a.properties.id - b.properties.id);
+
+  // Difficulty needs both the centroids and the border counts, so it comes last.
+  const difficulty = computeDifficulty(features.map((f) => ({
+    id: f.properties.id,
+    lat: f.properties.lat,
+    lng: f.properties.lng,
+    borders: f.properties.neighbours.length,
+  })));
+  for (const f of features) {
+    f.properties.difficulty = difficulty.get(f.properties.id).difficulty;
+  }
   if (features.length !== 25) {
     console.warn(`[hoods] expected 25 Hoods, got ${features.length} — check the source dataset`);
   }
@@ -134,19 +146,21 @@ async function main() {
   const kb = (fs.statSync(OUT).size / 1024).toFixed(0);
   console.log(`[hoods] wrote ${OUT} — ${features.length} Hoods, ${kb} kB (tolerance ${tolerance})`);
 
-  // Names and centroids into the DB. unclaimed_value and ever_conquered are game
-  // state and are never touched here, so this is safe to re-run mid-season.
   const upsert = db.transaction(() => {
+    // difficulty is refreshed; escalations and ever_conquered are game state and are
+    // never touched here, which is what keeps this safe to re-run mid-season.
     const ins = db.prepare(`
-      INSERT INTO hoods (id, name, centroid_lat, centroid_lng, ever_conquered, unclaimed_value)
-      VALUES (?, ?, ?, ?, 0, ?)
+      INSERT INTO hoods (id, name, centroid_lat, centroid_lng, ever_conquered,
+                         difficulty, escalations, unclaimed_value)
+      VALUES (?, ?, ?, ?, 0, ?, 0, ?)
       ON CONFLICT(id) DO UPDATE SET name = excluded.name,
                                     centroid_lat = excluded.centroid_lat,
-                                    centroid_lng = excluded.centroid_lng`);
+                                    centroid_lng = excluded.centroid_lng,
+                                    difficulty = excluded.difficulty`);
     const state = db.prepare('INSERT INTO hood_state (hood_id) VALUES (?) ON CONFLICT DO NOTHING');
     for (const f of features) {
       const p = f.properties;
-      ins.run(p.id, p.name, p.lat, p.lng, config.BASE_UNCLAIMED_VALUE);
+      ins.run(p.id, p.name, p.lat, p.lng, p.difficulty, p.difficulty);
       state.run(p.id);
     }
 
@@ -160,8 +174,13 @@ async function main() {
     }
   });
   upsert();
+  recomputeValues();     // fold difficulty + banked escalations back into unclaimed_value
+
   const edges = features.reduce((n, f) => n + f.properties.neighbours.length, 0);
+  const scores = features.map((f) => f.properties.difficulty);
   console.log(`[hoods] database updated (${config.dbPath}) — ${edges} adjacency edges`);
+  console.log(`[hoods] difficulty ${Math.min(...scores)}-${Math.max(...scores)}`
+    + ` — hardest ${extreme(features, true)}, easiest ${extreme(features, false)}`);
 
   if (has('--seed')) {
     const seedPath = path.join(ROOT, 'server', 'lib', 'hood-seed.js');
@@ -169,6 +188,12 @@ async function main() {
       const p = f.properties;
       return `  { id: ${String(p.id).padStart(2, ' ')}, name: ${JSON.stringify(p.name)}, lat: ${p.lat}, lng: ${p.lng} },`;
     }).join('\n');
+    const difficultyBody = features.map((f) => {
+      const d = difficulty.get(f.properties.id);
+      return `  ${String(f.properties.id).padStart(2, ' ')}: ${String(d.difficulty).padStart(2, ' ')},`
+        + `   // ${f.properties.name} — ${d.distance_km} km, ${d.borders} border${d.borders === 1 ? '' : 's'}`;
+    }).join('\n');
+
     const neighbourBody = features.map((f) =>
       `  ${String(f.properties.id).padStart(2, ' ')}: [${f.properties.neighbours.join(', ')}],`,
     ).join('\n');
@@ -178,13 +203,17 @@ async function main() {
       .replace(/export const HOOD_SEED = \[[\s\S]*?\n\];/,
         `export const HOOD_SEED = [\n${body}\n];`)
       .replace(/export const NEIGHBOUR_SEED = \{[\s\S]*?\n\};/,
-        `export const NEIGHBOUR_SEED = {\n${neighbourBody}\n};`);
+        `export const NEIGHBOUR_SEED = {\n${neighbourBody}\n};`)
+      .replace(/export const DIFFICULTY_SEED = \{[\s\S]*?\n\};/,
+        `export const DIFFICULTY_SEED = {\n${difficultyBody}\n};`);
 
-    if (!next.includes('NEIGHBOUR_SEED = {')) {
-      throw new Error('hood-seed.js has no NEIGHBOUR_SEED block to rewrite');
+    for (const block of ['NEIGHBOUR_SEED', 'DIFFICULTY_SEED']) {
+      if (!next.includes(block + ' = {')) {
+        throw new Error(`hood-seed.js has no ${block} block to rewrite`);
+      }
     }
     await fsp.writeFile(seedPath, next);
-    console.log(`[hoods] rewrote ${seedPath} (names, centroids and adjacency)`);
+    console.log(`[hoods] rewrote ${seedPath} (names, centroids, adjacency, difficulty)`);
   }
 }
 
@@ -237,6 +266,15 @@ function computeAdjacency(collection) {
   for (const id of ids) adjacency.get(id).sort((x, y) => x - y);
   return adjacency;
 }
+
+/** The hardest or easiest Hood, for the importer's one-line summary. */
+const extreme = (features, wantHardest) => {
+  const f = features.reduce((best, x) => (
+    (wantHardest
+      ? x.properties.difficulty > best.properties.difficulty
+      : x.properties.difficulty < best.properties.difficulty) ? x : best));
+  return `Hood ${f.properties.id} ${f.properties.name} = ${f.properties.difficulty}`;
+};
 
 const round = (n) => Math.round(n * 1e5) / 1e5;   // ~1 m, well under the simplify error
 

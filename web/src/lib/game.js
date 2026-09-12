@@ -23,6 +23,18 @@ export const GATE_CODES = new Set([
   'HOOD_LOCKED', 'REINFORCE_TOO_SOON', 'ADJACENT_COOLDOWN', 'REINFORCE_CAP_REACHED',
 ]);
 
+/**
+ * A Hood's difficulty score in words. The number is the thing players will argue
+ * about, so it gets a label they can repeat back at each other.
+ */
+export function difficultyBand(score) {
+  if (score >= 40) return 'brutal';
+  if (score >= 30) return 'hard';
+  if (score >= 20) return 'a trek';
+  if (score >= 12) return 'moderate';
+  return 'easy';
+}
+
 export const KIND_VERB = {
   conquer: 'Conquer',
   steal: 'Steal',

@@ -33,7 +33,8 @@ miscRoutes.get('/seasons', requireAuth, (_req, res) => {
     active,
     next: nextSeason(),
     rules: {
-      steal_points: config.STEAL_POINTS,
+      steal_multiplier: config.STEAL_MULTIPLIER,
+      difficulty_range: [5, 50],
       reinforce_points: config.REINFORCE_POINTS,
       escalation_step: config.ESCALATION_STEP,
       escalation_cap: config.ESCALATION_CAP,

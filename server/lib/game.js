@@ -39,8 +39,13 @@ export function evaluateClaim({ hoodId, playerId, declaredType = null, at = nowI
   // Which photo types would be accepted, ignoring time gates. For a held Hood there
   // is exactly one: the type that beats what is currently planted there.
   const requiredTypes = kind === 'conquer' ? [...PHOTO_TYPES] : [BEATEN_BY[state.photo_type]];
+  // What this claim is worth. A Hood's difficulty score (5-50) is the basis for both
+  // taking actions: conquering pays it (plus any seasonal escalation banked into
+  // unclaimed_value), stealing pays a multiple of it. Reinforcing is flat forever —
+  // it is a maintenance action, not a conquest, and scaling it would turn holding the
+  // hard Hoods into a passive income stream.
   const points = kind === 'conquer' ? hood.unclaimed_value
-    : kind === 'steal' ? config.STEAL_POINTS
+    : kind === 'steal' ? hood.difficulty * config.STEAL_MULTIPLIER
     : config.REINFORCE_POINTS;
 
   const base = {
@@ -49,6 +54,7 @@ export function evaluateClaim({ hoodId, playerId, declaredType = null, at = nowI
     hood_label: label,
     claim_kind: kind,
     points,
+    difficulty: hood.difficulty,
     required_types: requiredTypes,
     holder_photo_type: state.photo_type,
     owner_id: state.owner_id,

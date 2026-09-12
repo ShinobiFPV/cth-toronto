@@ -101,10 +101,16 @@ export default function Profile() {
             </div>
             {rules && (
               <ul className="tiny dim" style={{ margin: 0, paddingLeft: '1.1rem', lineHeight: 1.8 }}>
-                <li>Conquer an unclaimed Hood with any subject for its listed value.</li>
-                <li>Steal a held Hood with the subject that beats theirs: +{rules.steal_points}.</li>
-                <li>Reinforce your own after {rules.reinforce_gate_hours}h, with the subject that
-                    beats your own photo: +{rules.reinforce_points}. Never escalates.</li>
+                <li>Every Hood has a difficulty score from 5 to 50, set by how far out it
+                    is and how few Hoods border it. Rouge Park is 50; University-Rosedale
+                    is 5.</li>
+                <li>Conquer an unclaimed Hood with any subject and it pays its difficulty,
+                    plus anything seasonal escalation has added.</li>
+                <li>Steal a held Hood with the subject that beats theirs and it pays
+                    difficulty x {rules.steal_multiplier} — so 10 to 100.</li>
+                <li>Reinforce your own after {rules.reinforce_gate_hours}h, with the subject
+                    that beats your own photo: a flat +{rules.reinforce_points} on any Hood,
+                    however hard. Never escalates.</li>
                 <li>After a Hood changes hands it is locked from stealing
                     for {rules.steal_cooldown_hours}h. A reinforce does not lock it.</li>
                 {rules.adjacent_conquer_cooldown_hours > 0 && (

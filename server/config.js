@@ -48,8 +48,13 @@ export const config = {
   cookieSecure: bool('CTH_COOKIE_SECURE', process.env.NODE_ENV === 'production'),
 
   // ── Game levers (spec §1, §10) ─────────────────────────────────────────
-  STEAL_POINTS: num('CTH_STEAL_POINTS', 100),
+  // Stealing pays the Hood's difficulty score times this, so 10-100 across the city.
+  // Aggression is always worth about double picking up the same Hood unclaimed, and
+  // the ceiling lands on exactly 100 — what a steal was worth when it was a flat rate.
+  STEAL_MULTIPLIER: num('CTH_STEAL_MULTIPLIER', 2),
   REINFORCE_POINTS: num('CTH_REINFORCE_POINTS', 25),   // flat forever, never escalates
+  // Fallback difficulty for a Hood with no score of its own. Real scores are 5-50 and
+  // come from scripts/lib/difficulty.js.
   BASE_UNCLAIMED_VALUE: num('CTH_BASE_UNCLAIMED_VALUE', 25),
   ESCALATION_STEP: num('CTH_ESCALATION_STEP', 25),
   // null = uncapped. Spec §10 floats capping untouched Hoods at 75 instead of 100.

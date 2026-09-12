@@ -177,7 +177,10 @@ describe('the API end to end', () => {
     assert.equal(h13.owner, null);
     assert.equal(h13.viewer.claim_kind, 'conquer');
     assert.equal(h13.viewer.can_claim, true);
-    assert.equal(h13.viewer.action_label, 'Conquer (+25)');
+    assert.equal(h13.difficulty, 14, 'Toronto Centre: 1.8 km out but only three borders');
+    assert.equal(h13.conquer_value, 14);
+    assert.equal(h13.steal_value, 28, 'a steal pays double the difficulty');
+    assert.equal(h13.viewer.action_label, 'Conquer (+14)');
     assert.deepEqual([...h13.viewer.required_types].sort(), ['animal', 'landmark', 'person']);
   });
 
@@ -185,7 +188,8 @@ describe('the API end to end', () => {
     const { data } = await alice('/hoods/13/check?photo_type=landmark');
     assert.equal(data.ok, true);
     assert.equal(data.claim_kind, 'conquer');
-    assert.equal(data.points, 25);
+    assert.equal(data.points, 14);
+    assert.equal(data.difficulty, 14);
   });
 
   test('a claim without a photo type is refused before the upload', async () => {
@@ -201,8 +205,8 @@ describe('the API end to end', () => {
       { method: 'POST', raw: await claimForm(await jpeg(10), 'landmark') });
     assert.equal(status, 201);
     assert.equal(data.claim.claim_kind, 'conquer');
-    assert.equal(data.claim.points, 25);
-    assert.match(data.claim.summary, /^Alice conquered Hood 13 — Toronto Centre with a landmark photo \(\+25\)$/);
+    assert.equal(data.claim.points, 14, 'Hood 13 difficulty');
+    assert.match(data.claim.summary, /^Alice conquered Hood 13 — Toronto Centre with a landmark photo \(\+14\)$/);
 
     for (const dir of ['original', 'display', 'thumb']) {
       const files = fs.readdirSync(path.join(MEDIA, dir));
@@ -285,7 +289,7 @@ describe('the API end to end', () => {
       { method: 'POST', raw: await claimForm(await jpeg(120), 'person') });
     assert.equal(status, 201);
     assert.equal(data.claim.claim_kind, 'steal');
-    assert.equal(data.claim.points, 100);
+    assert.equal(data.claim.points, 28, 'Hood 13 difficulty 14, doubled');
     assert.equal(data.claim.beaten.handle, 'alice');
 
     const hoods = await alice('/hoods');
@@ -298,13 +302,15 @@ describe('the API end to end', () => {
   test('standings are derived, and losing a Hood costs no points', async () => {
     const { data } = await alice('/leaderboard');
     const byHandle = Object.fromEntries(data.standings.map((r) => [r.player.handle, r]));
-    assert.equal(byHandle.alice.points, 50, 'two conquers');
-    assert.equal(byHandle.bob.points, 100, 'one steal');
+    // Hood 13 difficulty 14 + Hood 16 difficulty 15 = 29 for alice's two conquers;
+    // bob stole Hood 13 for 14 x 2.
+    assert.equal(byHandle.alice.points, 29, 'two conquers, priced by difficulty');
+    assert.equal(byHandle.bob.points, 28, 'one steal, double difficulty');
     assert.equal(byHandle.alice.hoods_held, 1, 'alice lost Hood 13 but kept Hood 16');
     assert.equal(byHandle.bob.hoods_held, 1);
 
     const champion = await alice('/leaderboard/champion');
-    assert.equal(champion.data.standings.find((r) => r.player.handle === 'bob').points, 100);
+    assert.equal(champion.data.standings.find((r) => r.player.handle === 'bob').points, 28);
   });
 
   test('the feed carries the claims newest first', async () => {

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useGame } from '../lib/store.jsx';
-import { article, until, ago, GATE_CODES } from '../lib/game.js';
+import { article, until, ago, GATE_CODES, difficultyBand } from '../lib/game.js';
 import { CloseIcon, LockIcon } from './icons.jsx';
 import { Subject, PlayerName, FlagButton, Banner, Lightbox } from './bits.jsx';
 import ClaimFlow from './ClaimFlow.jsx';
@@ -68,6 +68,17 @@ export default function HoodSheet({ hoodId, onClose }) {
               <div className="cluster" style={{ justifyContent: 'space-between' }}>
                 <PlayerName player={hood.owner} you={player} />
                 {hood.photo_type && <Subject type={hood.photo_type} className="chip chip-accent" />}
+              </div>
+
+              {/* What this Hood costs to reach, and therefore what it pays. */}
+              <div className="row" style={{ padding: 0, border: 0, gap: '0.5rem' }}>
+                <span className="chip" title="Distance from downtown and how many Hoods border it">
+                  difficulty {hood.difficulty}/50 · {difficultyBand(hood.difficulty)}
+                </span>
+                <span className="grow" />
+                <span className="tiny dim">
+                  conquer +{hood.conquer_value} · steal +{hood.steal_value}
+                </span>
               </div>
 
               {hood.owner && (

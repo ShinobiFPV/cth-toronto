@@ -8,12 +8,13 @@
 //   • seasonal point tallies reset — achieved purely by scoping queries to
 //     season_id, so nothing is deleted and the Champion total is unaffected
 //   • Hood ownership persists; whoever holds a Hood at season end still holds it
-//   • every Hood never conquered by anyone gains +25 unclaimed_value
-//   • reinforce stays at 25, steal stays at 100 — neither ever escalates
+//   • every Hood never conquered by anyone gains +25 on top of its difficulty score
+//   • reinforce stays flat at 25, and a steal always pays difficulty x the steal
+//     multiplier — neither is affected by escalation
 //
 // Idempotency lives in seasons.escalation_applied: the flag is set in the same
 // transaction as the escalation, so a timer that fires twice cannot double-count.
-import { db, nowIso } from '../server/db.js';
+import { db, nowIso, recomputeValues } from '../server/db.js';
 import { config } from '../server/config.js';
 import { postMessage } from '../server/lib/hub.js';
 import { leaderboard } from '../server/lib/views.js';
@@ -68,9 +69,12 @@ for (const season of pending) {
   }
 
   db.transaction(() => {
-    const bump = db.prepare('UPDATE hoods SET unclaimed_value = ? WHERE id = ?');
-    for (const h of escalations) bump.run(h.new_value, h.id);
+    // Increment the counter, not the value. unclaimed_value is derived from difficulty
+    // plus escalations, and recomputeValues() is the only thing allowed to write it.
+    const bump = db.prepare('UPDATE hoods SET escalations = escalations + 1 WHERE id = ?');
+    for (const h of escalations) bump.run(h.id);
     db.prepare('UPDATE seasons SET escalation_applied = 1 WHERE id = ?').run(season.id);
+    recomputeValues();
   })();
 
   const lines = [`${season.name} is over.`];

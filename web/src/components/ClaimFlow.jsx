@@ -87,6 +87,7 @@ export default function ClaimFlow({ hood, onClose, onDone }) {
             {viewer.claim_kind === 'conquer' ? 'Unclaimed — any subject takes it'
               : `Held with ${article(hood.photo_type)} photo`}
             {' · '}+{viewer.points} points
+            {hood.difficulty != null && ` · difficulty ${hood.difficulty}/50`}
           </div>
         </div>
         <button className="btn btn-sm btn-ghost" onClick={onClose} aria-label="Close" disabled={busy}>

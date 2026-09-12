@@ -52,6 +52,16 @@ changing one, read the test first — it says why.
 - **`hood_neighbours` is the one piece of geometry that is not presentation.** Everything
   else about the boundaries is cosmetic; this table decides which claims are legal, so
   `import-hoods.js` computes it from the *unsimplified* source and replaces it wholesale.
+- **Points come from the Hood, not a flat rate.** Conquering pays `hoods.unclaimed_value`
+  (difficulty plus banked escalations); stealing pays `difficulty * STEAL_MULTIPLIER`;
+  reinforcing pays a flat 25 everywhere. Tests read the prices out of the database
+  rather than hardcoding them, so rebalancing the formula does not turn the suite red —
+  keep it that way.
+- **`unclaimed_value` is derived and has exactly one writer.** It is always
+  `difficulty + escalations * ESCALATION_STEP`, capped, and `recomputeValues()` in
+  `server/db.js` is the only thing allowed to write it. The rollover increments
+  `escalations` and calls it; the importer refreshes `difficulty` and calls it. Never
+  UPDATE that column directly.
 - **A reinforce does not arm the steal lock.** A conquer and a steal do. If a reinforce
   locked the Hood, a player could shield one indefinitely on a 72-hour timer.
 - **Losing a Hood costs no points.** The superseded claim keeps its `points_awarded` and
@@ -92,7 +102,7 @@ changing one, read the test first — it says why.
 ## Testing
 
 ```bash
-npm test        # 78 tests, no server needed, touches nothing in data/
+npm test        # 94 tests, no server needed, touches nothing in data/
 ```
 
 - `test/game.test.js` — the rules, driving the game module directly. Time is simulated by
@@ -107,6 +117,10 @@ There is no linter and no CI. Validate frontend changes by running the app
 
 ## Gotchas
 
+- **Schema changes need a migration.** `CREATE TABLE IF NOT EXISTS` does nothing to a
+  table that already exists, so a new column needs an entry in the migrations block at the
+  top of `server/db.js`. Keep those append-only and idempotent: they run on deploy against
+  a live database with real claims in it.
 - **Native modules** (`better-sqlite3`, `sharp`, `argon2`) are built per-architecture.
   `deploy.ps1` never copies `node_modules`; it runs `npm ci` on the Pi.
 - **Never back up the database with `cp`.** It runs in WAL mode — a plain copy without

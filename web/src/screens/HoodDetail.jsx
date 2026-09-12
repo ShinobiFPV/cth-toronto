@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import { useGame } from '../lib/store.jsx';
-import { article, ago, until, KIND_VERB, GATE_CODES } from '../lib/game.js';
+import { article, ago, until, KIND_VERB, GATE_CODES, difficultyBand } from '../lib/game.js';
 import { BackIcon, LockIcon } from '../components/icons.jsx';
 import { Subject, PlayerName, FlagButton, Banner, Spinner, Lightbox, When } from '../components/bits.jsx';
 import ShotData from '../components/ShotData.jsx';
@@ -49,6 +49,10 @@ export default function HoodDetail() {
         <PlayerName player={hood.owner} you={player} />
         {hood.photo_type && <Subject type={hood.photo_type} className="chip chip-accent" />}
         {!hood.owner && <span className="chip chip-accent">+{hood.unclaimed_value} to conquer</span>}
+        <span className="chip" title="Distance from downtown and how many Hoods border it">
+          difficulty {hood.difficulty}/50 · {difficultyBand(hood.difficulty)}
+        </span>
+        <span className="chip">steal +{hood.steal_value}</span>
         {hood.locked_until && (
           <span className="chip"><LockIcon style={{ width: 12, height: 12 }} /> {until(hood.locked_until)}</span>
         )}

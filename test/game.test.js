@@ -53,6 +53,14 @@ function rewind(hoodId, hours) {
 }
 
 const state = (hoodId) => db.prepare('SELECT * FROM hood_state WHERE hood_id = ?').get(hoodId);
+
+// What a Hood is actually worth, read from the database rather than hardcoded, so a
+// rebalance of the difficulty formula does not turn this file red.
+const difficulty = (hoodId) =>
+  db.prepare('SELECT difficulty FROM hoods WHERE id = ?').get(hoodId).difficulty;
+const conquerValue = (hoodId) =>
+  db.prepare('SELECT unclaimed_value FROM hoods WHERE id = ?').get(hoodId).unclaimed_value;
+const stealValue = (hoodId) => difficulty(hoodId) * config.STEAL_MULTIPLIER;
 const hood = (hoodId) => db.prepare('SELECT * FROM hoods WHERE id = ?').get(hoodId);
 const points = (playerId) => db.prepare(`
   SELECT COALESCE(SUM(points_awarded), 0) AS p FROM claims
@@ -74,7 +82,9 @@ beforeEach(() => {
   db.exec(`UPDATE hood_state SET owner_id = NULL, active_claim_id = NULL, photo_type = NULL,
            last_claim_at = NULL, locked_until = NULL`);
   db.exec('DELETE FROM flags; DELETE FROM claims; DELETE FROM photos; DELETE FROM messages');
-  db.exec('UPDATE hoods SET ever_conquered = 0, unclaimed_value = 25');
+  // Reset the Hoods to their pristine state: never conquered, no banked escalations,
+  // and worth exactly their difficulty score.
+  db.exec('UPDATE hoods SET ever_conquered = 0, escalations = 0, unclaimed_value = difficulty');
   db.exec('DELETE FROM players');
   db.exec("UPDATE seasons SET escalation_applied = 0");
   alice = makePlayer(`alice${++nextPlayer}`);
@@ -87,7 +97,8 @@ describe('conquer', () => {
   test('any photo type takes an unclaimed Hood for its unclaimed_value', () => {
     const { claim: c } = claim(13, alice, 'landmark');
     assert.equal(c.claim_kind, 'conquer');
-    assert.equal(c.points_awarded, 25);
+    assert.equal(c.points_awarded, conquerValue(13));
+    assert.equal(c.points_awarded, difficulty(13), 'an un-escalated Hood pays exactly its difficulty');
     assert.equal(state(13).owner_id, alice);
     assert.equal(state(13).photo_type, 'landmark');
   });
@@ -101,7 +112,7 @@ describe('conquer', () => {
   test('awards the Hood\'s current escalated value, not a flat 25', () => {
     db.prepare('UPDATE hoods SET unclaimed_value = 75 WHERE id = ?').run(25);
     const { claim: c } = claim(25, alice, 'person');
-    assert.equal(c.points_awarded, 75);
+    assert.equal(c.points_awarded, 75, 'the escalated value, not the raw difficulty');
   });
 
   test('arms the steal cooldown — a conquer is a change of hands too', () => {
@@ -241,7 +252,7 @@ describe('counter system', () => {
       rewind(hoodId, 24);
       const { claim: c } = claim(hoodId, bob, beater);
       assert.equal(c.claim_kind, 'steal', `${beater} should beat ${held}`);
-      assert.equal(c.points_awarded, 100);
+      assert.equal(c.points_awarded, stealValue(hoodId));
       assert.equal(state(hoodId).owner_id, bob);
     }
   });
@@ -277,11 +288,23 @@ describe('counter system', () => {
 
 // ── steal ─────────────────────────────────────────────────────────────────
 describe('steal', () => {
-  test('pays a flat 100 regardless of what the Hood was worth unclaimed', () => {
-    db.prepare('UPDATE hoods SET unclaimed_value = 100 WHERE id = 25').run();
+  test('pays double the difficulty, and seasonal escalation does not touch it', () => {
+    // Hood 25 is the hardest in the city: difficulty 50, so stealing it pays 100.
+    assert.equal(stealValue(25), 100, 'the hardest Hood tops the steal scale out at 100');
+
+    // Escalation inflates what the Hood is worth to CONQUER, never to steal.
+    db.prepare('UPDATE hoods SET unclaimed_value = 999 WHERE id = 25').run();
     claim(25, alice, 'landmark');
     rewind(25, 24);
-    assert.equal(claim(25, bob, 'person').claim.points_awarded, 100);
+    assert.equal(claim(25, bob, 'person').claim.points_awarded, stealValue(25));
+  });
+
+  test('is worth more the harder the Hood is', () => {
+    // University-Rosedale is the easiest Hood in Toronto, Rouge Park the hardest.
+    assert.ok(stealValue(11) < stealValue(25),
+      'stealing downtown should not pay the same as stealing Rouge Park');
+    assert.equal(stealValue(11), difficulty(11) * 2);
+    assert.equal(stealValue(25), difficulty(25) * 2);
   });
 
   test('is locked for 12 hours after the Hood changes hands', () => {
@@ -297,11 +320,12 @@ describe('steal', () => {
   });
 
   test('the displaced player keeps every point they ever earned', () => {
-    claim(13, alice, 'landmark');          // alice +25
+    const conquer = claim(13, alice, 'landmark').claim.points_awarded;
     rewind(13, 24);
-    claim(13, bob, 'person');           // bob +100
-    assert.equal(points(alice), 25);
-    assert.equal(points(bob), 100);
+    const steal = claim(13, bob, 'person').claim.points_awarded;
+    assert.equal(points(alice), conquer);
+    assert.equal(points(bob), steal);
+    assert.ok(steal > conquer, 'taking a Hood off somebody should beat picking it up free');
     assert.equal(state(13).owner_id, bob);
   });
 
@@ -330,7 +354,7 @@ describe('reinforce', () => {
     rewind(13, 80);
     expectError(() => claim(13, alice, 'landmark'), 'SAME_TYPE');
     expectError(() => claim(13, alice, 'animal'), 'WEAK_TYPE');   // landmark beats animal, not the reverse
-    assert.equal(claim(13, alice, 'person').claim.points_awarded, 25);
+    assert.equal(claim(13, alice, 'person').claim.points_awarded, config.REINFORCE_POINTS);
     assert.equal(state(13).photo_type, 'person');
   });
 
@@ -342,11 +366,13 @@ describe('reinforce', () => {
     assert.deepEqual(evaluateClaim({ hoodId: 13, playerId: bob }).required_types, ['animal']);
   });
 
-  test('pays 25 even when the Hood was worth more to conquer', () => {
+  test('pays a flat 25 however hard or valuable the Hood is', () => {
     db.prepare('UPDATE hoods SET unclaimed_value = 100 WHERE id = 25').run();
-    claim(25, alice, 'landmark');
+    claim(25, alice, 'landmark');            // the hardest Hood in the city
     rewind(25, 80);
-    assert.equal(claim(25, alice, 'person').claim.points_awarded, 25);
+    assert.equal(claim(25, alice, 'person').claim.points_awarded, config.REINFORCE_POINTS);
+    assert.equal(config.REINFORCE_POINTS, 25,
+      'reinforce is deliberately flat — scaling it would make the hard Hoods passive income');
   });
 
   test('does NOT arm the steal lock — reinforcing must not shield a Hood', () => {
@@ -405,14 +431,14 @@ describe('flags and reversal', () => {
     assert.equal(state(13).last_claim_at, aliceLastClaim, 'alice\'s reinforce clock was restored');
     assert.equal(state(13).locked_until, aliceLocked);
     assert.equal(points(bob), 0, 'the reverted points are gone');
-    assert.equal(points(alice), 25, 'alice keeps hers');
+    assert.equal(points(alice), conquerValue(13), 'alice keeps hers');
   });
 
   test('cancels points exactly once — the reversal row does not double-subtract', () => {
     claim(13, alice, 'landmark');
     rewind(13, 24);
     const c = claim(13, bob, 'person').claim;
-    assert.equal(points(bob), 100);
+    assert.equal(points(bob), stealValue(13));
     const { reversal } = revertClaim(c.id);
     assert.equal(reversal.claim_kind, 'reversal');
     assert.equal(points(bob), 0);
@@ -448,7 +474,7 @@ describe('flags and reversal', () => {
 
     assert.equal(state(13).owner_id, carol, 'carol keeps the Hood she legitimately took');
     assert.equal(points(bob), 0, 'but bob loses the flagged points');
-    assert.equal(points(alice), 25);
+    assert.equal(points(alice), conquerValue(13));
   });
 
   test('reverting is idempotent', () => {
@@ -463,14 +489,15 @@ describe('flags and reversal', () => {
 // ── scoring ───────────────────────────────────────────────────────────────
 describe('scoring', () => {
   test('season and champion totals come from the same ledger', () => {
-    claim(13, alice, 'landmark');       // +25
+    const a1 = claim(13, alice, 'landmark').claim.points_awarded;
     rewind(13, 24);
-    claim(13, bob, 'person');        // +100
-    claim(16, alice, 'animal');       // +25 — 16 does not border 13, so no cooldown
+    const b1 = claim(13, bob, 'person').claim.points_awarded;
+    // 16 does not border 13, so the adjacent-conquer cooldown does not apply.
+    const a2 = claim(16, alice, 'animal').claim.points_awarded;
 
     const season = leaderboard(1);
-    assert.equal(season.find((r) => r.player.id === alice).points, 50);
-    assert.equal(season.find((r) => r.player.id === bob).points, 100);
+    assert.equal(season.find((r) => r.player.id === alice).points, a1 + a2);
+    assert.equal(season.find((r) => r.player.id === bob).points, b1);
     assert.deepEqual(leaderboard(null).map((r) => r.points), leaderboard(1).map((r) => r.points));
   });
 
@@ -480,10 +507,23 @@ describe('scoring', () => {
   });
 
   test('ties share a rank', () => {
-    claim(13, alice, 'landmark');
-    claim(14, bob, 'landmark');
-    const ranks = leaderboard(1).slice(0, 2).map((r) => r.rank);
-    assert.deepEqual(ranks, [1, 1]);
+    // Hoods are no longer all worth the same, so a genuine tie needs two of equal
+    // difficulty. Found by query rather than hardcoded, so a rebalance cannot quietly
+    // turn this into a test of something else.
+    const pair = db.prepare(`
+      SELECT id FROM hoods
+       WHERE difficulty = (SELECT difficulty FROM hoods
+                            GROUP BY difficulty HAVING COUNT(*) >= 2
+                            ORDER BY difficulty LIMIT 1)
+       ORDER BY id LIMIT 2`).all().map((r) => r.id);
+    assert.equal(pair.length, 2, 'two Hoods of equal difficulty are needed to test a tie');
+
+    claim(pair[0], alice, 'landmark');
+    claim(pair[1], bob, 'landmark');   // a different player, so adjacency cannot interfere
+
+    const board = leaderboard(1);
+    assert.equal(board[0].points, board[1].points, 'the two should actually be level');
+    assert.deepEqual(board.slice(0, 2).map((r) => r.rank), [1, 1]);
   });
 
   test('hoods_held counts territory, which is independent of points', () => {
@@ -492,7 +532,7 @@ describe('scoring', () => {
     claim(13, bob, 'person');
     const board = leaderboard(1);
     assert.equal(board.find((r) => r.player.id === alice).hoods_held, 0);
-    assert.equal(board.find((r) => r.player.id === alice).points, 25);
+    assert.equal(board.find((r) => r.player.id === alice).points, conquerValue(13));
     assert.equal(board.find((r) => r.player.id === bob).hoods_held, 1);
   });
 });
@@ -511,7 +551,8 @@ describe('evaluateClaim preflight', () => {
     rewind(13, 24);
     const ev = evaluateClaim({ hoodId: 13, playerId: bob });
     assert.deepEqual(ev.required_types, ['animal']);
-    assert.equal(ev.points, 100);
+    assert.equal(ev.points, stealValue(13));
+    assert.equal(ev.difficulty, difficulty(13));
   });
 
   test('agrees with what the claim endpoint will actually do', () => {
@@ -538,20 +579,26 @@ describe('evaluateClaim preflight', () => {
 
 // ── the sentence everyone actually reads ──────────────────────────────────
 describe('claim summaries', () => {
-  test('name the player, the Hood and the subject', () => {
+  test('name the player, the Hood, the subject and the points', () => {
+    // Asserted as exact strings rather than patterns: the points come from the Hood's
+    // difficulty now, and a regex with the number interpolated into it is one escaping
+    // slip away from silently matching nothing.
+    const aliceName = db.prepare('SELECT display_name FROM players WHERE id = ?').get(alice).display_name;
+    const bobName = db.prepare('SELECT display_name FROM players WHERE id = ?').get(bob).display_name;
+
     const conquer = claim(13, alice, 'landmark').claim;
-    assert.match(claimSummary(conquer),
-      /^alice\d+ conquered Hood 13 — Toronto Centre with a landmark photo \(\+25\)$/);
+    assert.equal(claimSummary(conquer),
+      `${aliceName} conquered Hood 13 — Toronto Centre with a landmark photo (+${conquerValue(13)})`);
 
     rewind(13, 24);
     const steal = claim(13, bob, 'person').claim;
-    assert.match(claimSummary(steal),
-      /^bob\d+ stole Hood 13 — Toronto Centre from alice\d+ with a person photo \(\+100\)$/);
+    assert.equal(claimSummary(steal),
+      `${bobName} stole Hood 13 — Toronto Centre from ${aliceName} with a person photo (+${stealValue(13)})`);
 
     rewind(13, 80);
     const reinforce = claim(13, bob, 'animal').claim;
-    assert.match(claimSummary(reinforce),
-      /^bob\d+ reinforced Hood 13 — Toronto Centre with an animal photo \(\+25\)$/);
+    assert.equal(claimSummary(reinforce),
+      `${bobName} reinforced Hood 13 — Toronto Centre with an animal photo (+${config.REINFORCE_POINTS})`);
   });
 
   test('a reversal says whose claim died', () => {

@@ -34,6 +34,11 @@ function shapeHood(r, viewerId, at) {
     label: hoodLabel(r.id, r.name),
     centroid: { lat: r.centroid_lat, lng: r.centroid_lng },
     unclaimed_value: r.unclaimed_value,
+    difficulty: r.difficulty,
+    escalations: r.escalations,
+    // What each action on this Hood pays, so the map can price it without guessing.
+    conquer_value: r.unclaimed_value,
+    steal_value: r.difficulty * config.STEAL_MULTIPLIER,
     ever_conquered: !!r.ever_conquered,
     owner: r.owner_id ? {
       id: r.owner_id, handle: r.owner_handle, display_name: r.owner_name, colour: r.owner_colour,

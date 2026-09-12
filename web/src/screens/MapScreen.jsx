@@ -176,6 +176,8 @@ export default function MapScreen() {
   }, [byId]);
 
   const mine = hoods.filter((h) => h.owner?.id === player?.id);
+  const richest = hoods.filter((h) => !h.owner)
+    .sort((a, b) => b.unclaimed_value - a.unclaimed_value)[0];
   const ready = mine.filter((h) => h.viewer?.reinforce_ready);
   const unclaimed = hoods.filter((h) => !h.owner);
   const blocked = hoods.filter((h) => h.viewer?.adjacent_blocked);
@@ -203,6 +205,12 @@ export default function MapScreen() {
           )}
           {blocked.length > 0 && (
             <div className="row"><b>{blocked.length}</b><span className="dim">next door, on hold</span></div>
+          )}
+          {richest && (
+            <div className="row" title={`Difficulty ${richest.difficulty} of 50`}>
+              <b>+{richest.unclaimed_value}</b>
+              <span className="dim truncate">best unclaimed · {richest.id}</span>
+            </div>
           )}
         </div>
       )}

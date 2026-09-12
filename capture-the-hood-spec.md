@@ -33,17 +33,54 @@ What matters is the subject, declared by the player on submission:
 
 Animal beats person, person beats landmark, landmark beats animal.
 
+### 1.2a The difficulty score
+
+Every Hood carries a **difficulty score from 5 to 50**: what it is worth to take. It is
+computed once from the boundary data, from two things:
+
+| Input | Weight | Why |
+|---|---|---|
+| Distance from the city centre | 65% | The dominant cost. Every claim is a trip somebody has to actually make, and the gap between Rouge Park and University-Rosedale is an afternoon. Measured from Nathan Phillips Square. |
+| How few Hoods border it | 35% | A Hood with two neighbours is a cul-de-sac you commit a dedicated journey to; one with seven has approaches from everywhere and you will pass through it anyway. |
+
+Both inputs are normalised across the 25 Hoods, combined, then normalised again and
+mapped onto 5–50 — so the easiest Hood is always exactly 5 and the hardest always
+exactly 50, whatever shape the city happens to be.
+
+The result, at the extremes:
+
+| | Hood | Distance | Borders |
+|---|---|---|---|
+| **50** | 25 Scarborough-Rouge Park | 23.6 km | 2 |
+| 39 | 23 Scarborough North | 20.7 km | 4 |
+| 31 | 3 Etobicoke-Lakeshore | 10.6 km | 2 |
+| 14 | 13 Toronto Centre | 1.8 km | 3 |
+| **5** | 11 University-Rosedale | 2.6 km | 6 |
+
+Etobicoke-Lakeshore scoring above what its distance alone suggests is the isolation term
+doing its job: it is a long thin waterfront strip with two ways in.
+
+Sanity check: this spec already joked that nothing but points would get anybody out to
+Rouge Park in February. The formula, written from distance and borders alone, prices it
+at exactly 50 — the most expensive Hood in Toronto. If a change to the formula stops
+that being true, the change is wrong.
+
 ### 1.3 The three claim actions
 
 **Conquer** — target Hood is unclaimed. Any photo subject works. Awards the Hood's current
-`unclaimed_value` (25 in Season 1, escalating — see 1.5).
+`unclaimed_value`, which starts at its **difficulty score** and escalates while nobody
+has ever taken it — see 1.5.
 
 **Steal** — target Hood is held by another player. Your photo subject must *beat* theirs.
-Awards **100 points**.
+Awards the Hood's **difficulty score × `STEAL_MULTIPLIER`** (default 2), so 10 to 100.
+Stealing is always worth about double conquering the same Hood, and taking the hardest
+Hood in the city off somebody pays 100 — what a steal was worth when it was a flat rate.
 
 **Reinforce** — target Hood is held by *you*, and at least **72 hours** have passed since
 its last claim of any kind. You must upload the photo subject that beats your own current
-photo. Awards **25 points**, flat, forever — this value never escalates across seasons.
+photo. Awards **25 points**, flat, forever — the same on every Hood however hard, and it
+never escalates. Reinforcing is maintenance, not conquest; scaling it with difficulty
+would turn holding the far Hoods into passive income.
 
 Reinforce is mechanically identical to a steal against yourself: same counter rule, lower
 payout, time-gated. It rotates what you're vulnerable to. Hold a Hood with a `landmark`
@@ -115,12 +152,22 @@ Store these in a `seasons` table — do not hardcode.
   is deleted).
 - Hood ownership **persists**. Whoever holds a Hood at season end still holds it.
 - Every Hood that has **never been conquered by anyone** has its `unclaimed_value`
-  increased by 25.
-- Reinforce stays at 25 and steal stays at 100. Neither escalates.
+  increased by 25 — on top of its difficulty score, not instead of it.
+- Reinforce stays flat at 25, and a steal is always difficulty × the multiplier. Neither
+  escalates.
 
-So a Hood untouched all game is worth 25 → 50 → 75 → 100. Note that by Season 4 an
-untouched Hood is worth exactly as much as a steal — that's intentional, it's what finally
-makes someone drive out to Rouge Park in February.
+So an untouched Hood climbs from its difficulty score in 25-point steps, and the hard
+ones stay ahead of the easy ones the whole way:
+
+| Hood | S1 | S2 | S3 | S4 |
+|---|---|---|---|---|
+| 25 Scarborough-Rouge Park | 50 | 75 | 100 | 125 |
+| 18 Willowdale | 27 | 52 | 77 | 102 |
+| 11 University-Rosedale | 5 | 30 | 55 | 80 |
+
+Escalation is now doing a narrower job than it used to: difficulty already makes the far
+Hoods worth the trip on day one, so escalation exists to make a Hood nobody could be
+bothered with — a cheap, well-connected one — eventually worth going to anyway.
 
 ### 1.6 Scoring and prizes
 
@@ -252,7 +299,9 @@ hoods(
   name,                -- "Toronto Centre"
   centroid_lat, centroid_lng,
   ever_conquered,      -- BOOLEAN, drives seasonal escalation
-  unclaimed_value      -- INTEGER, starts at 25
+  difficulty,          -- INTEGER 5-50, what the Hood is worth to take
+  escalations,         -- INTEGER, season rollovers survived unconquered
+  unclaimed_value      -- INTEGER, = difficulty + escalations * step, capped
 )
 
 hood_neighbours(hood_id, neighbour_id)   -- both directions; drives the adjacency cooldown
@@ -420,8 +469,15 @@ see how people actually behave.
   inconvenienced while someone working the inner suburbs is heavily gated. If it turns out
   to punish walkers more than pilots, the levers are a shorter window or counting only
   Hoods conquered on the same day.
-- **Escalation cap** — an untouched Hood hits 100 in Season 4, equal to a steal. Leave it,
-  or cap at 75.
+- **Escalation cap** — with difficulty as the floor, an untouched Rouge Park reaches 125
+  by Season 4 while an untouched University-Rosedale reaches 80. `CTH_ESCALATION_CAP`
+  clamps the top if that runs away.
+- **Difficulty weighting** — 65% distance, 35% isolation. Worth revisiting after a season
+  of watching where people actually go. If everyone ignores the middle of the map, the
+  distance term is too weak; if nobody ever leaves Scarborough, it is too strong.
+- **Does the steal multiplier want to be 2?** At 2 the ceiling lands neatly on the old
+  flat 100, and aggression pays double picking up the same Hood free. Raising it makes
+  the game about fighting over held Hoods rather than expanding into empty ones.
 - **Flag threshold** — 2 corroborating flags reverts. With a small group this is a low bar;
   consider requiring the flaggers to be neither the claimant nor the displaced holder, so a
   grudge pair can't revert at will.

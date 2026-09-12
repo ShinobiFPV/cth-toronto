@@ -35,9 +35,15 @@ One endpoint handles all three; the server infers which from who holds the Hood.
 
 | Action | When | Subject needed | Points |
 |---|---|---|---|
-| **Conquer** | nobody holds it | any | the Hood's `unclaimed_value` (25, escalating) |
-| **Steal** | somebody else holds it | must beat theirs | 100 |
+| **Conquer** | nobody holds it | any | the Hood's difficulty (5–50), plus any seasonal escalation |
+| **Steal** | somebody else holds it | must beat theirs | difficulty × 2 (10–100) |
 | **Reinforce** | you hold it, 72h since its last claim | must beat *your own* | 25, flat, forever |
+
+Every Hood has a **difficulty score from 5 to 50** — what it is worth to take — computed
+from how far it is from downtown (65%) and how few Hoods border it (35%). Scarborough-Rouge
+Park is 50; University-Rosedale is 5. Reinforcing pays a flat 25 wherever you are, because
+it is maintenance rather than conquest and scaling it would make the far Hoods passive
+income.
 
 - After a Hood changes hands it is locked from stealing for 12 hours.
 - **Conquering unclaimed ground closes that Hood's neighbours to you for 24 hours** — the
@@ -81,7 +87,7 @@ npm run dev:web            # Vite on :5173
 ```
 
 ```bash
-npm test                   # 78 tests: game rules, the HTTP API, reprojection
+npm test                   # 94 tests: game rules, difficulty, the HTTP API, reprojection
 ```
 
 `npm test` needs no running server and touches nothing in `data/` — it boots its own
@@ -112,6 +118,8 @@ server/
   lib/hub.js          WebSocket hub; every claim and flag posts itself to chat
   routes/             thin HTTP wrappers over the above
 scripts/              import-hoods, rollover, make-invite, make-icons
+  lib/difficulty.js   the 5-50 difficulty formula
+  lib/reproject.js    inverse transverse Mercator, for projected source data
 web/                  React 18 + Vite + Leaflet PWA
 deploy/               systemd units, nginx vhost, backup script
 test/                 game rules, end-to-end API, reprojection
