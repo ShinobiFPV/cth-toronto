@@ -39,6 +39,7 @@ miscRoutes.get('/seasons', requireAuth, (_req, res) => {
       escalation_cap: config.ESCALATION_CAP,
       reinforce_gate_hours: config.REINFORCE_GATE_HOURS,
       steal_cooldown_hours: config.STEAL_COOLDOWN_HOURS,
+      adjacent_conquer_cooldown_hours: config.ADJACENT_CONQUER_COOLDOWN_HOURS,
       flag_threshold: config.FLAG_THRESHOLD,
     },
   });

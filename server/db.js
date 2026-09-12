@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import Database from 'better-sqlite3';
 import { config, ROOT } from './config.js';
-import { HOOD_SEED } from './lib/hood-seed.js';
+import { HOOD_SEED, NEIGHBOUR_SEED } from './lib/hood-seed.js';
 import { SEASON_SEED } from './lib/season-seed.js';
 
 fs.mkdirSync(path.dirname(config.dbPath), { recursive: true });
@@ -29,6 +29,12 @@ const seedHoods = db.transaction(() => {
   for (const h of HOOD_SEED) {
     insert.run(h.id, h.name, h.lat, h.lng, config.BASE_UNCLAIMED_VALUE);
     state.run(h.id);
+  }
+
+  const edge = db.prepare(
+    'INSERT INTO hood_neighbours (hood_id, neighbour_id) VALUES (?, ?) ON CONFLICT DO NOTHING');
+  for (const [id, neighbours] of Object.entries(NEIGHBOUR_SEED)) {
+    for (const n of neighbours) edge.run(Number(id), n);
   }
 });
 

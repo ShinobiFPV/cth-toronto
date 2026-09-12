@@ -56,6 +56,18 @@ to `animal`.
   or a previous reinforce. Each reinforce resets it.
 - After a Hood changes hands between players, it is locked from stealing for
   `STEAL_COOLDOWN_HOURS` (default **12**) to prevent instant revenge ping-pong.
+- **Conquering an unclaimed Hood closes that Hood's neighbours to you** for
+  `ADJACENT_CONQUER_COOLDOWN_HOURS` (default **24**). This is the anti-drone lever: from
+  one vantage point a drone pilot can plausibly shoot several adjacent Hoods in an
+  afternoon, and without this the whole west end goes to whoever owns a Mavic. It is
+  deliberately narrow:
+  - **per-player** — anyone else may still conquer that neighbour immediately
+  - **conquer only** — your steals and reinforces next door are unaffected, so it slows
+    land-grabs without making you defenceless inside your own territory
+  - **it chains** — each conquer opens a fresh window around its own Hood, so walking
+    the map outward is gated at every step
+  - a claim reverted by flags stops blocking; a thrown-out claim should not fence you off
+  - adjacency comes from the boundary file, so it is real geography, not a guess
 - **A reinforce does not apply the steal lock.** If it did, a player could shield a Hood
   indefinitely. Reinforcing changes what type beats you, which is defence enough.
 - A player who loses a Hood **does not lose points**. The claims ledger is append-only.
@@ -176,6 +188,12 @@ Write a one-shot script `scripts/import-hoods.js` that:
 3. Extracts ward number + name into the `hoods` table.
 4. Emits a simplified `public/hoods.min.geojson` (turf `simplify`, tolerance ~0.0001) plus
    centroids for map labelling — the raw file is several MB and will hurt on mobile data.
+5. Computes the **adjacency graph** into `hood_neighbours`, from the unsimplified geometry
+   (simplification moves vertices). The city publishes a proper topological coverage, so
+   two Hoods are neighbours when they share at least two exact vertices — two, not one, so
+   a pair meeting at a single corner is not treated as a shared border. Unlike the
+   boundaries themselves this is *not* presentation only: it decides which conquers the
+   adjacency cooldown blocks.
 
 Since claims are no longer geofenced, the boundaries are presentation only. They still need
 to be correct enough that nobody's confused about which Hood they're standing in, but a
@@ -236,6 +254,8 @@ hoods(
   ever_conquered,      -- BOOLEAN, drives seasonal escalation
   unclaimed_value      -- INTEGER, starts at 25
 )
+
+hood_neighbours(hood_id, neighbour_id)   -- both directions; drives the adjacency cooldown
 
 seasons(id, name, starts_at, ends_at, escalation_applied)
 
@@ -313,6 +333,7 @@ can reject before wasting the upload:
 | Code | Condition |
 |---|---|
 | `HOOD_LOCKED` | Steal attempted inside the 12h cooldown |
+| `ADJACENT_COOLDOWN` | Conquer attempted on a Hood bordering one you conquered in the last 24h — returns the eligible timestamp and the Hood responsible |
 | `REINFORCE_TOO_SOON` | Own Hood, less than 72h since `last_claim_at` — return the eligible timestamp |
 | `WEAK_TYPE` | Declared subject does not beat the current holder's (applies to steal *and* reinforce) |
 | `SAME_TYPE` | Declared subject equals the current holder's |
@@ -393,6 +414,12 @@ see how people actually behave.
   reinforce points per season.
 - **Steal cooldown** — 12h default. Without one, two players will trade the same Hood back
   and forth all afternoon.
+- **Adjacent-conquer cooldown** — 24h default. Watch whether it over-corrects. It bites
+  unevenly by geography: Rouge Park borders only two Hoods, Don Valley West borders seven,
+  and the dense downtown Hoods have few neighbours each — so a walker downtown is barely
+  inconvenienced while someone working the inner suburbs is heavily gated. If it turns out
+  to punish walkers more than pilots, the levers are a shorter window or counting only
+  Hoods conquered on the same day.
 - **Escalation cap** — an untouched Hood hits 100 in Season 4, equal to a steal. Leave it,
   or cap at 75.
 - **Flag threshold** — 2 corroborating flags reverts. With a small group this is a low bar;

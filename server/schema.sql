@@ -34,6 +34,14 @@ CREATE TABLE IF NOT EXISTS hoods (
   unclaimed_value INTEGER NOT NULL DEFAULT 25
 );
 
+-- Which Hoods border which, both directions. Presentation data derived from the
+-- boundary file, except that it also drives the adjacent-conquer cooldown.
+CREATE TABLE IF NOT EXISTS hood_neighbours (
+  hood_id      INTEGER NOT NULL REFERENCES hoods(id),
+  neighbour_id INTEGER NOT NULL REFERENCES hoods(id),
+  PRIMARY KEY (hood_id, neighbour_id)
+);
+
 CREATE TABLE IF NOT EXISTS seasons (
   id                 INTEGER PRIMARY KEY,
   name               TEXT NOT NULL,

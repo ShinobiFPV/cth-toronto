@@ -7,7 +7,7 @@ import { db, nowIso } from '../db.js';
 import { config } from '../config.js';
 import { evaluateClaim, humanUntil, article } from './game.js';
 import { activeSeason } from './seasons.js';
-import { hoodLabel } from './hood-seed.js';
+import { hoodLabel, neighboursOf } from './hood-seed.js';
 import { publicPlayer } from './auth.js';
 
 /** Every Hood with its holder and, if a viewer is given, what that viewer can do. */
@@ -47,6 +47,7 @@ function shapeHood(r, viewerId, at) {
     locked_until: r.locked_until && r.locked_until > at ? r.locked_until : null,
     thumb_url: r.path_thumb ? `/media/${r.path_thumb}` : null,
     display_url: r.path_display ? `/media/${r.path_display}` : null,
+    neighbours: neighboursOf(r.id),
   };
 
   if (viewerId == null) return hood;
@@ -64,6 +65,9 @@ function shapeHood(r, viewerId, at) {
     countdown: ev.available_at ? humanUntil(at, ev.available_at) : null,
     // Drives the map's reinforce pulse (spec §7) — free points sitting there.
     reinforce_ready: ev.claim_kind === 'reinforce' && ev.ok,
+    // Unclaimed, but closed to this player because they just took a Hood next door.
+    adjacent_blocked: ev.error === 'ADJACENT_COOLDOWN',
+    blocked_by_hood_id: ev.blocked_by_hood_id ?? null,
     action_label: actionLabel(ev),
   };
   return hood;
@@ -77,6 +81,7 @@ function actionLabel(ev) {
   }
   if (ev.error === 'HOOD_LOCKED') return `Locked · ${humanUntil(nowIso(), ev.available_at)}`;
   if (ev.error === 'REINFORCE_TOO_SOON') return `Reinforce in ${humanUntil(nowIso(), ev.available_at)}`;
+  if (ev.error === 'ADJACENT_COOLDOWN') return `Next door · ${humanUntil(nowIso(), ev.available_at)}`;
   return 'Unavailable';
 }
 

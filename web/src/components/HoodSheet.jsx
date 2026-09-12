@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useGame } from '../lib/store.jsx';
-import { article, until, ago } from '../lib/game.js';
+import { article, until, ago, GATE_CODES } from '../lib/game.js';
 import { CloseIcon, LockIcon } from './icons.jsx';
 import { Subject, PlayerName, FlagButton, Banner, Lightbox } from './bits.jsx';
 import ClaimFlow from './ClaimFlow.jsx';
@@ -80,7 +80,7 @@ export default function HoodSheet({ hoodId, onClose }) {
               )}
 
               {!v.can_claim && v.message && (
-                <Banner kind={v.error === 'REINFORCE_TOO_SOON' ? 'info' : 'bad'}>{v.message}</Banner>
+                <Banner kind={GATE_CODES.has(v.error) ? 'info' : 'bad'}>{v.message}</Banner>
               )}
 
               <button className="btn btn-primary btn-block"

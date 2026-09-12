@@ -375,6 +375,10 @@ button, input, select, textarea { font: inherit; color: inherit; }
   line-height: 1.4;
 }
 
+/* Unclaimed, but next door to something you just took. Hatched rather than dimmed:
+   dimming reads as "far away", hatching reads as "fenced off". */
+.hood-blocked { stroke-dasharray: 2 5 !important; }
+
 /* The reinforce pulse — free points sitting there, and players forget. */
 @keyframes hood-pulse {
   0%, 100% { opacity: 0.25; }

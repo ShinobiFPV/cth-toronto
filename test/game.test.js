@@ -111,11 +111,131 @@ describe('conquer', () => {
   });
 });
 
+// ── the adjacent-conquer cooldown ─────────────────────────────────────────
+describe('adjacent-conquer cooldown', () => {
+  // Hood 13 (Toronto Centre) borders 10, 11 and 14; 16 and 25 are nowhere near it.
+  const NEIGHBOURS = [10, 11, 14];
+  const DISTANT = [16, 25];
+
+  test('conquering closes every bordering Hood to that player', () => {
+    claim(13, alice, 'landmark');
+    for (const n of NEIGHBOURS) {
+      const err = expectError(() => claim(n, alice, 'animal'), 'ADJACENT_COOLDOWN');
+      assert.ok(err.available_at, 'the error says when it opens up');
+    }
+  });
+
+  test('Hoods that do not border it are unaffected', () => {
+    claim(13, alice, 'landmark');
+    for (const d of DISTANT) {
+      assert.equal(claim(d, alice, 'animal').claim.claim_kind, 'conquer');
+    }
+  });
+
+  test('it only binds the player who conquered — this is not a global lock', () => {
+    claim(13, alice, 'landmark');
+    expectError(() => claim(10, alice, 'animal'), 'ADJACENT_COOLDOWN');
+    assert.equal(claim(10, bob, 'animal').claim.claim_kind, 'conquer',
+      'bob is free to take the Hood next door to alice');
+  });
+
+  test('it expires after the configured window', () => {
+    claim(13, alice, 'landmark');
+    expectError(() => claim(14, alice, 'animal'), 'ADJACENT_COOLDOWN');
+
+    // Age alice's conquer past the window rather than waiting a day for it.
+    db.prepare(`UPDATE claims SET created_at = ? WHERE hood_id = 13 AND player_id = ?`)
+      .run(new Date(Date.now() - (config.ADJACENT_CONQUER_COOLDOWN_HOURS + 1) * 3600_000).toISOString(),
+           alice);
+
+    assert.equal(claim(14, alice, 'animal').claim.claim_kind, 'conquer');
+  });
+
+  test('it blocks conquering only — stealing and reinforcing next door still work', () => {
+    claim(14, bob, 'landmark');          // bob holds a Hood bordering 13
+    rewind(14, 24);                      // clear bob's steal lock on it
+    claim(13, alice, 'animal');          // alice conquers next door
+
+    // Alice cannot conquer bob's neighbours, but 14 is held, so it is a steal — allowed.
+    assert.equal(evaluateClaim({ hoodId: 14, playerId: alice }).claim_kind, 'steal');
+    assert.equal(claim(14, alice, 'person').claim.claim_kind, 'steal');
+  });
+
+  test('reinforcing your own Hood is never blocked by a conquer next door', () => {
+    claim(13, alice, 'landmark');
+
+    // Age the conquer out of the cooldown so taking a bordering Hood is legal, and age
+    // Hood 13 past its 72h gate so it is reinforceable.
+    const past = new Date(Date.now() - (config.ADJACENT_CONQUER_COOLDOWN_HOURS + 1) * 3600_000)
+      .toISOString();
+    db.prepare('UPDATE claims SET created_at = ? WHERE hood_id = 13 AND player_id = ?')
+      .run(past, alice);
+    rewind(13, 80);
+
+    claim(10, alice, 'animal');          // 10 borders 13 — allowed now, and it re-closes 13
+    expectError(() => claim(11, alice, 'landmark'), 'ADJACENT_COOLDOWN');   // 11 borders 10
+
+    // 13 borders 10 too, but alice holds it, so it is a reinforce and the gate does not apply.
+    assert.equal(claim(13, alice, 'person').claim.claim_kind, 'reinforce');
+  });
+
+  test('a reverted conquer stops blocking — a thrown-out claim must not fence you off', () => {
+    const c = claim(13, alice, 'landmark').claim;
+    expectError(() => claim(10, alice, 'animal'), 'ADJACENT_COOLDOWN');
+    revertClaim(c.id);
+    assert.equal(claim(10, alice, 'animal').claim.claim_kind, 'conquer');
+  });
+
+  test('the cooldown chains: each new conquer closes its own neighbours', () => {
+    claim(13, alice, 'landmark');                 // closes 10, 11, 14
+    assert.equal(claim(16, alice, 'animal').claim.claim_kind, 'conquer');   // 16 is clear
+    // 16 borders 14, 15, 17, 19, 20, 21 — so those are now closed too.
+    for (const n of [15, 17, 19, 20, 21]) {
+      expectError(() => claim(n, alice, 'landmark'), 'ADJACENT_COOLDOWN');
+    }
+  });
+
+  test('names the Hood responsible, so the message is actionable', () => {
+    claim(13, alice, 'landmark');
+    const ev = evaluateClaim({ hoodId: 11, playerId: alice });
+    assert.equal(ev.error, 'ADJACENT_COOLDOWN');
+    assert.equal(ev.blocked_by_hood_id, 13);
+    assert.match(ev.message, /Hood 13 — Toronto Centre/);
+    assert.match(ev.message, /Hood 11 — University-Rosedale/);
+  });
+
+  test('setting the window to 0 disables the rule entirely', () => {
+    const original = config.ADJACENT_CONQUER_COOLDOWN_HOURS;
+    config.ADJACENT_CONQUER_COOLDOWN_HOURS = 0;
+    try {
+      claim(13, alice, 'landmark');
+      assert.equal(claim(10, alice, 'animal').claim.claim_kind, 'conquer');
+    } finally {
+      config.ADJACENT_CONQUER_COOLDOWN_HOURS = original;
+    }
+  });
+
+  test('the adjacency graph is symmetric and nobody is an island', () => {
+    const rows = db.prepare('SELECT hood_id, neighbour_id FROM hood_neighbours').all();
+    const edges = new Set(rows.map((r) => `${r.hood_id}-${r.neighbour_id}`));
+    for (const r of rows) {
+      assert.ok(edges.has(`${r.neighbour_id}-${r.hood_id}`),
+        `${r.hood_id}->${r.neighbour_id} has no reverse edge`);
+    }
+    for (let id = 1; id <= 25; id++) {
+      const n = db.prepare('SELECT COUNT(*) AS c FROM hood_neighbours WHERE hood_id = ?').get(id).c;
+      assert.ok(n >= 2, `Hood ${id} has only ${n} neighbours, which cannot be right`);
+    }
+  });
+});
+
 // ── the counter system ────────────────────────────────────────────────────
 describe('counter system', () => {
   test('animal beats person, person beats landmark, landmark beats animal', () => {
-    // One Hood per pair, so each case is independent of the last.
-    const cases = [[1, 'person', 'animal'], [2, 'landmark', 'person'], [3, 'animal', 'landmark']];
+    // One Hood per pair, so each case is independent of the last — and Hoods 1, 13 and
+    // 25 are pairwise non-adjacent, so alice's conquers do not trip the adjacent-conquer
+    // cooldown on each other. Do not "tidy" these into 1, 2, 3.
+    const cases = [[1, 'person', 'animal'], [13, 'landmark', 'person'], [25, 'animal', 'landmark']];
     for (const [hoodId, held, beater] of cases) {
       claim(hoodId, alice, held);
       rewind(hoodId, 24);
@@ -346,7 +466,7 @@ describe('scoring', () => {
     claim(13, alice, 'landmark');       // +25
     rewind(13, 24);
     claim(13, bob, 'person');        // +100
-    claim(14, alice, 'animal');       // +25
+    claim(16, alice, 'animal');       // +25 — 16 does not border 13, so no cooldown
 
     const season = leaderboard(1);
     assert.equal(season.find((r) => r.player.id === alice).points, 50);

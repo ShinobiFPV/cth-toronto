@@ -15,6 +15,14 @@ export const SUBJECT_BLURB = {
 
 export const article = (s) => `${s === 'animal' ? 'an' : 'a'} ${s}`;
 
+/**
+ * Error codes the claim endpoint can return, mapped to how the sheet should feel about
+ * them. A time gate is information; a wrong subject is a mistake.
+ */
+export const GATE_CODES = new Set([
+  'HOOD_LOCKED', 'REINFORCE_TOO_SOON', 'ADJACENT_COOLDOWN', 'REINFORCE_CAP_REACHED',
+]);
+
 export const KIND_VERB = {
   conquer: 'Conquer',
   steal: 'Steal',

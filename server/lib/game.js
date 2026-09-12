@@ -67,6 +67,21 @@ export function evaluateClaim({ hoodId, playerId, declaredType = null, at = nowI
       { available_at: state.locked_until });
   }
 
+  // The adjacent-conquer cooldown (spec §1.3). Conquering unclaimed ground closes that
+  // Hood's neighbours to you for a day, so one drone flight cannot sweep up a whole
+  // contiguous block. Per-player: anybody else may still conquer the neighbour, and
+  // your own steals and reinforces are unaffected.
+  if (kind === 'conquer' && config.ADJACENT_CONQUER_COOLDOWN_HOURS > 0) {
+    const blocker = recentAdjacentConquer(hoodId, playerId, at);
+    if (blocker) {
+      const openAt = isoPlusHours(blocker.created_at, config.ADJACENT_CONQUER_COOLDOWN_HOURS);
+      return deny('ADJACENT_COOLDOWN',
+        `You conquered ${hoodLabel(blocker.hood_id, blocker.hood_name)} ${humanUntil(blocker.created_at, at)} ago, `
+        + `and it borders this one. ${label} opens up to you in ${humanUntil(at, openAt)}.`,
+        { available_at: openAt, blocked_by_hood_id: blocker.hood_id });
+    }
+  }
+
   if (kind === 'reinforce') {
     const eligibleAt = state.last_claim_at
       ? isoPlusHours(state.last_claim_at, config.REINFORCE_GATE_HOURS)
@@ -100,6 +115,28 @@ export function evaluateClaim({ hoodId, playerId, declaredType = null, at = nowI
   }
 
   return { ...base, ok: true, error: null, message: null };
+}
+
+/**
+ * The player's most recent surviving conquer on a Hood bordering `hoodId`, if it falls
+ * inside the cooldown window. Reverted conquers do not count — a claim the group threw
+ * out should not go on blocking you.
+ */
+function recentAdjacentConquer(hoodId, playerId, at) {
+  const since = new Date(Date.parse(at) - config.ADJACENT_CONQUER_COOLDOWN_HOURS * 3600_000)
+    .toISOString();
+  return db.prepare(`
+    SELECT c.hood_id, c.created_at, h.name AS hood_name
+      FROM claims c
+      JOIN hood_neighbours n ON n.neighbour_id = c.hood_id
+      JOIN hoods h           ON h.id = c.hood_id
+     WHERE n.hood_id = ?
+       AND c.player_id = ?
+       AND c.claim_kind = 'conquer'
+       AND c.status != 'reverted'
+       AND c.created_at > ?
+     ORDER BY c.created_at DESC
+     LIMIT 1`).get(hoodId, playerId, since) ?? null;
 }
 
 function reinforcePointsThisSeason(playerId, seasonId) {

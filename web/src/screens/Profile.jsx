@@ -107,6 +107,12 @@ export default function Profile() {
                     beats your own photo: +{rules.reinforce_points}. Never escalates.</li>
                 <li>After a Hood changes hands it is locked from stealing
                     for {rules.steal_cooldown_hours}h. A reinforce does not lock it.</li>
+                {rules.adjacent_conquer_cooldown_hours > 0 && (
+                  <li>Conquer an unclaimed Hood and its neighbours close to
+                      you for {rules.adjacent_conquer_cooldown_hours}h — so one drone flight
+                      cannot sweep a whole block. Only you, and only conquering;
+                      steal and reinforce are unaffected.</li>
+                )}
                 <li>Losing a Hood costs you nothing. Points are never taken back.</li>
                 <li>{rules.flag_threshold} flags revert a claim and cancel its points.</li>
                 <li>Honour system: recent photo, taken inside the Hood, actually showing

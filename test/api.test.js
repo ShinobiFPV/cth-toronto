@@ -243,12 +243,37 @@ describe('the API end to end', () => {
       'a rejected claim must not leave files behind');
   });
 
+  test('the adjacent-conquer cooldown is enforced over HTTP, and the list shows it', async () => {
+    // Alice conquered Hood 13 earlier in this walkthrough. 13 borders 10, 11 and 14.
+    const blocked = await alice('/hoods/11/claim',
+      { method: 'POST', raw: await claimForm(await jpeg(55), 'animal') });
+    assert.equal(blocked.status, 409);
+    assert.equal(blocked.data.error, 'ADJACENT_COOLDOWN');
+    assert.ok(blocked.data.available_at, 'the client is told when it opens');
+
+    // The Hood list must say the same thing, so the sheet can grey it out up front.
+    const { data } = await alice('/hoods');
+    const h11 = data.hoods.find((h) => h.id === 11);
+    assert.equal(h11.owner, null, 'still unclaimed');
+    assert.equal(h11.viewer.can_claim, false);
+    assert.equal(h11.viewer.adjacent_blocked, true);
+    assert.equal(h11.viewer.blocked_by_hood_id, 13);
+    assert.deepEqual(h11.neighbours, [9, 10, 12, 13, 14, 15]);
+
+    // And it binds only alice.
+    const h11bob = (await bob('/hoods')).data.hoods.find((h) => h.id === 11);
+    assert.equal(h11bob.viewer.adjacent_blocked, false);
+    assert.equal(h11bob.viewer.can_claim, true);
+  });
+
   test('the steal cooldown is enforced over HTTP', async () => {
-    const fresh = await alice('/hoods/14/claim',
+    // Hood 16, not 14: 14 borders 13, which alice has already conquered, so the
+    // adjacent-conquer cooldown would reject this before the steal lock could.
+    const fresh = await alice('/hoods/16/claim',
       { method: 'POST', raw: await claimForm(await jpeg(30), 'person') });
     assert.equal(fresh.status, 201);
 
-    const tooSoon = await bob('/hoods/14/claim',
+    const tooSoon = await bob('/hoods/16/claim',
       { method: 'POST', raw: await claimForm(await jpeg(40), 'animal') });
     assert.equal(tooSoon.status, 409);
     assert.equal(tooSoon.data.error, 'HOOD_LOCKED');
@@ -275,7 +300,7 @@ describe('the API end to end', () => {
     const byHandle = Object.fromEntries(data.standings.map((r) => [r.player.handle, r]));
     assert.equal(byHandle.alice.points, 50, 'two conquers');
     assert.equal(byHandle.bob.points, 100, 'one steal');
-    assert.equal(byHandle.alice.hoods_held, 1, 'alice lost Hood 13 but kept Hood 14');
+    assert.equal(byHandle.alice.hoods_held, 1, 'alice lost Hood 13 but kept Hood 16');
     assert.equal(byHandle.bob.hoods_held, 1);
 
     const champion = await alice('/leaderboard/champion');
@@ -290,14 +315,14 @@ describe('the API end to end', () => {
   });
 
   test('a reinforce reports the subject it replaced, not a player it "beat"', async () => {
-    rewind(14, 80);
-    const { status, data } = await alice('/hoods/14/claim',
+    rewind(16, 80);
+    const { status, data } = await alice('/hoods/16/claim',
       { method: 'POST', raw: await claimForm(await jpeg(200), 'animal') });
     assert.equal(status, 201);
     assert.equal(data.claim.claim_kind, 'reinforce');
     assert.equal(data.claim.beaten, null, 'you do not beat yourself');
     assert.equal(data.claim.replaced_photo_type, 'person');
-    assert.match(data.claim.summary, /Alice reinforced Hood 14 .* with an animal photo \(\+25\)/);
+    assert.match(data.claim.summary, /Alice reinforced Hood 16 .* with an animal photo \(\+25\)/);
   });
 
   test('you cannot flag your own claim', async () => {

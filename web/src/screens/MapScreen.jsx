@@ -141,6 +141,7 @@ export default function MapScreen() {
       if (!hood) continue;
       const colour = hoodColour(hood);
       const ready = hood.viewer?.reinforce_ready;
+      const blocked = hood.viewer?.adjacent_blocked;
 
       polygon.setStyle({
         color: colour,
@@ -154,15 +155,20 @@ export default function MapScreen() {
       // The pulse rides on the SVG path itself, so it survives pan and zoom.
       if (pathEl) {
         pathEl.classList.toggle('hood-ready', !!ready);
-        pathEl.setAttribute('aria-label',
-          `${hood.label} — ${hood.owner ? `held by ${hood.owner.display_name}` : `unclaimed, worth ${hood.unclaimed_value}`}`);
+        pathEl.classList.toggle('hood-blocked', !!blocked);
+        pathEl.setAttribute('aria-label', `${hood.label} — ${
+          hood.owner ? `held by ${hood.owner.display_name}`
+            : blocked ? `unclaimed, but closed to you for ${hood.viewer.countdown}`
+            : `unclaimed, worth ${hood.unclaimed_value}`}`);
       }
 
       const el = label.getElement();
       if (el) {
         el.innerHTML =
-          `<span class="n" style="color:${hood.owner ? colour : '#C6CFD8'}">${hood.id}</span>` +
-          (hood.owner ? '' : `<span class="v">+${hood.unclaimed_value}</span>`);
+          `<span class="n" style="color:${hood.owner ? colour : blocked ? '#6B7480' : '#C6CFD8'}">${hood.id}</span>`
+          + (hood.owner ? ''
+            : blocked ? `<span class="v" style="color:#6B7480">${hood.viewer.countdown}</span>`
+            : `<span class="v">+${hood.unclaimed_value}</span>`);
         el.classList.toggle('hood-ready', !!ready);
         el.title = hood.label;
       }
@@ -172,6 +178,7 @@ export default function MapScreen() {
   const mine = hoods.filter((h) => h.owner?.id === player?.id);
   const ready = mine.filter((h) => h.viewer?.reinforce_ready);
   const unclaimed = hoods.filter((h) => !h.owner);
+  const blocked = hoods.filter((h) => h.viewer?.adjacent_blocked);
 
   return (
     <div className="map-wrap">
@@ -193,6 +200,9 @@ export default function MapScreen() {
             <div className="row" style={{ color: 'var(--accent)' }}>
               <b>{ready.length}</b><span>ready to reinforce</span>
             </div>
+          )}
+          {blocked.length > 0 && (
+            <div className="row"><b>{blocked.length}</b><span className="dim">next door, on hold</span></div>
           )}
         </div>
       )}

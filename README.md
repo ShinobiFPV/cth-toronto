@@ -40,6 +40,10 @@ One endpoint handles all three; the server infers which from who holds the Hood.
 | **Reinforce** | you hold it, 72h since its last claim | must beat *your own* | 25, flat, forever |
 
 - After a Hood changes hands it is locked from stealing for 12 hours.
+- **Conquering unclaimed ground closes that Hood's neighbours to you for 24 hours** — the
+  anti-drone rule, so one flight cannot sweep up a contiguous block. Per-player and
+  conquer-only: anyone else can still take the neighbour, and your own steals and
+  reinforces there are unaffected. Adjacency is computed from the real boundaries.
 - **A reinforce does not lock it.** Rotating what beats you is the defence a reinforce
   buys; if it also shielded the Hood, you could hold one forever on a timer.
 - Losing a Hood costs you nothing. The ledger is append-only — territory changes, score
@@ -77,7 +81,7 @@ npm run dev:web            # Vite on :5173
 ```
 
 ```bash
-npm test                   # 66 tests: game rules, the HTTP API, reprojection
+npm test                   # 78 tests: game rules, the HTTP API, reprojection
 ```
 
 `npm test` needs no running server and touches nothing in `data/` — it boots its own
@@ -87,7 +91,7 @@ instance against a throwaway database in the OS temp directory.
 
 | Command | What it does |
 |---|---|
-| `npm run import-hoods` | Fetches `city-wards` from CKAN, writes `web/public/hoods.min.geojson` (1.1 MB → 65 kB) and updates the `hoods` table. `--file` for a local copy, `--seed` to also rewrite the seed module. |
+| `npm run import-hoods` | Fetches `city-wards` from CKAN, writes `web/public/hoods.min.geojson` (1.1 MB → 66 kB), and updates the `hoods` table plus the `hood_neighbours` adjacency graph. `--file` for a local copy, `--seed` to also rewrite the seed module. |
 | `npm run rollover` | Checks whether the active season has ended; applies escalation and posts to chat. Idempotent. `--dry-run` to see what it would do. |
 | `npm run invite [n]` | Mints invite codes. |
 | `node scripts/make-icons.js` | Regenerates the PWA icons and favicon from one SVG. |

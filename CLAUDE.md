@@ -44,6 +44,14 @@ changing one, read the test first — it says why.
   `animal`; animal beats person, person beats landmark, landmark beats animal. Any
   camera is legal. The DB column is still `photo_type` because it is literally the type
   of photo; the values changed, the column name did not.
+- **The adjacency cooldown is conquer-only and per-player.** Conquering an unclaimed Hood
+  closes its neighbours to *that player* for 24h. It does not touch steals or reinforces,
+  and it does not stop anyone else. Reverted conquers stop blocking. Several tests
+  deliberately use Hoods 1, 13, 16 and 25 because those are pairwise non-adjacent — if you
+  "tidy" them into 1, 2, 3 the suite fails, and correctly so.
+- **`hood_neighbours` is the one piece of geometry that is not presentation.** Everything
+  else about the boundaries is cosmetic; this table decides which claims are legal, so
+  `import-hoods.js` computes it from the *unsimplified* source and replaces it wholesale.
 - **A reinforce does not arm the steal lock.** A conquer and a steal do. If a reinforce
   locked the Hood, a player could shield one indefinitely on a 72-hour timer.
 - **Losing a Hood costs no points.** The superseded claim keeps its `points_awarded` and
@@ -84,7 +92,7 @@ changing one, read the test first — it says why.
 ## Testing
 
 ```bash
-npm test        # 66 tests, no server needed, touches nothing in data/
+npm test        # 78 tests, no server needed, touches nothing in data/
 ```
 
 - `test/game.test.js` — the rules, driving the game module directly. Time is simulated by

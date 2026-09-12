@@ -56,6 +56,11 @@ export const config = {
   ESCALATION_CAP: process.env.CTH_ESCALATION_CAP ? num('CTH_ESCALATION_CAP', 0) : null,
   REINFORCE_GATE_HOURS: num('CTH_REINFORCE_GATE_HOURS', 72),
   STEAL_COOLDOWN_HOURS: num('CTH_STEAL_COOLDOWN_HOURS', 12),
+  // After conquering an unclaimed Hood, that player cannot conquer any Hood bordering
+  // it for this long. Aimed squarely at the drone advantage: one flight should not hand
+  // somebody a whole contiguous block of the city. Steals and reinforces are untouched,
+  // and it is per-player — anyone else can still take the neighbour. 0 disables it.
+  ADJACENT_CONQUER_COOLDOWN_HOURS: num('CTH_ADJACENT_CONQUER_COOLDOWN_HOURS', 24),
   // Per-season cap on reinforce points per player, 0 = uncapped (spec §10 lever).
   REINFORCE_SEASON_CAP: num('CTH_REINFORCE_SEASON_CAP', 0),
 

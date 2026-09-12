@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import { useGame } from '../lib/store.jsx';
-import { article, ago, until, KIND_VERB } from '../lib/game.js';
+import { article, ago, until, KIND_VERB, GATE_CODES } from '../lib/game.js';
 import { BackIcon, LockIcon } from '../components/icons.jsx';
 import { Subject, PlayerName, FlagButton, Banner, Spinner, Lightbox, When } from '../components/bits.jsx';
 import ShotData from '../components/ShotData.jsx';
@@ -61,7 +61,7 @@ export default function HoodDetail() {
         </p>
       )}
 
-      {v.message && <Banner kind={v.error === 'REINFORCE_TOO_SOON' ? 'info' : 'bad'}>{v.message}</Banner>}
+      {v.message && <Banner kind={GATE_CODES.has(v.error) ? 'info' : 'bad'}>{v.message}</Banner>}
 
       <h2 style={{ margin: '1.4rem 0 0.6rem' }}>
         History · {hood.history.filter((c) => c.claim_kind !== 'reversal').length} claims
