@@ -25,21 +25,22 @@ should install without a toolchain; if any of them tries to compile, install
 
 ## 2 · Storage
 
-The database and every photo ever posted live under `/srv/cth`. **Put this on external
-storage if you have one.** A season of drone stills on an SD card is how SD cards die.
+The database and every photo ever posted live under `/srv/cth`, which
+`deploy/install.sh` creates in step 7 — nothing to do here unless you have external
+storage.
+
+**You should.** A season of drone stills on an SD card is how SD cards die, and as of
+this writing shinobi's card is 95% full with about 3 GB free, shared with every other
+service on the box. If you have a USB SSD mounted at, say, `/mnt/ssd`, make `/srv/cth` a
+symlink to it *before* running the install:
 
 ```bash
-sudo mkdir -p /srv/cth/media /srv/backups/cth
-sudo chown -R shinobi:shinobi /srv/cth /srv/backups/cth
-```
-
-If you have a USB SSD mounted at, say, `/mnt/ssd`, point `/srv/cth` at it instead:
-
-```bash
-sudo mkdir -p /mnt/ssd/cth
+sudo mkdir -p /mnt/ssd/cth/media
 sudo chown -R shinobi:shinobi /mnt/ssd/cth
 sudo ln -s /mnt/ssd/cth /srv/cth
 ```
+
+`install.sh` leaves an existing `/srv/cth` alone, symlink included.
 
 ## 3 · Timezone
 
@@ -89,73 +90,45 @@ touches game state.
 > or just run it locally and let `deploy.ps1` carry the result. Running it locally is the
 > normal path; it is listed here so a from-scratch Pi install is self-sufficient.
 
-## 7 · systemd
+## 7 · Install the service, nginx and the tunnel
+
+Everything from here needs root, which is why it is not part of `deploy.ps1`.
+`deploy/install.sh` does the lot and is idempotent — re-run it any time you change a
+file in `deploy/`.
+
+Run it from a **real terminal**, not through a tool that pipes stdin, or sudo has
+nothing to prompt on:
 
 ```bash
-cd /home/shinobi/cth
-sudo cp deploy/cth.service deploy/cth-rollover.service deploy/cth-rollover.timer \
-        deploy/cth-backup.service deploy/cth-backup.timer /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable --now cth
-sudo systemctl enable --now cth-rollover.timer
-sudo systemctl enable --now cth-backup.timer
-systemctl status cth --no-pager
-curl -s localhost:8096/api/health
+ssh -t shinobi@192.168.1.203 'sudo bash /home/shinobi/cth/deploy/install.sh --all'
 ```
 
-Let `shinobi` restart the service without a password prompt, the same way the other
-services do:
+| Flag | Adds |
+|---|---|
+| *(none)* | `/srv/cth`, the five systemd units, the sudoers grant, and starts the service |
+| `--nginx` | the LAN vhost (not needed for the tunnel, which points straight at the app) |
+| `--tunnel` | the `cth.shintech.online` ingress rule and its DNS route |
+| `--all` | both of the above |
 
-```bash
-# Both paths: sudo's secure_path puts /usr/bin ahead of /bin, so `sudo systemctl`
-# resolves to /usr/bin/systemctl — an entry for /bin/systemctl alone never matches.
-printf '%s
-'   'shinobi ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart cth, /bin/systemctl restart cth'   | sudo tee /etc/sudoers.d/cth
-sudo chmod 440 /etc/sudoers.d/cth
-sudo visudo -c -f /etc/sudoers.d/cth      # never leave a broken sudoers file behind
-```
+It will:
 
-## 8 · nginx
+1. create `/srv/cth/media` and `/srv/backups/cth` and hand them to `shinobi` — the data
+   **must** live outside `/home`, because `cth.service` sets `ProtectHome=read-only`
+2. migrate an existing database out of `/home/shinobi/cth-data` if one is there, taking
+   the `-wal` and `-shm` sidecars with it
+3. repoint `CTH_DB` / `CTH_MEDIA` / `CTH_BACKUP_DIR` in `.env`, and refuse to continue if
+   `CTH_JWT_SECRET` is empty
+4. install the five units, `daemon-reload`, and grant `shinobi` a passwordless
+   `systemctl restart cth` (validated with `visudo -c` first — a broken file in
+   `sudoers.d` locks sudo for everybody)
+5. enable and start `cth` plus the rollover and backup timers, then poll
+   `/api/health` and dump the journal if it does not come up
+6. with `--nginx`, unlink the vhost again if `nginx -t` fails, so a bad config can never
+   take the other sites down with it
+7. with `--tunnel`, back up `config.yml`, insert the ingress rule **above** the
+   `http_status:404` catch-all, and restart `cloudflared`
 
-Only needed for LAN access — the Cloudflare Tunnel points straight at the app, not at
-nginx. The vhost is self-contained; there is nothing to add to `conf.d`.
-
-```bash
-sudo cp /home/shinobi/cth/deploy/nginx-cth.conf /etc/nginx/sites-available/cth
-sudo ln -sf /etc/nginx/sites-available/cth /etc/nginx/sites-enabled/cth
-sudo nginx -t && sudo systemctl reload nginx
-```
-
-This box has two vhosts with `server_name _` already (shinracer and the default). The
-cth vhost is named, so it does not compete with either for the default server.
-
-## 9 · Cloudflare Tunnel
-
-Add `cth.shintech.online` as an ingress hostname on the existing tunnel
-(`d8cc689f-a605-4400-95b8-b2e3b059e325`), pointing at `http://localhost:8096`.
-
-In `/etc/cloudflared/config.yml`, **above** the catch-all 404 rule:
-
-```yaml
-  - hostname: cth.shintech.online
-    service: http://localhost:8096
-```
-
-```bash
-sudo systemctl restart cloudflared
-```
-
-Then add the DNS route (once, from anywhere with the tunnel credentials):
-
-```bash
-cloudflared tunnel route dns d8cc689f-a605-4400-95b8-b2e3b059e325 cth.shintech.online
-```
-
-WebSockets traverse the tunnel without extra configuration. Note Cloudflare's free-plan
-100 MB request body cap — the app's own limit is 60 MB, so that is the one that bites
-first.
-
-## 10 · First player
+## 8 · First player
 
 ```bash
 cd /home/shinobi/cth
