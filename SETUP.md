@@ -113,20 +113,17 @@ sudo chmod 440 /etc/sudoers.d/cth
 
 ## 8 · nginx
 
+Only needed for LAN access — the Cloudflare Tunnel points straight at the app, not at
+nginx. The vhost is self-contained; there is nothing to add to `conf.d`.
+
 ```bash
-sudo tee /etc/nginx/conf.d/upgrade-map.conf >/dev/null <<'EOF'
-map $http_upgrade $connection_upgrade {
-    default upgrade;
-    ''      close;
-}
-EOF
 sudo cp /home/shinobi/cth/deploy/nginx-cth.conf /etc/nginx/sites-available/cth
 sudo ln -sf /etc/nginx/sites-available/cth /etc/nginx/sites-enabled/cth
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
-If `upgrade-map.conf` collides with an existing `map $http_upgrade` block on this box,
-delete the new one and keep the existing one — there can only be one.
+This box has two vhosts with `server_name _` already (shinracer and the default). The
+cth vhost is named, so it does not compete with either for the default server.
 
 ## 9 · Cloudflare Tunnel
 
