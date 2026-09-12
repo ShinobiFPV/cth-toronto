@@ -100,18 +100,19 @@ export default function HoodSheet({ hoodId, onClose }) {
                 {v.action_label}
               </button>
 
-              {/* The sub-game. Deliberately a full-width button of its own rather than a
-                  link in the footer row: it is half the reasons to open a Hood. */}
-              {hood.parks && hood.parks.total > 0 && (
-                <Link className="btn btn-block" to={`/hood/${hood.id}/parks`} onClick={onClose}
-                      style={{ justifyContent: 'space-between' }}>
-                  <span>Parkemon GO</span>
-                  <span className="tiny dim">
-                    {hood.parks.collected}/{hood.parks.total} parks
-                    {hood.parks.points > 0 && ` · ${hood.parks.points} pts`}
+              {/* The sub-game, directly under the action button and the same shape as it:
+                  collecting parks is half the reason to open a Hood. Rendered
+                  unconditionally — every Hood in Toronto has between 31 and 95 parks, so
+                  hiding it on a missing count only ever hides a working feature. */}
+              <Link className="btn btn-block btn-parkemon" to={`/hood/${hood.id}/parks`}
+                    onClick={onClose}>
+                <span>Play Parkemon GO</span>
+                {hood.parks?.total > 0 && (
+                  <span className="btn-sub">
+                    {hood.parks.collected}/{hood.parks.total}
                   </span>
-                </Link>
-              )}
+                )}
+              </Link>
 
               <div className="cluster" style={{ justifyContent: 'space-between' }}>
                 <Link className="btn btn-sm btn-ghost" to={`/hood/${hood.id}`} onClick={onClose}>

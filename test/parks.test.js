@@ -192,6 +192,25 @@ describe('a Hood\'s parks', () => {
     assert.equal(parks.listParksInHood(13, bob).every((p) => !p.collected), true);
   });
 
+  test('progress hangs off the Hood itself, which is where the sheet reads it', async () => {
+    // Regression: this lived on hood.viewer.parks for one release, and the
+    // "Play Parkemon GO" button — which reads hood.parks — silently never rendered.
+    const { listHoods } = await import('../server/lib/views.js');
+    collect(9003, alice);
+
+    const hood = listHoods(alice).find((h) => h.id === 25);
+    assert.ok(hood.parks, 'hood.parks must exist, not hood.viewer.parks');
+    assert.equal(hood.parks.total, 2);
+    assert.equal(hood.parks.collected, 1);
+    assert.equal(hood.parks.points, 70);
+    assert.equal(hood.viewer.parks, undefined, 'and not be duplicated onto viewer');
+
+    // Every Hood carries a total, so the button never has a reason to hide.
+    for (const h of listHoods(alice)) {
+      assert.ok(Number.isInteger(h.parks?.total), `Hood ${h.id} has no park total`);
+    }
+  });
+
   test('reports progress for the Hood sheet', () => {
     collect(9003, alice);
     const progress = parks.parkProgress(25, alice);

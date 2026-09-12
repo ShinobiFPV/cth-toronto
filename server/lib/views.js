@@ -54,6 +54,10 @@ function shapeHood(r, viewerId, at) {
     thumb_url: r.path_thumb ? `/media/${r.path_thumb}` : null,
     display_url: r.path_display ? `/media/${r.path_display}` : null,
     neighbours: neighboursOf(r.id),
+    // Parkemon progress belongs on the Hood, not on hood.viewer: the sheet reads
+    // hood.parks, and burying it in viewer is what stopped the button rendering.
+    // Safe with a null viewer — the per-player counts just come back as 0.
+    parks: parkProgress(r.id, viewerId, at),
   };
 
   if (viewerId == null) return hood;
@@ -71,7 +75,6 @@ function shapeHood(r, viewerId, at) {
     countdown: ev.available_at ? humanUntil(at, ev.available_at) : null,
     // Drives the map's reinforce pulse (spec §7) — free points sitting there.
     reinforce_ready: ev.claim_kind === 'reinforce' && ev.ok,
-    parks: parkProgress(r.id, viewerId, at),
     // Unclaimed, but closed to this player because they just took a Hood next door.
     adjacent_blocked: ev.error === 'ADJACENT_COOLDOWN',
     blocked_by_hood_id: ev.blocked_by_hood_id ?? null,

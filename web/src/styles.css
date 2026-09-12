@@ -775,3 +775,20 @@ button, input, select, textarea { font: inherit; color: inherit; }
   min-height: 320px;
   margin: 0 -0.9rem;
 }
+
+/* The Parkemon button sits directly under the claim action and matches its geometry,
+   so the two read as a pair. Outlined in the accent rather than filled, because two
+   filled buttons stacked would each be shouting that they are the main thing. */
+.btn-parkemon {
+  min-height: var(--tap);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 700;
+  gap: 0.5rem;
+}
+.btn-parkemon:hover { background: rgba(var(--accent-rgb), 0.1); }
+.btn-parkemon .btn-sub {
+  font-weight: 400;
+  opacity: 0.75;
+  font-variant-numeric: tabular-nums;
+}
