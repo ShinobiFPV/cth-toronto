@@ -22,6 +22,13 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
+# Build from the real on-disk path, not whatever junction, symlink or mapped drive the
+# script was reached through. Vite resolves index.html to its real path and compares it
+# with the working directory; when the two disagree the build dies with "The fileName or
+# name properties of emitted chunks and assets must be strings that are neither absolute
+# nor relative paths".
+$real = node -e "console.log(require('fs').realpathSync.native(process.argv[1]))" $here
+if ($LASTEXITCODE -eq 0 -and $real) { $here = $real.Trim() }
 Set-Location $here
 
 function Step($msg) { Write-Host "==> $msg" -ForegroundColor Cyan }
@@ -47,18 +54,28 @@ if (-not (Test-Path 'web/dist/index.html')) {
 Step "Pushing to ${Target}:${RemoteDir}"
 ssh $Target "mkdir -p $RemoteDir/web"
 
-# tar over ssh: one round trip, and it prunes files deleted since the last deploy
-# (scp -r would leave them behind).
 $paths = @('server', 'scripts', 'deploy', 'package.json', 'package-lock.json')
 foreach ($p in $paths) { if (-not (Test-Path $p)) { Fail "missing $p" } }
 
-tar -czf - $paths | ssh $Target "tar -xzf - -C $RemoteDir"
-if ($LASTEXITCODE -ne 0) { Fail 'push of the server tree failed' }
+# Tarballs go to a file and across with scp, never through a pipe. Windows PowerShell
+# 5.1 (and pwsh before 7.4) re-encodes anything piped between two native commands as
+# text, so `tar -czf - | ssh ... tar -xzf -` arrives as "stdin: not in gzip format".
+$serverTgz = Join-Path $env:TEMP 'cth-deploy-server.tgz'
+$distTgz = Join-Path $env:TEMP 'cth-deploy-dist.tgz'
+tar -czf $serverTgz $paths
+if ($LASTEXITCODE -ne 0) { Fail 'packing the server tree failed' }
+tar -czf $distTgz -C web dist
+if ($LASTEXITCODE -ne 0) { Fail 'packing web/dist failed' }
+
+scp -q $serverTgz $distTgz "${Target}:/tmp/"
+if ($LASTEXITCODE -ne 0) { Fail 'copying the bundles to the Pi failed' }
 
 # web/dist is replaced wholesale so a renamed bundle never leaves a stale twin behind.
-ssh $Target "rm -rf $RemoteDir/web/dist"
-tar -czf - -C web dist | ssh $Target "tar -xzf - -C $RemoteDir/web"
-if ($LASTEXITCODE -ne 0) { Fail 'push of web/dist failed' }
+ssh $Target "tar -xzf /tmp/cth-deploy-server.tgz -C $RemoteDir && rm -rf $RemoteDir/web/dist && tar -xzf /tmp/cth-deploy-dist.tgz -C $RemoteDir/web"
+$unpacked = $LASTEXITCODE
+ssh $Target 'rm -f /tmp/cth-deploy-server.tgz /tmp/cth-deploy-dist.tgz'
+Remove-Item -Force $serverTgz, $distTgz -ErrorAction SilentlyContinue
+if ($unpacked -ne 0) { Fail 'unpacking on the Pi failed' }
 
 ssh $Target "chmod +x $RemoteDir/deploy/backup.sh"
 
