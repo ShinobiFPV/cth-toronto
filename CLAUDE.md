@@ -316,19 +316,19 @@ There is no linter and no CI. Validate frontend changes by running the app
   growing and shoving the footer out; without it the bug returns exactly as it was.
   Both actions on the Hood sheet belong there too — the claim *and* the parks button,
   which sits under it and was therefore the first thing to disappear.
-- **The bottom of the screen is not yours, and its height cannot be guessed.** A
-  `position: fixed; bottom: 0` element anchors to the **layout** viewport, which on iOS
-  Safari continues underneath the browser toolbar — so the last rows of a sheet get
-  painted where nobody can see them. `position: sticky` did not help, and neither did a
-  fixed 3.5rem of clearance (the reporter still saw "only a sliver"). `lib/viewport.js`
-  measures the real thing from `visualViewport` into `--vv-bottom`, and the sheet uses
-  it **twice, once each**: `bottom: var(--vv-bottom)` to sit on top of the covered strip
-  and `max-height: calc(88dvh - var(--vv-bottom))` to stay inside what is visible.
-  Adding it to `padding-bottom` as well double-counts and squeezes the sheet flat when
-  the keyboard is up — which is the same mechanism as the toolbar, and why the keyboard
-  is handled for free. `--sheet-lift` is now just breathing room and the fallback for a
-  browser with no `visualViewport`. `test/sheets.test.js` holds all of that in place,
-  including the arithmetic.
+- **Sheets drop down from the top. Never anchor one to the bottom again.** The bottom
+  of a phone screen is not yours: a `position: fixed; bottom: 0` element anchors to the
+  **layout** viewport, which on iOS Safari continues underneath the toolbar, and the
+  keyboard covers the same strip. Sheets rose from there for a long time, and every fix
+  was a better guess at the covered height — `position: sticky`, a fixed 3.5rem of
+  clearance, then measuring it into `--vv-bottom` — and players still reported buttons
+  cut off. So `.bottom-sheet` (the class kept its name) now sits at
+  `top: calc(var(--vv-top) + var(--safe-top))` with
+  `max-height: calc(var(--vv-height) - var(--safe-top) - var(--sheet-gap))`.
+  `lib/viewport.js` measures the visible top and height from `visualViewport`, so
+  whatever covers the bottom — toolbar or keyboard — only ever shortens the sheet, and
+  its footer stays on screen. `test/sheets.test.js` holds that in place, including the
+  arithmetic and a check that the rule has no `bottom:` at all.
 - **The park dots live in their own Leaflet pane, at z-index 450 with
   `pointer-events: none`.** Both halves are load-bearing. 450 puts them above the Hood
   polygons (overlayPane, 400) so a dot draws over a Hood's translucent fill, and below

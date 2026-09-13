@@ -1,34 +1,32 @@
 // The one button that must always be reachable.
 //
-// A bottom sheet's content is not a fixed height: a 4:3 preview, a caption being typed,
-// a cooldown banner and an error can all be on screen at once, and on a 667px phone
-// that pushed Collect and Conquer past the bottom edge. They were reachable by
-// scrolling the sheet, but nothing said the sheet scrolled, so the action looked absent
-// — reported from a real iPhone as "the collect button is hidden by the UI".
+// A sheet's content is not a fixed height: a 4:3 preview, a caption being typed, a
+// cooldown banner and an error can all be on screen at once, and on a small phone that
+// pushed Collect and Conquer past the edge of the screen.
 //
-// A first attempt pinned the button with `position: sticky`, which still failed on a
-// real iPhone 15 Pro Max in both Safari and the installed app. Two reasons: the bottom
-// strip of the screen belongs to Safari's toolbar and the home indicator, and a sticky
-// footer is only as reliable as the scroll container under it. So the sheet is now a
-// flex column — head, scrolling body, laid-out footer — and its contents are held clear
-// of the bottom of the screen by `--sheet-lift`.
+// History, because it explains the shape of this file. Sheets used to rise from the
+// bottom. A sticky footer failed on a real iPhone; so did a guessed clearance ("only a
+// sliver" of the button); so, for some players, did measuring the covered strip with
+// visualViewport. The bottom of a phone screen belongs to Safari's toolbar, the home
+// indicator and the keyboard, and its height moves. So sheets now drop from the top of
+// the visible screen and are capped at its height: anything covering the bottom only
+// shortens the sheet, and its footer stays above it.
 //
-// That is layout, so this file cannot render it; what it can do is hold the structure
-// in place, because the regression is somebody putting the button back inside the
-// scrolling body or dropping the lift. The pixel behaviour was verified in a real
-// browser at 430x932 (browser and standalone), 375x667 and 375x420 with the keyboard
-// up, with and without a 34px home-indicator inset.
+// That is layout, so this file cannot render it. What it can do is hold the structure in
+// place — the regressions are somebody anchoring a sheet to the bottom again, putting the
+// button back inside the scrolling body, or dropping the height cap.
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { coveredBottom } from '../web/src/lib/viewport.js';
+import { visibleArea } from '../web/src/lib/viewport.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = (p) => fs.readFileSync(path.join(ROOT, p), 'utf8');
 
 const CSS = read('web/src/styles.css');
+const sheetRule = () => CSS.match(/\.bottom-sheet\s*\{[^}]*\}/s)?.[0];
 
 // Every sheet with an upload flow, and the action it must never hide.
 const FLOWS = [
@@ -44,12 +42,16 @@ const FLOWS = [
 
 describe('the sheet action footer', () => {
   test('the sheet is a flex column, so the footer is laid out and not scrolled', () => {
-    const rule = CSS.match(/\.bottom-sheet\s*\{[^}]*\}/s);
+    const rule = sheetRule();
     assert.ok(rule, '.bottom-sheet must exist in styles.css');
-    assert.match(rule[0], /display:\s*flex/);
-    assert.match(rule[0], /flex-direction:\s*column/);
-    assert.match(rule[0], /overflow:\s*hidden/,
-      'the sheet itself must not scroll, or the footer scrolls away with the content');
+    assert.match(rule, /display:\s*flex/);
+    assert.match(rule, /flex-direction:\s*column/);
+    // The sheet scrolls only as a last resort: the body (min-height: 0, below) gives up all
+    // its height first. overflow: hidden here once made the Hood sheet's second button
+    // unreachable on a heavily covered screen.
+    assert.match(rule, /overflow-y:\s*auto/,
+      'a sheet whose head and footer alone do not fit must still let you reach the buttons');
+    assert.ok(!/overflow:\s*hidden/.test(rule), 'hidden cuts the footer off with no way to reach it');
   });
 
   test('only the middle of the sheet scrolls, and it can actually shrink', () => {
@@ -61,37 +63,34 @@ describe('the sheet action footer', () => {
     assert.match(rule[0], /min-height:\s*0/, 'min-height: 0 is what makes the body a scroller');
   });
 
-  test('the sheet sits above whatever covers the bottom of the screen', () => {
-    const rule = CSS.match(/\.bottom-sheet\s*\{[^}]*\}/s);
-    // A fixed element anchors to the layout viewport, which on iOS Safari runs on
-    // underneath the toolbar. A guessed clearance left the button showing a sliver;
-    // the measured inset is the only thing that tracks a toolbar of unknown height.
-    assert.match(rule[0], /bottom:\s*var\(--vv-bottom\)/,
-      'the sheet must be positioned above the covered strip, not at the layout bottom');
-    assert.match(rule[0], /max-height:\s*calc\(88dvh\s*-\s*var\(--vv-bottom\)\)/,
-      'and it must not be taller than what is visible');
-    assert.match(rule[0], /padding-bottom:\s*calc\(var\(--safe-bottom\)\s*\+\s*var\(--sheet-lift\)\)/);
-    // The inset must be counted once in each of position and height, never added to
-    // the padding as well — doing all three squeezed the sheet flat with the keyboard up.
-    assert.ok(!/padding-bottom:[^;]*--vv-bottom/.test(rule[0]),
-      'the inset is already in `bottom` and `max-height`; adding it to padding double-counts');
-    assert.match(CSS, /--vv-bottom:\s*0px/, 'it needs a 0 default for browsers that cannot measure');
-    assert.match(CSS, /--sheet-lift:\s*[\d.]+rem/);
-    assert.match(CSS, /@media \(display-mode: standalone\)\s*\{[^}]*--sheet-lift/s,
-      'installed there is no toolbar, so do not leave a gap that looks like a mistake');
+  test('sheets drop from the top of the visible screen, never from the bottom', () => {
+    const rule = sheetRule();
+    assert.match(rule, /top:\s*calc\(var\(--vv-top\)\s*\+\s*var\(--safe-top\)\)/,
+      'anchored to where the visible screen starts, below the notch');
+    assert.ok(!/(^|[\s;{])bottom:/.test(rule),
+      'the bottom edge belongs to the toolbar and the keyboard — anchoring there is the old bug');
+    assert.match(CSS, /--vv-top:\s*0px/, 'it needs a 0 default for browsers that cannot measure');
+  });
+
+  test('a sheet is never taller than what is visible', () => {
+    const rule = sheetRule();
+    // The cap is what keeps the footer on screen: a toolbar or a keyboard can only make
+    // the sheet shorter, never push its bottom out of view.
+    assert.match(rule,
+      /max-height:\s*calc\(var\(--vv-height\)\s*-\s*var\(--safe-top\)\s*-\s*var\(--sheet-gap\)\)/);
+    assert.match(CSS, /--vv-height:\s*100dvh/, 'and a fallback that follows the dynamic viewport');
+    assert.match(CSS, /--sheet-gap:\s*[\d.]+rem/);
   });
 
   test('the parks button is in the footer too, not below the fold', () => {
     const src = read('web/src/components/HoodSheet.jsx');
     const footer = src.indexOf('className="sheet-actions"');
     // Matched on the class rather than the label: the label has been reworded once
-    // already (it read "Play Parkemans GO" until the app took that name), and what
-    // matters here is where the button sits.
+    // already, and what matters here is where the button sits.
     const parks = src.indexOf('btn-parkemans');
     assert.notEqual(footer, -1);
     assert.notEqual(parks, -1, 'the Hood sheet must still offer its parks');
-    assert.ok(parks > footer,
-      'it sits under the claim action, so it is the first thing to fall off the screen');
+    assert.ok(parks > footer, 'it sits under the claim action, in the footer');
   });
 
   test('.sheet-actions is opaque, so content cannot show through the footer', () => {
@@ -110,8 +109,7 @@ describe('the sheet action footer', () => {
       // with the content and the flex layout above buys nothing.
       const body = src.indexOf('className="sheet-body');
       assert.notEqual(body, -1);
-      assert.ok(footer > body,
-        'the footer must come after the scrolling body, as a sibling of it');
+      assert.ok(footer > body, 'the footer must come after the scrolling body, as a sibling of it');
       const bodyClose = src.lastIndexOf('      </div>', footer);
       assert.ok(bodyClose !== -1 && bodyClose < footer,
         `${flow.file}: .sheet-actions still looks nested inside .sheet-body`);
@@ -127,36 +125,34 @@ describe('the sheet action footer', () => {
     });
   }
 
-  describe('measuring what is covered', () => {
-    test('a browser toolbar overlaying the layout viewport', () => {
+  describe('measuring what is visible', () => {
+    test('a browser toolbar covering the bottom shortens the visible height', () => {
       // iPhone 15 Pro Max in Safari: 932 layout, 849 visible.
-      assert.equal(coveredBottom({ innerHeight: 932, height: 849 }), 83);
+      assert.deepEqual(visibleArea({ innerHeight: 932, height: 849 }), { top: 0, height: 849 });
     });
 
-    test('nothing covering means no offset', () => {
-      assert.equal(coveredBottom({ innerHeight: 932, height: 932 }), 0);
+    test('nothing covering means the whole screen', () => {
+      assert.deepEqual(visibleArea({ innerHeight: 932, height: 932 }), { top: 0, height: 932 });
     });
 
     test('the keyboard counts, because it is the same problem', () => {
-      assert.equal(coveredBottom({ innerHeight: 932, height: 596 }), 336);
+      assert.deepEqual(visibleArea({ innerHeight: 932, height: 596 }), { top: 0, height: 596 });
     });
 
-    test('offsetTop is included, or the inset reads short', () => {
-      // The visible viewport pushed down 40px by a focused field.
-      assert.equal(coveredBottom({ innerHeight: 932, height: 849, offsetTop: 40 }), 43);
+    test('a page scrolled by a focused field moves the top down with it', () => {
+      assert.deepEqual(visibleArea({ innerHeight: 932, height: 596, offsetTop: 40.4 }),
+        { top: 40, height: 596 });
     });
 
-    test('a visible viewport larger than the layout one is not negative', () => {
-      assert.equal(coveredBottom({ innerHeight: 800, height: 860 }), 0);
+    test('fractional heights round down, since half a pixel past the edge is hidden', () => {
+      assert.equal(visibleArea({ innerHeight: 932, height: 849.9 }).height, 849);
     });
 
-    test('a nonsense reading cannot swallow the sheet', () => {
-      // Mid-rotation the two viewports can disagree wildly; 60% is the ceiling.
-      assert.equal(coveredBottom({ innerHeight: 900, height: 10 }), 540);
-    });
-
-    test('fractional pixels round up, since half a toolbar still hides half a button', () => {
-      assert.equal(coveredBottom({ innerHeight: 932.4, height: 849.1 }), 84);
+    test('a nonsense reading cannot squash a sheet flat, or make it taller than the screen', () => {
+      // Mid-rotation the two viewports can disagree wildly; 35% of the screen is the floor.
+      assert.equal(visibleArea({ innerHeight: 900, height: 10 }).height, 315);
+      assert.equal(visibleArea({ innerHeight: 800, height: 860 }).height, 800);
+      assert.equal(visibleArea({ innerHeight: 800, height: 700, offsetTop: -5 }).top, 0);
     });
   });
 

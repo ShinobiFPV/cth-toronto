@@ -99,16 +99,15 @@
 
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
-  /* How much of the bottom of the screen is covered by browser UI or the keyboard,
-     measured at run time by lib/viewport.js. A fixed element anchors to the layout
-     viewport, which on iOS Safari runs on underneath the toolbar, so without this the
-     last rows of a sheet are painted where nobody can see them. 0 until measured, and
-     0 forever in a browser with no visualViewport — hence the lift below. */
-  --vv-bottom: 0px;
-  /* Plain breathing room on top of the measured inset, and the whole clearance on a
-     browser too old to measure. Not a toolbar-sized guess any more: guessing is what
-     left the Collect button showing a sliver. */
-  --sheet-lift: 1.25rem;
+  /* The visible part of the screen, measured at run time by lib/viewport.js: where it
+     starts, and how tall it is once the browser toolbar and the keyboard have taken
+     their share. Sheets drop from --vv-top and are capped at --vv-height. The defaults
+     are what a browser with no visualViewport gets. */
+  --vv-top: 0px;
+  --vv-height: 100dvh;
+  /* Space left under a sheet, so it reads as a panel dropped over the page rather than
+     a page of its own, and the scrim below it stays tappable to close. */
+  --sheet-gap: 3rem;
 
   color-scheme: dark;
 }
@@ -159,13 +158,6 @@
   color: #E8ECEF;
 }
 :root[data-theme='light'] .header .brand { color: #FFFFFF; }
-
-/* Installed as an app there is no browser toolbar to clear, and the measured inset
-   goes to 0 on its own — so this is only about not leaving a gap that looks like a
-   mistake. */
-@media (display-mode: standalone) {
-  :root { --sheet-lift: 0.75rem; }
-}
 
 * { box-sizing: border-box; }
 
@@ -590,7 +582,9 @@ button, input, select, textarea { font: inherit; color: inherit; }
    corner belongs to Leaflet's attribution strip. */
 .map-fab-snap { bottom: 2.4rem; }
 
-/* ── Bottom sheet ──────────────────────────────────────────────────────── */
+/* ── Sheets ──────────────────────────────────────────────────────────────
+   Every pop-up drops down from the top. The class is still .bottom-sheet because
+   that is what they were, and five components use it. */
 
 .scrim {
   position: fixed;
@@ -605,25 +599,29 @@ button, input, select, textarea { font: inherit; color: inherit; }
   position: fixed;
   left: 0;
   right: 0;
-  /* Sit directly on top of whatever owns the bottom of the screen, rather than at the
-     bottom of the layout viewport, which on iOS Safari runs on underneath the toolbar.
-     The inset also caps the height — position it above the covered strip AND keep it
-     inside what is visible, but only count the inset once in each. */
-  bottom: var(--vv-bottom);
+  /* From the top of what is visible — never anchored to the bottom, which belongs to
+     the browser toolbar and the keyboard. The notch is cleared by --safe-top; the
+     keyboard scrolling the page is followed by --vv-top. */
+  top: calc(var(--vv-top) + var(--safe-top));
   z-index: 2001;
-  max-height: calc(88dvh - var(--vv-bottom));
+  /* Capped at the visible height, so whatever covers the bottom only ever shortens the
+     sheet and the action footer stays on screen above it. */
+  max-height: calc(var(--vv-height) - var(--safe-top) - var(--sheet-gap));
   /* A flex column, so the head and the action footer are laid out and only the middle
-     scrolls. The button's position then owes nothing to the scroll position, which is
-     what an earlier sticky-only version got wrong. */
+     scrolls. The button's position then owes nothing to the scroll position.
+     The body gives up all of its height before the sheet itself overflows, so this
+     scrolls only in the last resort — a screen so covered that the head and the footer
+     alone do not fit. Hidden would cut the second footer button off unreachably there. */
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   background: var(--surface);
-  border-top: 2px solid var(--accent);
-  padding-bottom: calc(var(--safe-bottom) + var(--sheet-lift));
-  animation: rise 180ms cubic-bezier(0.2, 0.8, 0.3, 1);
+  border-bottom: 2px solid var(--accent);
+  box-shadow: 0 4px 0 var(--accent-deep);
+  animation: drop 180ms cubic-bezier(0.2, 0.8, 0.3, 1);
 }
-@keyframes rise { from { transform: translateY(14px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes drop { from { transform: translateY(-14px); opacity: 0; } to { transform: none; opacity: 1; } }
 
 /* Only the middle of a sheet scrolls. `min-height: 0` is what lets a flex child
    actually shrink below its content and become a scroller — without it the body

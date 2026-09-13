@@ -827,13 +827,14 @@ displays "needs an animal photo" or "reinforce available in 14h" up front.
 0. **Sign in** — the wordmark and nothing else to look at.
 1. **Map** — full-bleed Leaflet map, 25 Hoods filled in their owner's player colour,
    unclaimed Hoods in neutral grey with their point value at the centroid. Tap a Hood →
-   bottom sheet with holder, their photo, the subject you need, and the action button,
+   a sheet dropping from the top with holder, their photo, the subject you need, and the action button,
    which reads **Conquer (+25)**, **Steal (+100)**, **Reinforce (+25)**, or a countdown.
 2. **Capture** — camera launch, subject selector, target Hood confirmation. The action
-   button sits in a **sticky footer** at the bottom of the sheet: the content above it
-   varies in height (preview, caption, banners) and on a small phone the button
-   otherwise falls off the bottom edge, where it is technically scrollable to and
-   practically invisible.
+   button sits in a footer at the end of the sheet, outside its scrolling body: the
+   content above it varies in height (preview, caption, banners). **Sheets drop down from
+   the top of the screen** and are capped at the visible height, because the bottom edge
+   belongs to the browser toolbar and the keyboard — a sheet rising from there kept
+   losing its button underneath them.
 3. **Standings** — current season table + Champion table, toggled.
 4. **Feed** — reverse-chronological claims with thumbnails and a flag button on each.
 5. **Chat** — persistent global room. Auto-post system messages for every claim:

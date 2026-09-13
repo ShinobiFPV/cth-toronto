@@ -6,7 +6,7 @@ import { ThemeProvider } from './lib/theme-context.jsx';
 import { applyAppearance, loadAppearance } from './lib/theme.js';
 import App from './App.jsx';
 import { BUILD } from './lib/build.js';
-import { trackBottomInset } from './lib/viewport.js';
+import { trackViewport } from './lib/viewport.js';
 import './styles.css';
 
 // Before the first render, so nobody sees a dark app repaint itself light.
@@ -18,7 +18,7 @@ console.info(`[cth] build ${BUILD}`);
 
 // Measure how much of the bottom of the screen the browser has taken, before anything
 // is laid out against it.
-trackBottomInset();
+trackViewport();
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

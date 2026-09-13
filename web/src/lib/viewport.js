@@ -1,41 +1,55 @@
-// How much of the bottom of the screen is not actually ours.
+// What part of the screen is actually visible.
 //
-// A `position: fixed; bottom: 0` element anchors to the **layout** viewport. On iOS
-// Safari the layout viewport extends underneath the browser's bottom toolbar, so a
-// bottom sheet's last few rows are painted somewhere the player cannot see them. That
-// is why the Collect button showed "only a sliver" even after the sheet was given a
-// fixed 3.5rem of clearance: a guessed number cannot track a toolbar that is sometimes
-// there, sometimes collapsed, and a different height on every iOS release.
+// Sheets drop down from the top of the screen. They used to rise from the bottom, and
+// the bottom is the one edge of a phone screen the page does not own: on iOS Safari the
+// layout viewport runs on underneath the browser toolbar, the keyboard covers it when a
+// caption is being typed, and its height changes as the toolbar collapses. Every fix for
+// a button lost down there ("only a sliver" of Collect, then of Conquer) was a better
+// guess at that strip, and players kept finding the cases the guess missed.
 //
-// visualViewport knows the real answer. The difference between the layout viewport and
-// the visible one is exactly what is covering the bottom — the Safari toolbar, and the
-// software keyboard when it is up, which is the same problem wearing a different hat.
-// It lands in `--vv-bottom` and the stylesheet does the rest.
-
-const VAR = '--vv-bottom';
+// From the top the problem gets simpler. A sheet starts where the visible screen starts
+// and is capped at the visible height, so whatever covers the bottom — toolbar or
+// keyboard — only ever shortens the sheet, and its footer stays on screen above it.
+// visualViewport knows both numbers; they land in `--vv-top` and `--vv-height`.
 
 /**
- * Publish the covered inset as a CSS variable and keep it current. Returns an
- * unsubscribe, and is safe to call where `visualViewport` does not exist — the
- * variable simply stays at its 0px default and `--sheet-lift` carries the sheet.
+ * The visible area, from a visualViewport-shaped reading. Pure, so it can be tested.
+ *
+ *   top     how far the visible screen has been pushed down (the keyboard scrolling the
+ *           page, or pinch-zoom) — a fixed element anchors to the layout viewport, so
+ *           without this the top of a sheet slides out of sight
+ *   height  floored: half a pixel past the visible edge still hides half a button.
+ *           Clamped to at least 35% of the screen so a nonsense reading mid-rotation
+ *           cannot squash a sheet flat, and never taller than the screen.
  */
-export function trackBottomInset() {
+export function visibleArea({ innerHeight, height, offsetTop = 0 }) {
+  const top = Math.max(0, Math.round(offsetTop));
+  const floor = Math.round(innerHeight * 0.35);
+  const h = Math.min(Math.max(Math.floor(height), floor), Math.floor(innerHeight));
+  return { top, height: h };
+}
+
+/**
+ * Publish the visible area as CSS variables and keep them current. Returns an
+ * unsubscribe. Safe where `visualViewport` does not exist: the variables keep their
+ * stylesheet defaults (0px and 100dvh).
+ */
+export function trackViewport() {
   const vv = typeof window !== 'undefined' ? window.visualViewport : null;
   if (!vv) return () => {};
 
+  const root = document.documentElement.style;
   const apply = () => {
-    // offsetTop is how far the visible viewport has been pushed down (pinch-zoom, or
-    // the keyboard scrolling the page); without it the inset reads short.
-    const covered = window.innerHeight - vv.height - vv.offsetTop;
-    // Rounded up: half a pixel of a toolbar still hides half a pixel of button. Capped
-    // so a bad reading mid-rotation cannot swallow the whole sheet.
-    const px = Math.min(Math.max(0, Math.ceil(covered)), Math.round(window.innerHeight * 0.6));
-    document.documentElement.style.setProperty(VAR, `${px}px`);
+    const { top, height } = visibleArea({
+      innerHeight: window.innerHeight, height: vv.height, offsetTop: vv.offsetTop,
+    });
+    root.setProperty('--vv-top', `${top}px`);
+    root.setProperty('--vv-height', `${height}px`);
   };
 
   apply();
-  // 'resize' covers the toolbar appearing and the keyboard; 'scroll' covers the visible
-  // viewport being panned while zoomed.
+  // 'resize' covers the toolbar and the keyboard; 'scroll' covers the visible viewport
+  // being panned while zoomed or while a focused field is scrolled into view.
   vv.addEventListener('resize', apply);
   vv.addEventListener('scroll', apply);
   window.addEventListener('orientationchange', apply);
@@ -44,13 +58,4 @@ export function trackBottomInset() {
     vv.removeEventListener('scroll', apply);
     window.removeEventListener('orientationchange', apply);
   };
-}
-
-/**
- * The measurement on its own, so it can be tested without a browser.
- * Same clamp as above: never negative, never more than 60% of the screen.
- */
-export function coveredBottom({ innerHeight, height, offsetTop = 0 }) {
-  const covered = innerHeight - height - offsetTop;
-  return Math.min(Math.max(0, Math.ceil(covered)), Math.round(innerHeight * 0.6));
 }
