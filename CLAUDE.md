@@ -4,7 +4,7 @@ Guidance for Claude Code working in this repository.
 
 ## What this is
 
-**ParkeMans GO!** — collect the 1,513 park signs of Toronto, and hold its 25 wards
+**Park-E-Mans GO!** — collect the 1,513 park signs of Toronto, and hold its 25 wards
 ("Hoods") with your camera. For a private friend group of about six people. Node +
 SQLite backend, React PWA frontend, deployed to the Raspberry Pi 5 (`shinobi`,
 192.168.1.203) on port **8096** and exposed at `cth.shintech.online` through the
@@ -74,7 +74,7 @@ changing one, read the test first — it says why.
   `server/db.js` is the only thing allowed to write it. The rollover increments
   `escalations` and calls it; the importer refreshes `difficulty` and calls it. Never
   UPDATE that column directly.
-- **Parkemans collections are claims too.** A park collection is a row in `claims` with
+- **Park collections are claims too.** A park collection is a row in `claims` with
   `claim_kind = 'park'` and `park_id` set. That is deliberate: scoring, the feed, chat
   and flagging all work on it with no special cases. It must never touch `hood_state` —
   collecting a park takes nothing from anybody. Once-per-season is enforced both in
@@ -101,9 +101,12 @@ changing one, read the test first — it says why.
   nobody competes over parks, so a card takes nothing from anybody, and comparing pulls
   is most of what makes a card game fun. Territory claims are a different matter — do
   not copy this openness onto anything anyone can lose.
-- **The app is called ParkeMans GO!** It was Parkemon, then Parkemans; the only place
-  the old spelling survives is the `cth-parkemon:` salt inside `cardSeed()`, which is a
-  hash input already baked into every stored `card_seed`. Leave it.
+- **The app is called Park-E-Mans GO!** It was Parkemon, then Parkemans, then ParkeMans
+  GO!. Every name a player can see uses the current spelling. Older spellings survive
+  only where renaming would break something or buys nothing: the `cth-parkemon:` salt
+  inside `cardSeed()`, a hash input already baked into every stored `card_seed` — leave
+  it — and the identifiers `parkemans-go` (npm name and GitHub repo),
+  `parkemans-go-spec.md`, the `Parkemans` screen component and `.btn-parkemans`.
 - **An edition is rolled with fresh randomness, never derived from `card_seed`.** The
   seed's salt is in a public repo, so a seed-derived edition would let anybody
   precompute which parks hand them a Gold and go collect exactly those. `rollEdition()`
@@ -200,7 +203,7 @@ changing one, read the test first — it says why.
   the URL as `?kind=car`, because the tab bar has no room for a sixth label. The shelf is
   the **Case**, the collectable is a **Not Wheels package** (`NotWheelsPack.jsx`), and a
   card component that might receive either branches on `card.kind`.
-- **The app is ParkeMans GO! — the sub-game inside it is just "parks".** A button reading
+- **The app is Park-E-Mans GO! — the sub-game inside it is just "parks".** A button reading
   "Play Parkemans GO" inside an app of that name is a button offering to launch the app
   you are already in, so the Hood sheet says **Collect parks** and the parks screen is
   titled **Parks**. The *card* and the *binder* keep their own names.

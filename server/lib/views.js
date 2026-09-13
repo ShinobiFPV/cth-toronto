@@ -58,7 +58,7 @@ function shapeHood(r, viewerId, at) {
     display_url: r.path_display ? `/media/${r.path_display}` : null,
     caption: r.caption ?? null,
     neighbours: neighboursOf(r.id),
-    // Parkemans progress belongs on the Hood, not on hood.viewer: the sheet reads
+    // Parks progress belongs on the Hood, not on hood.viewer: the sheet reads
     // hood.parks, and burying it in viewer is what stopped the button rendering.
     // Safe with a null viewer — the per-player counts just come back as 0.
     parks: parkProgress(r.id, viewerId, at),

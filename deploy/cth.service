@@ -1,5 +1,5 @@
 [Unit]
-Description=ParkeMans GO!
+Description=Park-E-Mans GO!
 After=network.target
 
 [Service]

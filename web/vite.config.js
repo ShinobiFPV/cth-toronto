@@ -31,8 +31,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'hoods.min.geojson', 'fonts/*.woff2'],
       manifest: {
-        name: 'ParkeMans GO!',
-        short_name: 'ParkeMans',
+        name: 'Park-E-Mans GO!',
+        short_name: 'Park-E-Mans',
         description: 'Collect Toronto\u2019s park signs, and hold its 25 Hoods with your camera.',
         theme_color: '#0B0D10',
         background_color: '#0B0D10',

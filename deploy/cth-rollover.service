@@ -1,5 +1,5 @@
 [Unit]
-Description=ParkeMans GO! season rollover check
+Description=Park-E-Mans GO! season rollover check
 After=network.target
 
 [Service]

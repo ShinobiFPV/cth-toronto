@@ -41,7 +41,7 @@ export default function Login() {
       {/* The wordmark, in the brush face, same as the header once you are in. Not an
           <h1> default: this is the app's name rather than a page title. */}
       <h1 className="login-mark">
-        ParkeMans<br /><span>GO!</span>
+        Park-E-Mans<br /><span>GO!</span>
       </h1>
       <p className="dim tiny" style={{ margin: '0.5rem 0 2rem', letterSpacing: '0.1em' }}>
         TORONTO · 1,513 PARKS · 25 HOODS · 4 SEASONS

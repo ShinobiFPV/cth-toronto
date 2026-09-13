@@ -1,5 +1,5 @@
 [Unit]
-Description=ParkeMans GO! nightly backup
+Description=Park-E-Mans GO! nightly backup
 
 [Service]
 Type=oneshot

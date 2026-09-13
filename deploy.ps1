@@ -1,4 +1,4 @@
-# Deploy ParkeMans GO! to shinobi (192.168.1.203).
+# Deploy Park-E-Mans GO! to shinobi (192.168.1.203).
 #
 #   .\deploy.ps1              build the web client, push, reinstall deps if needed, restart
 #   .\deploy.ps1 -SkipBuild   push the existing web/dist as-is
@@ -92,6 +92,6 @@ if ($health -match 'FAILED' -or -not $health) {
     Fail 'cth did not come back healthy — journal above'
 }
 
-Write-Host "Deployed ParkeMans GO! to shinobi" -ForegroundColor Green
+Write-Host "Deployed Park-E-Mans GO! to shinobi" -ForegroundColor Green
 Write-Host $health
 Write-Host "https://cth.shintech.online" -ForegroundColor Green

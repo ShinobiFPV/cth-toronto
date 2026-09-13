@@ -1,4 +1,4 @@
-# Setting up ParkeMans GO! on shinobi
+# Setting up Park-E-Mans GO! on shinobi
 
 One-time install. After this, `.\deploy.ps1` from ScarlettWitch does everything.
 

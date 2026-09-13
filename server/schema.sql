@@ -1,4 +1,4 @@
--- ParkeMans GO! — schema.
+-- Park-E-Mans GO! — schema.
 -- All timestamps are ISO-8601 UTC strings ('2026-09-11T18:04:00.000Z'), which sort
 -- lexicographically, so plain string comparison is a valid time comparison.
 

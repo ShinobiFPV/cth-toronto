@@ -23,7 +23,7 @@ export default function App() {
   if (!session) return <Login />;
 
   // The map and chat manage their own scrolling; every other screen scrolls normally.
-  // Parkemans's map view manages its own scrolling too, but its list view does not,
+  // The parks screen's map view manages its own scrolling too, but its list view does not,
   // so it stays a normal scrolling screen and the map fills the viewport inside it.
   const flush = pathname === '/' || pathname === '/chat';
 
@@ -78,7 +78,7 @@ function Header() {
   return (
     <header className="header">
       <NavLink to="/me" className="brand" style={{ textDecoration: 'none', color: 'inherit' }}>
-        ParkeMans <b>GO!</b>
+        Park-E-Mans <b>GO!</b>
       </NavLink>
 
       <span className="spacer" />

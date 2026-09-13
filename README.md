@@ -1,4 +1,4 @@
-# ParkeMans GO!
+# Park-E-Mans GO!
 
 **Six friends. One thousand five hundred and thirteen park signs. Twenty-five neighbourhoods. No referee.**
 
@@ -88,7 +88,7 @@ Every park in Toronto has the same municipal sign with the park's name on it. Th
 <table>
 <tr>
 <td width="50%"><img src="docs/screenshots/05-parkemans.png" alt="The parks in one Hood, sorted by value"></td>
-<td width="50%"><img src="docs/screenshots/07-card.png" alt="A legendary Parkemans card with a foil border"></td>
+<td width="50%"><img src="docs/screenshots/07-card.png" alt="A legendary park card with a foil border"></td>
 </tr>
 <tr>
 <td align="center"><em>68 parks in Rouge Park alone. Sorted by value, because you're planning a route.</em></td>
@@ -347,7 +347,7 @@ amber) because the map already spends every other colour on somebody's territory
 
 ```
 server/lib/game.js    ←  the claim state machine. This is the game.
-server/lib/parks.js      Parkemans: collection rules, card seeds, the binder
+server/lib/parks.js      Parks: collection rules, card seeds, the binder
 server/lib/views.js      read models; every score derived from the ledger
 server/lib/xp.js         XP, the level curve, the titles
 web/src/components/ParkCard.jsx    the card art — inline SVG, seeded

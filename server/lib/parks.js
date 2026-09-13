@@ -139,7 +139,7 @@ export function parksForMap(playerId, at = nowIso()) {
   };
 }
 
-/** How a Hood's Parkemans progress looks in one line, for the Hood sheet and the map. */
+/** How a Hood's parks progress looks in one line, for the Hood sheet and the map. */
 export function parkProgress(hoodId, playerId, at = nowIso()) {
   const season = activeSeason(at);
   const total = db.prepare('SELECT COUNT(*) AS n FROM parks WHERE hood_id = ?').get(hoodId).n;

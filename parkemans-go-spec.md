@@ -1,8 +1,8 @@
-# ParkeMans GO! — Build Spec
+# Park-E-Mans GO! — Build Spec
 
 A photo game for a small private friend group, in two halves.
 
-**Parkemans** (§1.8) is the half it ended up named after: every Toronto park has the same
+**The parks** (§1.8) are the half it ended up named after: every Toronto park has the same
 municipal sign with its name on it, there are 1,513 of them, and photographing one
 collects that park and prints you a collectable card. Nobody competes over parks.
 
@@ -144,7 +144,7 @@ the shot. Cheap to add, easy to cut.
 ### 1.4a Captions
 
 Every uploaded photo can carry one line of the player's own prose — territory claims and
-Parkemans collections alike. Optional, free text, capped at `CAPTION_MAX_LENGTH` (200).
+park collections alike. Optional, free text, capped at `CAPTION_MAX_LENGTH` (200).
 
 - **Written at upload time**, in the capture sheet once there is a photo to caption, and
   **editable afterwards by its author** — the only thing in the game a player can change
@@ -1007,7 +1007,7 @@ see how people actually behave.
 - **Do parks swamp territory?** 1,513 parks at 5–100 points each is a far bigger pool than
   25 Hoods, and an afternoon of walking a dense Hood could out-earn a hard-won steal. The
   levers, if it distorts: scale park values down, cap park points per season, or count
-  them toward a separate Parkemans standing rather than the main total. Watch it in
+  them toward a separate parks standing rather than the main total. Watch it in
   Season 1 — it is the single most likely thing about this build to need rebalancing.
 - **Subject edge cases** — a storefront with a dog outside it satisfies two subjects at
   once, and the declaring player picks whichever is tactically useful. That is either a

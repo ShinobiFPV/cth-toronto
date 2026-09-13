@@ -1,4 +1,4 @@
-/* ── ParkeMans GO! ─────────────────────────────────────────────
+/* ── Park-E-Mans GO! ─────────────────────────────────────────────
    ARCTIC CLASSIFIED AFTER DARK.
 
    The house style from shintech.online, inverted for a map-first app you use
@@ -204,6 +204,10 @@ button, input, select, textarea { font: inherit; color: inherit; }
 
 .app {
   display: grid;
+  /* minmax(0, 1fr), not the implicit auto column: an auto column grows to its widest
+     row's min-content, so a header one wordmark too wide made the header, the map and
+     the tab bar all wider than the screen together. */
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: auto 1fr auto;
   height: 100%;
   height: 100dvh;
@@ -223,7 +227,9 @@ button, input, select, textarea { font: inherit; color: inherit; }
    on the screen, and the brush face wants room. */
 .login-mark {
   font-family: var(--wordmark);
-  font-size: 4rem;
+  /* "Park-E-Mans" is the longest line; this is as big as it gets before it stops fitting
+     a 320px phone. */
+  font-size: clamp(3.4rem, 18vw, 4.8rem);
   line-height: 0.95;
   letter-spacing: 0;
   margin: 0;
@@ -234,8 +240,13 @@ button, input, select, textarea { font: inherit; color: inherit; }
   font-family: var(--wordmark);
   /* A brush script sits small on its em box and has no business being letter-spaced,
      so the wordmark is set much larger than the blocky face it replaced and pulled
-     back onto the header's baseline. */
-  font-size: 2.1rem;
+     back onto the header's baseline.
+     Scaled with the viewport rather than fixed: the header shares its row with the
+     points and Hoods stats and the level badge, so the largest size that fits a 390px
+     phone would push them off a 320px one. ~25px at 320, ~37px at 390, 40px from
+     about 410. Measured against the whole row, badge included — sizing it against the
+     stats alone once widened every screen by 11-20px. */
+  font-size: clamp(1.55rem, 17.14vw - 1.87rem, 2.5rem);
   line-height: 1;
   letter-spacing: 0;
   white-space: nowrap;
@@ -1271,7 +1282,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
   margin: 0 -0.9rem;
 }
 
-/* The Parkemans button sits directly under the claim action and matches its geometry,
+/* The parks button sits directly under the claim action and matches its geometry,
    so the two read as a pair. Outlined in the accent rather than filled, because two
    filled buttons stacked would each be shouting that they are the main thing. */
 /* A park-points figure in the standings that is also the door to that binder. Dim
