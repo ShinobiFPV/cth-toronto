@@ -14,6 +14,8 @@ import { hoodColour } from '../lib/game.js';
 import { cssVar, textSafe } from '../lib/theme.js';
 import { useTheme } from '../lib/theme-context.jsx';
 import HoodSheet from '../components/HoodSheet.jsx';
+import CarCollect from '../components/CarCollect.jsx';
+import { CarIcon } from '../components/icons.jsx';
 
 // Basemap. The default is plain OpenStreetMap raster, darkened in CSS — keyless, which
 // matters because CARTO's dark_all endpoint now stamps "API KEY REQUIRED" across every
@@ -68,6 +70,9 @@ export default function MapScreen() {
   // have to be redrawn when the accent changes and not only on a light/dark flip.
   const { resolved, appearance } = useTheme();
   const [geo, setGeo] = useState(null);
+  // The Garage's capture sheet, straight from the map: a car is something you see while
+  // you are out, and the map is the screen people have open when they are.
+  const [snapping, setSnapping] = useState(false);
   const [geoError, setGeoError] = useState(null);
   const [selected, setSelected] = useState(null);
   const [parks, setParks] = useState(null);
@@ -431,9 +436,19 @@ export default function MapScreen() {
         </div>
       )}
 
+      {/* Hidden while a Hood sheet is up, so there is never a second primary action
+          competing with Conquer. */}
+      {!selected && !snapping && (
+        <button className="btn btn-primary map-fab map-fab-snap" onClick={() => setSnapping(true)}>
+          <CarIcon style={{ width: 18, height: 18 }} /> Snap a car
+        </button>
+      )}
+
       {selected && (
         <HoodSheet hoodId={selected} onClose={() => setSelected(null)} />
       )}
+
+      {snapping && <CarCollect onClose={() => setSnapping(false)} />}
     </div>
   );
 }

@@ -586,6 +586,9 @@ button, input, select, textarea { font: inherit; color: inherit; }
   bottom: 0.7rem;
   z-index: 500;
 }
+/* The main map's Snap a car button. Lifted to the legend's height: the bottom-right
+   corner belongs to Leaflet's attribution strip. */
+.map-fab-snap { bottom: 2.4rem; }
 
 /* ── Bottom sheet ──────────────────────────────────────────────────────── */
 
