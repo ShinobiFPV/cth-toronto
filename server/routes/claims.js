@@ -16,12 +16,16 @@ const fullClaim = (id) => db.prepare(`
   SELECT c.*, p.handle, p.display_name, p.colour,
          b.handle AS beaten_handle, b.display_name AS beaten_name,
          ph.path_thumb, ph.path_display, ph.exif_json, ph.caption,
-         h.name AS hood_name
+         h.name AS hood_name,
+         pk.name AS park_name, pk.value AS park_value,
+         veh.make AS vehicle_make, veh.model AS vehicle_model
     FROM claims c
     JOIN players p ON p.id = c.player_id
     JOIN hoods   h ON h.id = c.hood_id
 LEFT JOIN players b ON b.id = c.beaten_player_id
 LEFT JOIN photos ph ON ph.id = c.photo_id
+LEFT JOIN parks  pk ON pk.id = c.park_id
+LEFT JOIN vehicles veh ON veh.id = c.vehicle_id
    WHERE c.id = ?`).get(id);
 
 claimRoutes.get('/:id', requireAuth, (req, res, next) => {
@@ -96,7 +100,11 @@ claimRoutes.post('/:id/flag', requireAuth, (req, res, next) => {
     const park = claim.park_id
       ? db.prepare('SELECT name FROM parks WHERE id = ?').get(claim.park_id)
       : null;
-    const label = park ? `${park.name} (${hood})` : hood;
+    // And the car for a Garage claim, for the same reason.
+    const car = claim.vehicle_id
+      ? db.prepare("SELECT make || ' ' || model AS name FROM vehicles WHERE id = ?").get(claim.vehicle_id)
+      : null;
+    const label = park ? `${park.name} (${hood})` : car ? `the ${car.name} (${hood})` : hood;
     const claimant = db.prepare('SELECT display_name FROM players WHERE id = ?').get(claim.player_id);
 
     // Flags go to chat: the spec is explicit that a visible first flag is most of

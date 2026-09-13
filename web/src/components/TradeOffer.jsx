@@ -9,6 +9,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api.js';
 import { useGame } from '../lib/store.jsx';
+import { cardName } from '../lib/game.js';
 import { CloseIcon } from './icons.jsx';
 import { Banner, Spinner } from './bits.jsx';
 
@@ -30,8 +31,10 @@ export default function TradeOffer({ card, onClose, onSent }) {
     let cancelled = false;
     setTheirCards(null);
     setWantId(null);
-    api.cards(null, toId)
-      .then((r) => !cancelled && setTheirCards(r.cards))
+    // Both shelves: a package can be asked for in exchange for a park card and back.
+    Promise.all([api.cards(null, toId), api.cards(null, toId, 'car')])
+      .then(([parksShelf, carShelf]) => !cancelled
+        && setTheirCards([...parksShelf.cards, ...carShelf.cards]))
       .catch(() => !cancelled && setTheirCards([]));
     return () => { cancelled = true; };
   }, [toId]);
@@ -62,9 +65,11 @@ export default function TradeOffer({ card, onClose, onSent }) {
       <div className="bottom-sheet" role="dialog" aria-modal="true" aria-label="Offer a card">
         <div className="sheet-head">
           <div className="grow">
-            <h1>Offer {card.park.name}</h1>
+            <h1>Offer {cardName(card)}</h1>
             <div className="tiny dim">
-              {card.rarity_label} · {card.season?.name} · #{String(card.park.set_number ?? card.park.id).padStart(4, '0')}
+              {card.kind === 'car'
+                ? `${card.edition_label} package · ${card.season?.name}${card.vehicle.year ? ` · ${card.vehicle.year}` : ''}`
+                : `${card.rarity_label} · ${card.season?.name} · #${String(card.park.set_number ?? card.park.id).padStart(4, '0')}`}
             </div>
           </div>
           <button className="btn btn-sm btn-ghost" onClick={onClose} aria-label="Close" disabled={busy}>
@@ -119,8 +124,10 @@ export default function TradeOffer({ card, onClose, onSent }) {
                             aria-pressed={wantId === c.claim_id}
                             disabled={busy}
                             onClick={() => setWantId(c.claim_id)}>
-                      <span className={`chip r-${c.rarity}`}>{c.points}</span>
-                      <span className="grow truncate" style={{ textAlign: 'left' }}>{c.park.name}</span>
+                      {c.kind === 'car'
+                        ? <span className={`chip ed-${c.edition}`}>{c.edition}</span>
+                        : <span className={`chip r-${c.rarity}`}>{c.points}</span>}
+                      <span className="grow truncate" style={{ textAlign: 'left' }}>{cardName(c)}</span>
                       <span className="tiny dim">{c.season?.name}</span>
                     </button>
                   ))}
@@ -136,8 +143,8 @@ export default function TradeOffer({ card, onClose, onSent }) {
           </div>
 
           <div className="tiny dim">
-            Trading moves the <b>card</b>. Points and XP stay with whoever walked to the
-            park, so nothing here changes the standings — it is your collection you are
+            Trading moves the <b>card</b>. Points and XP stay with whoever went and got it,
+            so nothing here changes the standings — it is your collection you are
             rearranging, not your score.
           </div>
 
@@ -147,7 +154,7 @@ export default function TradeOffer({ card, onClose, onSent }) {
         <div className="sheet-actions">
           <button className="btn btn-primary btn-block" disabled={!toId || busy} onClick={send}>
             {busy ? 'Sending…' : (wantId == null
-              ? `Give ${card.park.name} to ${them?.display_name ?? '…'}`
+              ? `Give ${cardName(card)} to ${them?.display_name ?? '…'}`
               : 'Send the offer')}
           </button>
         </div>

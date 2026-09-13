@@ -99,6 +99,42 @@ export const config = {
   // hologram rather than one of several.
   HOLO_PER_HOOD_PER_SEASON: num('CTH_HOLO_PER_HOOD_PER_SEASON', 1),
 
+  // ── The Garage (spec §1.8c) ────────────────────────────────────────────
+  // Photograph a car, the Pi asks Claude what it is, and prints a Not Wheels package.
+  // A flat value with a weekly cap, so points_awarded is knowable at claim time and
+  // frozen like every other claim — nothing about scoring reads outside the ledger.
+  CAR_POINTS: num('CTH_CAR_POINTS', 5),
+  // Per player, per calendar week. Past it a car still mints, rolls and pays XP; it is
+  // worth 0 points, which is a success rather than an error.
+  CAR_WEEKLY_CAP: num('CTH_CAR_WEEKLY_CAP', 100),
+  // MO | TU | WE | TH | FR | SA | SU, in CTH_TZ. Monday means Sunday night is the scramble.
+  CAR_WEEK_START: (process.env.CTH_CAR_WEEK_START || 'MO').toUpperCase(),
+  // XP by edition. Every package is at least Steel — plain stock is what going outside
+  // and snapping a car is worth, and it is set to feel like a park collection's worth.
+  CAR_XP_STEEL: num('CTH_CAR_XP_STEEL', 25),
+  CAR_XP_GOLD: num('CTH_CAR_XP_GOLD', 75),
+  CAR_XP_HOLOGRAM: num('CTH_CAR_XP_HOLOGRAM', 250),
+  // 'season' = one car hologram in the whole game per season; 'player-season' = one
+  // each. Scarce is the point, but six players may find one a season too few.
+  CAR_HOLOGRAM_CAP_SCOPE: process.env.CTH_CAR_HOLOGRAM_CAP_SCOPE === 'player-season'
+    ? 'player-season' : 'season',
+  CAR_HOLOS_PER_SCOPE: num('CTH_CAR_HOLOS_PER_SCOPE', 1),
+  // XP for photographing a car you already have this season, at most once per vehicle
+  // per week. 0 = a repeat is ALREADY_COLLECTED and mints nothing at all.
+  CAR_REPEAT_XP: num('CTH_CAR_REPEAT_XP', 0),
+  // Blur licence plates in the display and thumbnail derivatives. A park sign is
+  // nobody's; a plate is traceable to a person. The original, behind the login and kept
+  // for disputes, is left untouched.
+  CAR_BLUR_PLATES: bool('CTH_CAR_BLUR_PLATES', true),
+
+  // The vision call. The key is read from the environment and never written down —
+  // this repo is public.
+  IDENTIFY_ENABLED: bool('CTH_IDENTIFY_ENABLED', true),
+  IDENTIFY_API_KEY: process.env.CTH_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY || '',
+  IDENTIFY_MODEL: process.env.CTH_IDENTIFY_MODEL || 'claude-opus-5',
+  IDENTIFY_TIMEOUT_MS: num('CTH_IDENTIFY_TIMEOUT_MS', 45_000),
+  IDENTIFY_MIN_CONFIDENCE: num('CTH_IDENTIFY_MIN_CONFIDENCE', 0.5),
+
   // Uploads
   maxUploadBytes: num('CTH_MAX_UPLOAD_MB', 60) * 1024 * 1024,
   // A caption is flavour, not an essay. Long enough for a joke about the raccoon,

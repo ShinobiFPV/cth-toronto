@@ -296,6 +296,7 @@ export const forgetSetSize = () => { setSizeCache = null; };
 export function shapeCard(r) {
   const rarity = rarityOf(r.value);
   return {
+    kind: 'park',
     claim_id: r.claim_id,
     set_size: setSize(),
     park: {
@@ -400,9 +401,11 @@ export function collectionSummary(playerId, at = nowIso()) {
   const traded = db.prepare(`
     SELECT
       (SELECT COUNT(*) FROM card_holdings h JOIN claims c ON c.id = h.claim_id
-        WHERE h.holder_id = ? AND c.player_id != ? AND c.status != 'reverted') AS received,
+        WHERE h.holder_id = ? AND c.player_id != ? AND c.park_id IS NOT NULL
+          AND c.status != 'reverted') AS received,
       (SELECT COUNT(*) FROM card_holdings h JOIN claims c ON c.id = h.claim_id
-        WHERE c.player_id = ? AND h.holder_id != ? AND c.status != 'reverted') AS given`)
+        WHERE c.player_id = ? AND h.holder_id != ? AND c.park_id IS NOT NULL
+          AND c.status != 'reverted') AS given`)
     .get(playerId, playerId, playerId, playerId);
 
   return {

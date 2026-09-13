@@ -6,6 +6,9 @@ import {
   offerTrade, acceptTrade, declineTrade, cancelTrade, tradesFor, getTrade,
 } from '../lib/trades.js';
 import { getCardByClaim } from '../lib/parks.js';
+import { getPackageByClaim } from '../lib/garage.js';
+
+const anyCard = (claimId) => getCardByClaim(claimId) ?? getPackageByClaim(claimId);
 import { broadcast, postMessage } from '../lib/hub.js';
 import { badRequest } from '../lib/errors.js';
 
@@ -52,8 +55,8 @@ tradeRoutes.post('/trades', requireAuth, (req, res, next) => {
     postMessage({
       body: `${trade.from.display_name} offered ${trade.to.display_name} `
         + (trade.is_gift
-          ? `${trade.offer.park_name} as a gift`
-          : `${trade.offer.park_name} for ${trade.want.park_name}`)
+          ? `${trade.offer.name} as a gift`
+          : `${trade.offer.name} for ${trade.want.name}`)
         + (trade.message ? ` — "${trade.message}"` : ''),
       kind: 'system',
       meta: { event: 'trade_offered', trade_id: trade.id },
@@ -71,9 +74,9 @@ tradeRoutes.post('/trades/:id/accept', requireAuth, (req, res, next) => {
 
     postMessage({
       body: trade.is_gift
-        ? `${trade.to.display_name} accepted ${trade.offer.park_name} from ${trade.from.display_name}`
+        ? `${trade.to.display_name} accepted ${trade.offer.name} from ${trade.from.display_name}`
         : `${trade.from.display_name} and ${trade.to.display_name} traded — `
-          + `${trade.offer.park_name} for ${trade.want.park_name}`,
+          + `${trade.offer.name} for ${trade.want.name}`,
       kind: 'system',
       meta: { event: 'trade_accepted', trade_id: trade.id },
     });
@@ -83,8 +86,8 @@ tradeRoutes.post('/trades/:id/accept', requireAuth, (req, res, next) => {
       trade,
       // The cards as they now stand, so the binder can update without a refetch.
       cards: [
-        getCardByClaim(trade.offer.claim_id),
-        trade.want ? getCardByClaim(trade.want.claim_id) : null,
+        anyCard(trade.offer.claim_id),
+        trade.want ? anyCard(trade.want.claim_id) : null,
       ].filter(Boolean),
     });
   } catch (err) { next(err); }

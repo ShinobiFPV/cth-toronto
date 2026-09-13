@@ -386,6 +386,123 @@ CREATE UNIQUE INDEX idx_park_once_per_season
 
 ---
 
+## 1.8c The Garage
+
+Photograph cars on the street. The server identifies the vehicle with a Claude vision call
+and prints a **Not Wheels** package, which lives in your **Case** — the other half of the
+Cards tab, beside the binder.
+
+- **Points** — a flat **5** per car, capped at **100 per player per week** (20 scoring cars).
+- **XP** — by edition, flat and rising, **never capped**.
+- **Past the weekly cap you keep collecting.** The package mints, the edition rolls, the XP
+  lands, and the claim is worth 0 points. Being over the cap is a success, never an error —
+  there is no `WEEKLY_CAP_REACHED` code.
+
+Architecturally boring on purpose. A flat value with a cap is fully knowable at claim time,
+so `points_awarded` is computed once inside `commitCar()` and frozen like every other claim.
+No second scoring path, nothing scheduled, and `SUM(points_awarded)` is still the whole story.
+
+### The week
+
+Weeks start **Monday 00:00 America/Toronto** (`CTH_CAR_WEEK_START`). A **week key**
+(`2026-W38`, ISO numbering) is computed at claim time with a real timezone conversion and
+stored on the claim, so the cap is an exact string match and a sum:
+
+```
+spent     = SUM(points_awarded) over this player's car claims
+            WHERE week_key = <current> AND status != 'reverted'
+remaining = max(0, CAR_WEEKLY_CAP - spent)
+award     = min(CAR_POINTS, remaining)
+```
+
+`min()` rather than an all-or-nothing test, so a cap that does not divide by the value is
+neither overshot nor short-changed. `commitCar()` re-runs the evaluation inside its
+transaction: two collections racing at 95 spent cannot both be awarded 5. A reverted claim
+gives its slot back. The week key is independent of the season — a week straddling a
+rollover splits its 100 across both, and each claim scores in the season it was made.
+
+A calendar week gives the game a rhythm: capacity resets Monday, and Sunday night is the
+scramble. By midseason the binding limit is not the cap but the dedupe rule — the hard part
+becomes finding a car you have not got — so the cap matters most in the first weeks of a
+season, which is exactly when a brake is wanted.
+
+### Cars are claims
+
+`claim_kind = 'car'`, `vehicle_id` set, `points_awarded` 5 or 0, `xp_awarded` from the
+edition, `week_key` set, and the Hood it was snapped in recorded for the feed. **A car never
+touches `hood_state`**, and does not count as having set foot in a Hood for the discovery bonus.
+
+**Once per vehicle per player per season**, enforced in `evaluateCar()` and by a partial
+unique index that excludes reverted rows, so a package the group throws out frees the vehicle
+up again. A repeat is `ALREADY_COLLECTED` and mints nothing. `CTH_CAR_REPEAT_XP` turns on a
+small trickle instead — a `sighting` claim worth that much XP, once per vehicle per week,
+never a second package.
+
+### Editions
+
+`rollEdition()` unchanged in odds and order, with fresh randomness and never `card_seed`.
+Every package is at least **Steel** — plain stock is what snapping a car is worth.
+
+| Edition | Backing | XP |
+|---|---|---|
+| Steel | plain stock | 25 |
+| Gold | foil | 75 |
+| **Hologram** | holographic, animated | **250**, **one per season in the whole game** |
+
+The hologram cap is checked inside `commitCar()`'s transaction with the same fall-through to
+Gold, and `CTH_CAR_HOLOGRAM_CAP_SCOPE=player-season` makes it one each. It is separate from
+the parks' per-Hood holograms: a car pulled in Hood 13 never uses up the Hood 13 park
+hologram. The roll ignores the points cap — a hologram on your 40th car of the week is still a
+hologram, which is what makes collecting past the cap worth doing.
+
+### Identification
+
+Its job is the package face and the **dedupe key**. It does not touch scoring, so accuracy
+barely matters for fairness and consistency matters enormously. The key is **make + model with
+trim and generation stripped** — `honda|civic` is one package whether it was an Si or a base
+sedan — normalised in `server/lib/vehicles.js` as a second line of defence behind the prompt.
+Generation, trim and year ride on the claim as sighting detail.
+
+```
+upload → sharp → identify (2–5s) → evaluateCar() → commitCar()
+```
+
+The call runs in the route, never inside the transaction. Structured JSON output: `is_vehicle`,
+`in_situ`, `make`, `model`, `generation`, `trim`, `year_range`, `body_style`, `confidence`,
+and `plates`.
+
+| Code | Condition |
+|---|---|
+| `IDENTIFY_UNAVAILABLE` | the identifier is down, disabled or has no key — nothing written, retry |
+| `IDENTIFY_UNSURE` | confidence under `CTH_IDENTIFY_MIN_CONFIDENCE` or no model — try a better angle |
+| `NOT_A_VEHICLE` | not a vehicle |
+| `ALREADY_COLLECTED` | you have that car this season |
+| `HOOD_REQUIRED` | the upload did not say which Hood |
+
+`in_situ` false (a screen, a magazine, a diecast, game footage) **marks** the package for
+flaggers and never rejects it. The honour system and flagging remain the enforcement model.
+The identifier is swappable (`setIdentifier()`), so no test touches the network.
+
+**Licence plates are blurred** in the display and thumbnail derivatives before the claim is
+written (`CTH_CAR_BLUR_PLATES`), using the boxes the identifier returns, padded. A park sign is
+nobody's; a plate is traceable to a person. The original, behind the login for disputes, is
+left untouched. A blur that fails fails the collection rather than publishing the plate.
+
+### The package
+
+`NotWheelsPack.jsx`: a hang tab with a punched slot carrying the wordmark, a bevelled bubble
+over the photo with a highlight down one edge and a hard shadow onto the backing, the backing
+carrying the edition, and a spec strip with make, model, year, Hood and date. Seeded from
+(player, vehicle, season) like a park card; every colour a token; the vehicle's name in the
+brush. It evokes the *format* of a blister pack in the house style — no flame, no red and
+yellow, no reproduction of anybody's trade dress.
+
+The capture sheet shows **this week's capacity before the shutter** — `75 / 100 this week`, or
+**XP only — resets Monday** — and says "Identifying…" across the round trip. Packages and
+Cases are public, like binders, and trade through the same offers as park cards.
+
+---
+
 ## 1.9 XP and levels
 
 Season points answer *who is winning right now*. XP answers *how long have you been doing
@@ -412,6 +529,7 @@ is no counter to drift. A claim reverted by flags loses its XP with its points, 
 | Reinforce | 20 |
 | Collect a park | 10 + rarity (0 / 5 / 15 / 30) |
 | **A special edition** | **+15 Steel / +40 Gold / +100 Hologram** (§1.8b) |
+| Snap a car | **25 Steel / 75 Gold / 250 Hologram**, nothing else (§1.8c) |
 | **First time ever in a Hood** | **+100** |
 | **First time ever at a park** | **+15** |
 
@@ -612,6 +730,18 @@ hood_state(
   locked_until                   -- drives the 12h steal cooldown
 )
 
+vehicles(                        -- §1.8c: the Garage's catalogue, one row per make + model
+  id, vehicle_key,               --   'honda|civic', trim and generation stripped
+  make, model, body_style,
+  first_seen_claim_id, created_at
+)
+
+claims(... vehicle_id,           -- §1.8c, on claim_kind = 'car' | 'sighting'
+  vehicle_year, vehicle_trim, vehicle_generation,
+  identify_json,                 --   what the identifier said, for flaggers
+  identify_confidence,
+  week_key)                      --   '2026-W38' in Toronto; the weekly cap sums on it
+
 messages(id, player_id, body, kind, meta_json, created_at)   -- kind: user | system
 
 flags(id, claim_id, player_id, reason, created_at)
@@ -652,8 +782,13 @@ GET    /api/hoods/:id/parks        every park in a Hood + your collection state
 GET    /api/parks/:id             one park + whether you can collect it
 GET    /api/parks/:id/check       dry run
 POST   /api/parks/:id/collect     multipart: photo of the sign, caption (optional)
-GET    /api/cards?season=&player= a binder — yours by default, anybody's with ?player=
-GET    /api/cards/:claimId        one card, whoever collected it (the feed opens these)
+GET    /api/cards?season=&player=&kind= a binder, or with kind=car a Case — yours by default
+GET    /api/cards/:claimId        one card or package, whoever collected it (the feed opens these)
+
+GET    /api/cars/capacity          this week's points so far, the cap, when it resets
+GET    /api/cars                   the catalogue: every vehicle pulled, and who holds what
+GET    /api/cars/:vehicleId        every sighting of one vehicle
+POST   /api/cars/collect           multipart: photo, hood_id, caption (optional)
 
 GET    /api/trades                 offers you are part of, incoming and outgoing
 POST   /api/trades                 to_player_id, offer_claim_id, want_claim_id?, message?
@@ -708,7 +843,8 @@ displays "needs an animal photo" or "reinforce available in 14h" up front.
 6. **Hood detail** — full claim history with every photo ever posted there. This becomes a
    genuinely nice artifact by the end of the year.
 7. **Cards** — the binder, reachable from the tab bar because the collection is what the
-   app is named after. Anybody's binder (§1.8), and the way into offers (§1.8a).
+   app is named after. Anybody's binder (§1.8), and the way into offers (§1.8a). A
+   **Parks | Garage** control switches it to the Case (§1.8c), because the tab bar is full.
 8. **Offers** — incoming and outgoing trades.
 
 The map also carries **every park in the city as a dot** once you zoom past the whole-city
@@ -854,6 +990,20 @@ see how people actually behave.
   nothing mechanical hangs off it — deliberately, because a level that granted an in-game
   advantage would compound and the early joiners would never be caught. If it ever should
   do something, cosmetic is the safe direction: a card frame, a map colour, a chat flourish.
+- **The Garage (§1.8c)** — built on these defaults, every one a lever in `server/config.js`:
+  - *Hologram scope* — one car hologram per season in the whole game. At six players that
+    may be too scarce to ever see; `CTH_CAR_HOLOGRAM_CAP_SCOPE=player-season` is one each.
+  - *Dedupe granularity* — make + model, trim and generation stripped. If the Case fills
+    with things players consider different cars (a Mustang and a Shelby), the fix is in
+    `server/lib/vehicles.js`, and it re-keys nothing already collected.
+  - *Repeat sightings* — silent `ALREADY_COLLECTED` by default; `CTH_CAR_REPEAT_XP` is the
+    trickle, once per vehicle per week.
+  - *Case across seasons* — matches the binder: this season by default, all time a toggle.
+  - *Licence plates* — **blurred** in everything the app serves, from the identifier's boxes.
+    Approximate boxes mean the occasional plate may survive at an odd angle; the original is
+    never altered. Revisit if flaggers find that happening.
+  - *Cost* — every collection attempt is one billed vision call, including ones that end
+    `ALREADY_COLLECTED`, because the dedupe key comes out of the identification.
 - **Do parks swamp territory?** 1,513 parks at 5–100 points each is a far bigger pool than
   25 Hoods, and an afternoon of walking a dense Hood could out-earn a hard-won steal. The
   levers, if it distorts: scale park values down, cap park points per season, or count

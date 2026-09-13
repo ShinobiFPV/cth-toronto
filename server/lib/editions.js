@@ -39,10 +39,15 @@ export const editionXp = (edition) => byKey[edition]?.xp ?? 0;
 
 export const editionLabel = (edition) => byKey[edition]?.label ?? null;
 
-/** How many holograms a Hood has already yielded this season. */
+/**
+ * How many park holograms a Hood has already yielded this season. Parks only: a car
+ * package pulled in Hood 13 carries that hood_id too, and must not use up the Hood 13
+ * park hologram — the Garage has its own cap (lib/garage.js).
+ */
 export const holosInHood = (hoodId, seasonId) => db.prepare(`
   SELECT COUNT(*) AS n FROM claims
-   WHERE hood_id = ? AND season_id = ? AND edition = 'hologram' AND status != 'reverted'`)
+   WHERE hood_id = ? AND season_id = ? AND edition = 'hologram' AND status != 'reverted'
+     AND park_id IS NOT NULL`)
   .get(hoodId, seasonId).n;
 
 /**
@@ -61,14 +66,18 @@ export const holosInHood = (hoodId, seasonId) => db.prepare(`
  * and better-sqlite3 is synchronous, so inside one transaction there is no window for
  * two collections to both mint the last hologram.
  */
-export function rollEdition({ hoodId, seasonId, rand = crypto.randomInt }) {
+export function rollEdition({
+  hoodId, seasonId, rand = crypto.randomInt,
+  // Is the hologram this roll could mint already gone? Parks ask per Hood; the Garage
+  // passes its own question. The roll itself — odds, order, fall-through — is shared.
+  holoTaken = () => holosInHood(hoodId, seasonId) >= config.HOLO_PER_HOOD_PER_SEASON,
+}) {
   for (const edition of EDITIONS) {
     const oneIn = edition.oneIn();
     if (!Number.isFinite(oneIn) || oneIn < 1) continue;   // 0 or nonsense disables it
     if (rand(oneIn) !== 0) continue;
 
-    if (edition.key === 'hologram'
-        && holosInHood(hoodId, seasonId) >= config.HOLO_PER_HOOD_PER_SEASON) {
+    if (edition.key === 'hologram' && holoTaken()) {
       // This Hood's hologram is already out there. Keep going rather than returning
       // null: the luck was real, so let it land on the next edition down.
       continue;
@@ -78,13 +87,17 @@ export function rollEdition({ hoodId, seasonId, rand = crypto.randomInt }) {
   return null;
 }
 
-/** How many of each edition a player holds. Drives the binder's chips and filter. */
-export function editionCounts(playerId, { seasonId = null } = {}) {
+/**
+ * How many of each edition a player holds. Drives the binder's chips and filter, and the
+ * Case's — `kind` says which shelf.
+ */
+export function editionCounts(playerId, { seasonId = null, kind = 'park' } = {}) {
   const rows = db.prepare(`
     SELECT c.edition, COUNT(*) AS n FROM claims c
       LEFT JOIN card_holdings hold ON hold.claim_id = c.id
      WHERE COALESCE(hold.holder_id, c.player_id) = ?
-       AND c.park_id IS NOT NULL AND c.status != 'reverted' AND c.edition IS NOT NULL
+       AND ${kind === 'car' ? "c.claim_kind = 'car'" : 'c.park_id IS NOT NULL'}
+       AND c.status != 'reverted' AND c.edition IS NOT NULL
        ${seasonId ? 'AND c.season_id = ?' : ''}
      GROUP BY c.edition`)
     .all(...(seasonId ? [playerId, seasonId] : [playerId]));

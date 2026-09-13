@@ -50,6 +50,14 @@ export const CardIcon = (p) => svg(<>
   <path d="M7 17h7" />
 </>, p);
 
+// A car in profile, all corners: the body, the glasshouse line, two square wheels.
+export const CarIcon = (p) => svg(<>
+  <path d="M2 16v-4l3-5h14l3 5v4z" />
+  <path d="M2 12h20" />
+  <rect x="5" y="16" width="3" height="3" />
+  <rect x="16" y="16" width="3" height="3" />
+</>, p);
+
 // Straight-edged, like everything else here: a nib, a shaft, and the line it leaves.
 export const PencilIcon = (p) => svg(<>
   <path d="M4 20h4L20 8l-4-4L4 16z" />

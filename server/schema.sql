@@ -73,6 +73,20 @@ CREATE TABLE IF NOT EXISTS parks (
 );
 CREATE INDEX IF NOT EXISTS idx_parks_hood ON parks(hood_id, name);
 
+-- ── The Garage ─────────────────────────────────────────────────────────────
+-- The catalogue of every vehicle anybody has photographed. One row per make + model,
+-- trim and generation stripped: an Si and a base Civic are the same package. The
+-- sighting detail (year, trim, generation) rides on the claim instead.
+CREATE TABLE IF NOT EXISTS vehicles (
+  id                  INTEGER PRIMARY KEY,
+  vehicle_key         TEXT NOT NULL UNIQUE,   -- 'honda|civic', see lib/vehicles.js
+  make                TEXT NOT NULL,
+  model               TEXT NOT NULL,
+  body_style          TEXT,
+  first_seen_claim_id INTEGER,
+  created_at          TEXT NOT NULL
+);
+
 -- ── Trading ────────────────────────────────────────────────────────────────
 -- Cards change hands; scores do not. A claim's points_awarded and xp_awarded stay with
 -- whoever earned them by walking to the park, which is why holding is tracked here

@@ -12,6 +12,7 @@ import { publicPlayer } from './auth.js';
 import { levelOf, titleOf } from './xp.js';
 import { parkProgress } from './parks.js';
 import { progressFor } from './xp.js';
+import { withArticle } from './vehicles.js';
 
 /** Every Hood with its holder and, if a viewer is given, what that viewer can do. */
 export function listHoods(viewerId = null, at = nowIso()) {
@@ -121,13 +122,15 @@ export function hoodHistory(hoodId, viewerId = null) {
            b.handle AS beaten_handle, b.display_name AS beaten_name,
            ph.path_thumb, ph.path_display, ph.exif_json, ph.caption, ph.width, ph.height,
            h.name AS hood_name,
-           pk.name AS park_name, pk.value AS park_value
+           pk.name AS park_name, pk.value AS park_value,
+           veh.make AS vehicle_make, veh.model AS vehicle_model
       FROM claims c
       JOIN players p ON p.id = c.player_id
       JOIN hoods   h ON h.id = c.hood_id
  LEFT JOIN players b ON b.id = c.beaten_player_id
  LEFT JOIN photos ph ON ph.id = c.photo_id
  LEFT JOIN parks  pk ON pk.id = c.park_id
+ LEFT JOIN vehicles veh ON veh.id = c.vehicle_id
      WHERE c.hood_id = ?
      ORDER BY c.id DESC`).all(hoodId);
   return rows.map((r) => shapeClaim(r, viewerId));
@@ -168,6 +171,13 @@ export function shapeClaim(r, viewerId = null) {
     shot_data: r.exif_json ? JSON.parse(r.exif_json) : null,
     reverts_claim_id: r.reverts_claim_id ?? null,
     park: r.park_id ? { id: r.park_id, name: r.park_name, value: r.park_value } : null,
+    // Set on a car package ('car') and a repeat sighting ('sighting'). Only a 'car' has a
+    // package to open; a sighting is a photo and some XP.
+    vehicle: r.vehicle_id && r.vehicle_make
+      ? { id: r.vehicle_id, make: r.vehicle_make, model: r.vehicle_model,
+          name: `${r.vehicle_make} ${r.vehicle_model}`, year: r.vehicle_year ?? null }
+      : null,
+    edition: r.claim_kind === 'car' ? (r.edition ?? 'steel') : (r.edition ?? null),
     card_seed: r.card_seed ?? null,
     summary: claimSummary(r),
   };
@@ -190,6 +200,12 @@ export function claimSummary(r) {
       return `${who} reinforced ${where} with ${article(r.photo_type)} photo (+${r.points_awarded})${said}`;
     case 'park':
       return `${who} collected ${r.park_name ?? 'a park'} in ${where} (+${r.points_awarded})${said}`;
+    case 'car': {
+      const car = r.vehicle_make ? withArticle(`${r.vehicle_make} ${r.vehicle_model}`) : 'a car';
+      return `${who} snapped ${car} in ${where} (${r.points_awarded ? `+${r.points_awarded}` : 'XP only'})${said}`;
+    }
+    case 'sighting':
+      return `${who} spotted another ${r.vehicle_make ? `${r.vehicle_make} ${r.vehicle_model}` : 'car'} in ${where}${said}`;
     case 'reversal':
       return `${who}'s claim on ${where} was reverted by flags — points cancelled`;
     default:
@@ -209,13 +225,15 @@ const FEED_SQL = `
          b.handle AS beaten_handle, b.display_name AS beaten_name,
          ph.path_thumb, ph.path_display, ph.exif_json, ph.caption,
          h.name AS hood_name,
-         pk.name AS park_name, pk.value AS park_value
+         pk.name AS park_name, pk.value AS park_value,
+         veh.make AS vehicle_make, veh.model AS vehicle_model
     FROM claims c
     JOIN players p ON p.id = c.player_id
     JOIN hoods   h ON h.id = c.hood_id
 LEFT JOIN players b ON b.id = c.beaten_player_id
 LEFT JOIN photos ph ON ph.id = c.photo_id
-LEFT JOIN parks  pk ON pk.id = c.park_id`;
+LEFT JOIN parks  pk ON pk.id = c.park_id
+LEFT JOIN vehicles veh ON veh.id = c.vehicle_id`;
 
 /**
  * Standings. `seasonId` null means the Champion table — the same ledger, without the
@@ -277,6 +295,10 @@ export function leaderboard(seasonId = null) {
       level: levelOf(xpByPlayer[p.id] ?? 0),
       title: titleOf(levelOf(xpByPlayer[p.id] ?? 0)),
       park_points: kindPoints[p.id]?.park ?? 0,
+      // The Garage, split out the same way. Capped at 100 a week, so it can never
+      // dominate the table, but it is worth seeing where somebody's points came from.
+      cars: kinds[p.id]?.car ?? 0,
+      car_points: kindPoints[p.id]?.car ?? 0,
       territory_points: (kindPoints[p.id]?.conquer ?? 0)
         + (kindPoints[p.id]?.steal ?? 0)
         + (kindPoints[p.id]?.reinforce ?? 0),

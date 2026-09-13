@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import { useGame } from '../lib/store.jsx';
 import { KIND_VERB } from '../lib/game.js';
-import { CardIcon } from '../components/icons.jsx';
+import { CardIcon, CarIcon } from '../components/icons.jsx';
 import { Subject, PlayerName, FlagButton, When, Spinner, Lightbox } from '../components/bits.jsx';
 import Caption from '../components/Caption.jsx';
 import CardLightbox from '../components/CardLightbox.jsx';
@@ -39,7 +39,8 @@ export default function Feed() {
         <article key={c.id} className={`claim ${c.status === 'reverted' ? 'reverted' : ''}`}>
           {c.thumb_url
             ? <img className="claim-thumb" src={c.thumb_url} alt="" loading="lazy"
-                   onClick={() => (c.park ? setCardClaim(c.id) : setZoomed(c.display_url))} />
+                   onClick={() => (c.park || c.claim_kind === 'car'
+                     ? setCardClaim(c.id) : setZoomed(c.display_url))} />
             : <div className="claim-thumb" aria-hidden="true" />}
 
           <div className="grow">
@@ -66,7 +67,19 @@ export default function Feed() {
                     {c.park.name}
                   </button>
                 )
-                : c.photo_type && <Subject type={c.photo_type} />}
+                : c.vehicle
+                  ? (
+                    c.claim_kind === 'car' ? (
+                      <button className="btn btn-sm btn-ghost" onClick={() => setCardClaim(c.id)}
+                              title={`See the ${c.vehicle.name} package`}>
+                        <CarIcon style={{ width: 14, height: 14 }} />
+                        {c.vehicle.name}
+                      </button>
+                    ) : <span className="tiny dim">{c.vehicle.name}</span>
+                  )
+                  : c.photo_type && <Subject type={c.photo_type} />}
+              {c.claim_kind === 'car' && c.edition && c.edition !== 'steel'
+                && <span className={`chip ed-${c.edition}`}>{c.edition}</span>}
               {c.beaten && <span className="tiny dim">beat {c.beaten.display_name}</span>}
               {c.replaced_photo_type
                 && <span className="tiny dim">was {c.replaced_photo_type}</span>}

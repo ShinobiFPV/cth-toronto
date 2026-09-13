@@ -46,6 +46,17 @@ const migrations = db.transaction(() => {
   // before this existed is.
   addColumn('claims', 'edition', 'TEXT');
 
+  // The Garage. A car collection is a claim with claim_kind = 'car' and vehicle_id set;
+  // the rest is what the identifier saw, kept so flaggers can read it, plus the week the
+  // points cap is counted in. Null on every claim that predates it.
+  addColumn('claims', 'vehicle_id', 'INTEGER REFERENCES vehicles(id)');
+  addColumn('claims', 'vehicle_year', 'TEXT');
+  addColumn('claims', 'vehicle_trim', 'TEXT');
+  addColumn('claims', 'vehicle_generation', 'TEXT');
+  addColumn('claims', 'identify_json', 'TEXT');
+  addColumn('claims', 'identify_confidence', 'REAL');
+  addColumn('claims', 'week_key', 'TEXT');
+
   // XP and levels.
   const addedXp = addColumn('claims', 'xp_awarded', 'INTEGER NOT NULL DEFAULT 0');
 
@@ -99,6 +110,15 @@ db.exec(`
   CREATE UNIQUE INDEX IF NOT EXISTS idx_park_once_per_season
     ON claims(player_id, park_id, season_id)
     WHERE park_id IS NOT NULL AND status != 'reverted';
+
+  -- One package per vehicle per player per season — the parks pattern, so a package the
+  -- group threw out frees the vehicle up again.
+  CREATE UNIQUE INDEX IF NOT EXISTS ux_car_once
+    ON claims(player_id, season_id, vehicle_id)
+    WHERE claim_kind = 'car' AND status != 'reverted';
+
+  -- The weekly cap sums this on every car collection.
+  CREATE INDEX IF NOT EXISTS idx_claims_week ON claims(player_id, week_key);
 `);
 
 // ── Values ────────────────────────────────────────────────────────────────

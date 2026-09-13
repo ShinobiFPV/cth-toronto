@@ -43,25 +43,30 @@ const player = (id) => db.prepare(
  * asked for either.
  */
 function tradableCard(claimId, expectedHolder, { side }) {
+  // A park card or a Not Wheels package — both trade through here, under the same rule.
   const row = db.prepare(`
-    SELECT c.id, c.status, c.park_id, p.name AS park_name, p.value
-      FROM claims c LEFT JOIN parks p ON p.id = c.park_id
+    SELECT c.id, c.status, c.park_id, c.claim_kind, p.name AS park_name, p.value,
+           v.make, v.model
+      FROM claims c
+      LEFT JOIN parks p ON p.id = c.park_id
+      LEFT JOIN vehicles v ON v.id = c.vehicle_id
      WHERE c.id = ?`).get(claimId);
 
-  if (!row || !row.park_id) {
+  if (!row || !(row.park_id || row.claim_kind === 'car')) {
     throw notFound('CARD_NOT_FOUND', `There is no card with id ${claimId}.`);
   }
+  const name = row.park_name ?? `the ${row.make} ${row.model}`;
   if (row.status === 'reverted') {
     throw badRequest('CARD_REVERTED',
-      `${row.park_name} was thrown out by flags, so it is not a card any more.`);
+      `${name} was thrown out by flags, so it is not a card any more.`);
   }
   const held = holdingOf(claimId);
   if (held.holder_id !== expectedHolder) {
     throw badRequest('CARD_NOT_HELD', side === 'offer'
-      ? `You do not hold ${row.park_name} any more.`
-      : `They do not hold ${row.park_name} any more.`);
+      ? `You do not hold ${name} any more.`
+      : `They do not hold ${name} any more.`);
   }
-  return row;
+  return { ...row, name };
 }
 
 /**
@@ -215,15 +220,30 @@ const TRADE_SELECT = `
   SELECT t.*,
          fp.handle AS from_handle, fp.display_name AS from_name, fp.colour AS from_colour,
          tp.handle AS to_handle, tp.display_name AS to_name, tp.colour AS to_colour,
-         op.name AS offer_park_name, op.value AS offer_value,
-         wp.name AS want_park_name, wp.value AS want_value
+         oc.claim_kind AS offer_kind, oc.edition AS offer_edition,
+         COALESCE(op.name, ov.make || ' ' || ov.model) AS offer_card_name, op.value AS offer_value,
+         wc.claim_kind AS want_kind, wc.edition AS want_edition,
+         COALESCE(wp.name, wv.make || ' ' || wv.model) AS want_card_name, wp.value AS want_value
     FROM trades t
     JOIN players fp ON fp.id = t.from_player_id
     JOIN players tp ON tp.id = t.to_player_id
     JOIN claims oc  ON oc.id = t.offer_claim_id
-    JOIN parks  op  ON op.id = oc.park_id
+    LEFT JOIN parks    op ON op.id = oc.park_id
+    LEFT JOIN vehicles ov ON ov.id = oc.vehicle_id
     LEFT JOIN claims wc ON wc.id = t.want_claim_id
-    LEFT JOIN parks  wp ON wp.id = wc.park_id`;
+    LEFT JOIN parks    wp ON wp.id = wc.park_id
+    LEFT JOIN vehicles wv ON wv.id = wc.vehicle_id`;
+
+// A side of an offer. `value` is a park's value and null for a car package, whose worth
+// is its edition; `park_name` survives as an alias of `name` for older clients.
+const side = (claimId, kind, name, value, edition) => ({
+  claim_id: claimId,
+  kind: kind === 'car' ? 'car' : 'park',
+  name,
+  park_name: name,
+  value: kind === 'car' ? null : value,
+  edition: kind === 'car' ? (edition ?? 'steel') : (edition ?? null),
+});
 
 const shapeTrade = (r) => ({
   id: r.id,
@@ -233,11 +253,11 @@ const shapeTrade = (r) => ({
   resolved_at: r.resolved_at,
   from: { id: r.from_player_id, handle: r.from_handle, display_name: r.from_name, colour: r.from_colour },
   to: { id: r.to_player_id, handle: r.to_handle, display_name: r.to_name, colour: r.to_colour },
-  offer: { claim_id: r.offer_claim_id, park_name: r.offer_park_name, value: r.offer_value },
+  offer: side(r.offer_claim_id, r.offer_kind, r.offer_card_name, r.offer_value, r.offer_edition),
   // No want side means a gift, and the UI says so rather than showing an empty slot.
   want: r.want_claim_id == null
     ? null
-    : { claim_id: r.want_claim_id, park_name: r.want_park_name, value: r.want_value },
+    : side(r.want_claim_id, r.want_kind, r.want_card_name, r.want_value, r.want_edition),
   is_gift: r.want_claim_id == null,
 });
 

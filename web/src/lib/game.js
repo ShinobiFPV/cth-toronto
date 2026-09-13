@@ -41,7 +41,12 @@ export const KIND_VERB = {
   reinforce: 'Reinforce',
   reversal: 'Reverted',
   park: 'Collected',
+  car: 'Snapped',
+  sighting: 'Spotted',
 };
+
+/** What a card is called, whichever shelf it lives on. */
+export const cardName = (card) => card?.vehicle?.name ?? card?.park?.name ?? 'a card';
 
 /** Human countdown, matching the server's phrasing so the two never disagree. */
 export function until(iso, from = Date.now()) {

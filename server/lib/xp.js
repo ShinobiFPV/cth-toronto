@@ -15,6 +15,7 @@
 // there is no counter anywhere that can drift. A claim reverted by flags loses its XP
 // along with its points, because `status != 'reverted'` is the only filter.
 import { db } from '../db.js';
+import { config } from '../config.js';
 import { editionXp } from './editions.js';
 
 /** Base XP per action. Stealing pays most; reinforcing is maintenance. */
@@ -25,6 +26,19 @@ export const ACTION_XP = {
   park: 10,
   reversal: 0,
 };
+
+/**
+ * A car package pays by edition and nothing else: flat, rising, never capped. Every
+ * package is at least Steel. Env-tunable, unlike the rest of this schedule, because the
+ * Garage is new enough that its balance is a guess — see server/config.js.
+ */
+export const carXp = (edition) => ({
+  hologram: config.CAR_XP_HOLOGRAM,
+  gold: config.CAR_XP_GOLD,
+}[edition] ?? config.CAR_XP_STEEL);
+
+/** Claim kinds that are territory. A discovery bonus for a Hood is about these only. */
+const TERRITORY = "('conquer', 'steal', 'reinforce')";
 
 /**
  * A special edition, rolled by chance when the photo lands (spec §1.8b). The numbers
@@ -128,6 +142,11 @@ export const progressFor = (playerId) => progressOf(xpOf(playerId));
  * @param {string} [claim.rarity]   for a park collection
  */
 export function xpFor({ kind, playerId, hoodId = null, parkId = null, rarity = null, edition = null }) {
+  if (kind === 'car') {
+    const xp = carXp(edition);
+    return { xp, base: 0, bonus: 0, discovery: 0, discovered: null, edition, edition_xp: xp };
+  }
+
   const base = ACTION_XP[kind] ?? 0;
   const bonus = kind === 'park' ? (RARITY_XP[rarity] ?? 0) : 0;
   // Luck, not value — see lib/editions.js for why this lands on XP and never on points.
@@ -143,10 +162,13 @@ export function xpFor({ kind, playerId, hoodId = null, parkId = null, rarity = n
       .get(playerId, parkId);
     if (!seen) { discovery = DISCOVERY_XP.park; discovered = 'park'; }
   } else if (kind !== 'park' && hoodId != null) {
+    // Territory only. A car package also records the Hood it was snapped in, and it must
+    // not count as having set foot there — "park_id IS NULL" used to mean territory, and
+    // stopped meaning it the day cars joined the ledger.
     const seen = db.prepare(`
       SELECT 1 FROM claims
-       WHERE player_id = ? AND hood_id = ? AND park_id IS NULL
-         AND claim_kind != 'reversal' AND status != 'reverted' LIMIT 1`)
+       WHERE player_id = ? AND hood_id = ? AND claim_kind IN ${TERRITORY}
+         AND status != 'reverted' LIMIT 1`)
       .get(playerId, hoodId);
     if (!seen) { discovery = DISCOVERY_XP.hood; discovered = 'hood'; }
   }

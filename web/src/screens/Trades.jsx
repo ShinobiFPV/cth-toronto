@@ -58,14 +58,20 @@ export default function Trades() {
     }
   };
 
-  const Card = ({ side, claimId, name, value }) => (
-    <button className="trade-card" onClick={() => setCardClaim(claimId)}
-            title={`See the ${name} card`}>
-      <span className="tiny dim">{side}</span>
-      <b className="truncate">{name}</b>
-      <span className="tiny dim">+{value}</span>
-    </button>
-  );
+  // A park card shows what the park is worth; a Not Wheels package's worth is its print.
+  const Card = ({ side, card }) => {
+    const name = card.name ?? card.park_name;
+    return (
+      <button className="trade-card" onClick={() => setCardClaim(card.claim_id)}
+              title={`See the ${name} ${card.kind === 'car' ? 'package' : 'card'}`}>
+        <span className="tiny dim">{side}</span>
+        <b className="truncate">{name}</b>
+        <span className="tiny dim">
+          {card.kind === 'car' ? `${card.edition} package` : `+${card.value}`}
+        </span>
+      </button>
+    );
+  };
 
   const Row = ({ t, mine }) => (
     <div className={`sheet trade-row ${t.status !== 'pending' ? 'resolved' : ''}`}>
@@ -81,15 +87,13 @@ export default function Trades() {
 
       <div className="sheet-body stack" style={{ gap: '0.5rem' }}>
         <div className="trade-swap">
-          <Card side={mine ? 'you give' : 'they give'}
-                claimId={t.offer.claim_id} name={t.offer.park_name} value={t.offer.value} />
+          <Card side={mine ? 'you give' : 'they give'} card={t.offer} />
           {t.is_gift
             ? <span className="trade-arrow tiny dim">gift</span>
             : (
               <>
                 <span className="trade-arrow" aria-hidden="true">⇄</span>
-                <Card side={mine ? 'you get' : 'they want'}
-                      claimId={t.want.claim_id} name={t.want.park_name} value={t.want.value} />
+                <Card side={mine ? 'you get' : 'they want'} card={t.want} />
               </>
             )}
         </div>
@@ -146,8 +150,8 @@ export default function Trades() {
 
       <h1>Offers</h1>
       <p className="tiny dim" style={{ margin: '0.3rem 0 0.9rem' }}>
-        Cards change hands; scores do not. Whoever walked to the park keeps its points
-        and XP, whatever happens to the card afterwards.
+        Cards and packages change hands; scores do not. Whoever went and got one keeps its
+        points and XP, whatever happens to it afterwards.
       </p>
 
       {note && <Banner kind="ok">{note}</Banner>}

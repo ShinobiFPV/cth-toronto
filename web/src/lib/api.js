@@ -10,6 +10,9 @@ export class ApiError extends Error {
     this.code = body?.error ?? 'UNKNOWN';
     this.availableAt = body?.available_at ?? null;
     this.requiredTypes = body?.required_types ?? null;
+    // The Garage: what the identifier half-thought it saw, and the package you already have.
+    this.guess = body?.guess ?? null;
+    this.claimId = body?.claim_id ?? null;
   }
 }
 
@@ -71,15 +74,23 @@ export const api = {
   parksInHood: (hoodId) => request(`/hoods/${hoodId}/parks`),
   park: (id) => request(`/parks/${id}`),
   parkCheck: (id) => request(`/parks/${id}/check`),
-  // Omit playerId for your own binder; pass one to read somebody else's.
-  cards: (season, playerId) => {
+  // Omit playerId for your own binder; pass one to read somebody else's. kind 'car' is
+  // the Case — Not Wheels packages rather than park cards.
+  cards: (season, playerId, kind = 'park') => {
     const q = new URLSearchParams();
     if (season) q.set('season', season);
     if (playerId) q.set('player', playerId);
+    if (kind === 'car') q.set('kind', 'car');
     const qs = q.toString();
     return request(`/cards${qs ? `?${qs}` : ''}`);
   },
+  // A park card or a package — the server works out which from the claim.
   card: (claimId) => request(`/cards/${claimId}`),
+
+  // The Garage
+  carCapacity: () => request('/cars/capacity'),
+  cars: () => request('/cars'),
+  car: (vehicleId) => request(`/cars/${vehicleId}`),
 
   // Trading. A trade moves the card and never a score, so none of this touches
   // /leaderboard — see the spec's §1.8a.
@@ -104,6 +115,9 @@ export const uploadClaim = (hoodId, formData, onProgress) =>
 
 export const uploadPark = (parkId, formData, onProgress) =>
   upload(`/api/parks/${parkId}/collect`, formData, onProgress);
+
+export const uploadCar = (formData, onProgress) =>
+  upload('/api/cars/collect', formData, onProgress);
 
 function upload(url, formData, onProgress) {
   return new Promise((resolve, reject) => {

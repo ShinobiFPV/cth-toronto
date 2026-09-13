@@ -15,11 +15,13 @@ const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'cth-trades-'));
 process.env.CTH_DB = path.join(tmp, 'test.sqlite');
 process.env.CTH_JWT_SECRET = 'test-secret';
 
-let db, nowIso, parks, trades, leaderboard, revertClaim, xpOf;
+let db, nowIso, parks, trades, leaderboard, revertClaim, xpOf, garage, vehicles;
 
 before(async () => {
   ({ db, nowIso } = await import('../server/db.js'));
   parks = await import('../server/lib/parks.js');
+  garage = await import('../server/lib/garage.js');
+  vehicles = await import('../server/lib/vehicles.js');
   trades = await import('../server/lib/trades.js');
   ({ leaderboard } = await import('../server/lib/views.js'));
   ({ revertClaim } = await import('../server/lib/game.js'));
@@ -65,7 +67,7 @@ beforeEach(() => {
   db.exec(`UPDATE hood_state SET owner_id = NULL, active_claim_id = NULL, photo_type = NULL,
            last_claim_at = NULL, locked_until = NULL`);
   db.exec('DELETE FROM flags; DELETE FROM claims; DELETE FROM photos; DELETE FROM messages');
-  db.exec('DELETE FROM parks; DELETE FROM players');
+  db.exec('DELETE FROM vehicles; DELETE FROM parks; DELETE FROM players');
   parks.forgetSetSize();
 
   const ins = db.prepare(`
@@ -126,6 +128,60 @@ describe('a trade moves the card, never the score', () => {
     const now = leaderboard();
     assert.equal(rank(now, alice), rank(was, alice));
     assert.equal(rank(now, bob), rank(was, bob));
+  });
+});
+
+// ── across collection types ───────────────────────────────────────────────
+describe('a Not Wheels package trades like a card', () => {
+  const snap = (playerId, make, model, rand = () => 1) => garage.commitCar({
+    identification: vehicles.resolveIdentification({
+      is_vehicle: true, in_situ: true, make, model, generation: null, trim: null,
+      year_range: null, body_style: null, confidence: 0.9, plates: [],
+    }),
+    playerId, hoodId: 13, photo: photo(), rand,
+  }).package;
+
+  test('a package for a park card moves no points, no XP and no standings', () => {
+    const pack = snap(alice, 'Honda', 'Civic', () => 0);    // a hologram, for the most XP
+    const card = collect(6004, bob).claim;                  // the most points
+
+    const was = { board: leaderboard(), alice: xpOf(alice), bob: xpOf(bob) };
+    const { id } = trades.offerTrade({
+      fromId: alice, toId: bob, offerClaimId: pack.claim_id, wantClaimId: card.claim_id,
+    });
+    const trade = trades.getTrade(id);
+    assert.equal(trade.offer.kind, 'car');
+    assert.equal(trade.offer.name, 'Honda Civic');
+    assert.equal(trade.offer.edition, 'hologram');
+    assert.equal(trade.want.kind, 'park');
+    trades.acceptTrade({ tradeId: id, playerId: bob });
+
+    assert.deepEqual(leaderboard(), was.board, 'the whole table is byte-identical');
+    assert.equal(xpOf(alice), was.alice);
+    assert.equal(xpOf(bob), was.bob);
+
+    assert.deepEqual(garage.packagesOf(bob).map((p) => p.claim_id), [pack.claim_id]);
+    assert.equal(garage.packagesOf(bob)[0].player.id, alice, 'it remembers who snapped it');
+    assert.deepEqual(binder(alice), ['Edge of the World']);
+  });
+
+  test('each shelf counts only its own trades', () => {
+    const pack = snap(alice, 'Honda', 'Civic');
+    const { id } = trades.offerTrade({ fromId: alice, toId: bob, offerClaimId: pack.claim_id });
+    trades.acceptTrade({ tradeId: id, playerId: bob });
+
+    assert.equal(garage.garageSummary(alice).packages_given_away, 1);
+    assert.equal(garage.garageSummary(bob).packages_received, 1);
+    assert.equal(parks.collectionSummary(alice).cards_given_away, 0, 'a package is not a park card');
+    assert.equal(parks.collectionSummary(bob).cards_received, 0);
+    assert.equal(garage.garageSummary(alice).season_collected, 1, 'and she still collected it');
+  });
+
+  test('a reverted package cannot be offered', () => {
+    const pack = snap(alice, 'Honda', 'Civic');
+    revertClaim(pack.claim_id);
+    assert.throws(() => trades.offerTrade({ fromId: alice, toId: bob, offerClaimId: pack.claim_id }),
+      (err) => { assert.equal(err.code, 'CARD_REVERTED'); return true; });
   });
 });
 

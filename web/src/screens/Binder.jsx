@@ -5,13 +5,14 @@
 // so a collection is something to show off rather than something to protect, and
 // looking at what everybody else pulled is most of why a card game is fun.
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import { useGame } from '../lib/store.jsx';
 import { BackIcon, CloseIcon, SwapIcon } from '../components/icons.jsx';
 import { Banner, Spinner } from '../components/bits.jsx';
 import ParkCard from '../components/ParkCard.jsx';
 import TradeOffer from '../components/TradeOffer.jsx';
+import Case from '../components/Case.jsx';
 
 const RARITY_ORDER = ['legendary', 'rare', 'uncommon', 'common'];
 // Rarest first, matching the roll's own order (server/lib/editions.js).
@@ -42,7 +43,15 @@ export default function Binder() {
   const viewing = playerId ? Number(playerId) : null;
   const isMine = viewing == null || viewing === me?.id;
 
+  // Parks | Garage. The tab bar is full, so the Garage lives here as the other half of
+  // the Cards tab — in the URL, so a link to somebody's Case stays a link to their Case.
+  const [params, setParams] = useSearchParams();
+  const kind = params.get('kind') === 'car' ? 'car' : 'park';
+  const setKind = (k) => setParams(k === 'car' ? { kind: 'car' } : {}, { replace: true });
+  const suffix = kind === 'car' ? '?kind=car' : '';
+
   useEffect(() => {
+    if (kind !== 'park') return undefined;
     let cancelled = false;
     setLoading(true);
     api.cards(scope === 'season' ? session?.season?.id : null, viewing)
@@ -50,7 +59,7 @@ export default function Binder() {
       .catch(() => {})
       .finally(() => !cancelled && setLoading(false));
     return () => { cancelled = true; };
-  }, [scope, session?.season?.id, viewing]);
+  }, [scope, session?.season?.id, viewing, kind]);
 
   const cards = useMemo(() => {
     let list = [...(data?.cards ?? [])];
@@ -87,14 +96,22 @@ export default function Binder() {
 
       {note && <Banner kind="ok">{note}</Banner>}
 
-      <h1>
-        {isMine ? 'Binder' : `${data?.player?.display_name ?? 'Their'}’s binder`}
-      </h1>
+      {(() => {
+        const them = players.find((p) => p.id === viewing)?.display_name ?? 'Their';
+        const shelf = kind === 'car' ? 'Case' : 'binder';
+        return <h1>{isMine ? (kind === 'car' ? 'Case' : 'Binder') : `${them}’s ${shelf}`}</h1>;
+      })()}
       <p className="tiny dim" style={{ margin: '0.3rem 0 0.9rem' }}>
-        {isMine
-          ? 'Every park sign you have photographed. Each park comes back around next season.'
-          : 'Every park sign they have photographed. Nobody competes over parks, so this '
-            + 'costs you nothing — and the same parks are still there for you.'}
+        {kind === 'car'
+          ? (isMine
+            ? `Every car you have snapped. ${session?.season ? 'Five points a car, up to 100 a week; ' : ''}`
+              + 'past that, still a package and still the XP.'
+            : 'Every car they have snapped. Nobody loses anything to a photo of a car, so '
+              + 'compare away.')
+          : (isMine
+            ? 'Every park sign you have photographed. Each park comes back around next season.'
+            : 'Every park sign they have photographed. Nobody competes over parks, so this '
+              + 'costs you nothing — and the same parks are still there for you.')}
       </p>
 
       {/* Whose binder. Yours first, then everybody else — this is the whole point of
@@ -108,7 +125,7 @@ export default function Binder() {
                 <button key={p.id}
                         className={`btn btn-sm ${active ? 'btn-primary' : 'btn-ghost'}`}
                         aria-pressed={active}
-                        onClick={() => navigate(p.id === me?.id ? '/binder' : `/binder/${p.id}`)}>
+                        onClick={() => navigate(p.id === me?.id ? `/binder${suffix}` : `/binder/${p.id}${suffix}`)}>
                   <i className="dot" style={{ background: p.colour }} />
                   {p.id === me?.id ? 'You' : p.display_name}
                 </button>
@@ -117,6 +134,12 @@ export default function Binder() {
         </div>
       )}
 
+      <div className="toggle" role="group" aria-label="Collection">
+        <button aria-pressed={kind === 'park'} onClick={() => setKind('park')}>Parks</button>
+        <button aria-pressed={kind === 'car'} onClick={() => setKind('car')}>Garage</button>
+      </div>
+
+      {kind === 'car' ? <Case viewing={viewing} isMine={isMine} onOffer={setOffering} /> : (<>
       {s && (
         <div className="sheet" style={{ marginBottom: '0.9rem' }}>
           {/* Collected and held are different questions once cards can be traded, and
@@ -230,6 +253,7 @@ export default function Binder() {
           </button>
         </div>
       )}
+      </>)}
 
       {offering && (
         <TradeOffer
@@ -238,7 +262,7 @@ export default function Binder() {
           onSent={(trade) => {
             setOffering(null);
             setNote(trade.is_gift
-              ? `${trade.offer.park_name} offered to ${trade.to.display_name}.`
+              ? `${trade.offer.name ?? trade.offer.park_name} offered to ${trade.to.display_name}.`
               : `Offer sent to ${trade.to.display_name}.`);
           }}
         />

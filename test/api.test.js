@@ -35,6 +35,14 @@ before(async () => {
       // Generous enough that the rest of the suite never trips it, low enough that the
       // rate-limit test can reach it without a hundred argon2 hashes.
       CTH_LOGIN_MAX_ATTEMPTS: '25',
+      // The Garage's identify call, canned. Honoured only under NODE_ENV=test; the suite
+      // must never reach the network, let alone spend money on it. The plate box makes
+      // the blur run over a real sharp pipeline.
+      CTH_IDENTIFY_STUB: JSON.stringify({
+        is_vehicle: true, in_situ: true, make: 'Honda', model: 'Civic Si', generation: '11th gen',
+        trim: 'Si', year_range: '2022-2024', body_style: 'sedan', confidence: 0.91,
+        plates: [{ x: 0.4, y: 0.7, width: 0.2, height: 0.08 }],
+      }),
       NODE_ENV: 'test',
     },
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -461,6 +469,89 @@ describe('the API end to end', () => {
     assert.equal(said.status, 201);
     const { data } = await carol('/chat');
     assert.ok(data.messages.some((m) => m.body === 'that was my nephew' && m.handle === 'bob'));
+  });
+
+  // ── The Garage over HTTP ──
+  //
+  // The identify call is stubbed (see the server env above); what this proves is the
+  // multipart plumbing, the pipeline order, and that a refused car leaves nothing behind.
+  const carForm = async (hue, { hood = 13, caption = null } = {}) => {
+    const form = new FormData();
+    form.append('photo', new Blob([await jpeg(hue)], { type: 'image/jpeg' }), 'car.jpg');
+    if (hood != null) form.append('hood_id', String(hood));
+    if (caption != null) form.append('caption', caption);
+    return form;
+  };
+
+  test('a car needs a Hood, and is refused before anything is uploaded', async () => {
+    const before = fs.readdirSync(path.join(MEDIA, 'original')).length;
+    const { status, data } = await bob('/cars/collect', { method: 'POST', raw: await carForm(90, { hood: null }) });
+    assert.equal(status, 400);
+    assert.equal(data.error, 'HOOD_REQUIRED');
+    assert.equal(fs.readdirSync(path.join(MEDIA, 'original')).length, before);
+  });
+
+  test('capacity is readable before the shutter', async () => {
+    const { status, data } = await bob('/cars/capacity');
+    assert.equal(status, 200);
+    assert.equal(data.capacity.spent, 0);
+    assert.equal(data.capacity.cap, 100);
+    assert.equal(data.capacity.next_award, 5);
+    assert.equal(data.capacity.resets_on, 'Monday');
+  });
+
+  test('a car is identified and printed as a package, trim stripped', async () => {
+    const { status, data } = await bob('/cars/collect',
+      { method: 'POST', raw: await carForm(100, { caption: 'parked across two spots' }) });
+    assert.equal(status, 201);
+    assert.equal(data.package.kind, 'car');
+    assert.equal(data.package.vehicle.name, 'Honda Civic', 'one package for every Civic');
+    assert.equal(data.package.vehicle.trim, 'Si', 'the trim rides along as sighting detail');
+    assert.equal(data.package.hood.label, 'Hood 13 — Toronto Centre');
+    assert.equal(data.package.caption, 'parked across two spots');
+    assert.equal(data.points, 5);
+    assert.equal(data.capacity.spent, 5, 'the response carries the capacity, so the client never works out the cap');
+    assert.equal(data.first_sighting, true);
+    assert.equal(data.package.identified_as.plates, undefined, 'plate boxes are not kept');
+
+    const thumb = path.join(MEDIA, data.package.thumb_url.replace('/media/', ''));
+    const meta = await sharp(thumb).metadata();
+    assert.deepEqual([meta.width, meta.height], [400, 400], 'the thumbnail is re-cut after the blur');
+
+    const chat = await carol('/chat');
+    assert.ok(chat.data.messages.some((m) =>
+      /Bob snapped a Honda Civic in Hood 13 — Toronto Centre \(\+5, 5\/100 this week\)/.test(m.body)));
+  });
+
+  test('the same car again is ALREADY_COLLECTED and leaves no files behind', async () => {
+    const before = fs.readdirSync(path.join(MEDIA, 'original')).length;
+    const { status, data } = await bob('/cars/collect', { method: 'POST', raw: await carForm(110) });
+    assert.equal(status, 409);
+    assert.equal(data.error, 'ALREADY_COLLECTED');
+    assert.equal(fs.readdirSync(path.join(MEDIA, 'original')).length, before);
+  });
+
+  test('the Case, the card endpoint, the catalogue and the feed all read it back', async () => {
+    const { data: players } = await carol('/players');
+    const bobId = players.players.find((p) => p.handle === 'bob').id;
+
+    const shelf = await carol(`/cards?player=${bobId}&kind=car`);
+    assert.equal(shelf.data.kind, 'car');
+    assert.equal(shelf.data.cards.length, 1);
+    assert.equal(shelf.data.summary.season_collected, 1);
+    assert.equal((await carol(`/cards?player=${bobId}`)).data.cards.length, 0,
+      'and the parks binder is not where it lives');
+
+    const one = await carol(`/cards/${shelf.data.cards[0].claim_id}`);
+    assert.equal(one.data.card.kind, 'car');
+
+    const cat = await carol('/cars');
+    assert.equal(cat.data.total, 1);
+    const history = await carol(`/cars/${cat.data.vehicles[0].id}`);
+    assert.equal(history.data.sightings.length, 1);
+
+    const feed = await carol('/feed');
+    assert.match(feed.data.feed[0].summary, /Bob snapped a Honda Civic/);
   });
 
   // ── Parks over HTTP: collecting, and reading somebody else's binder ──

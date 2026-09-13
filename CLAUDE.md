@@ -133,6 +133,30 @@ changing one, read the test first — it says why.
   make that true; drop them and XP becomes a rename of the Champion total.
 - **Nothing mechanical hangs off a level** — it is a title and a number. A level that
   granted an advantage would compound, and early joiners could never be caught.
+- **The Garage is claims too, and the dullest possible scoring.** A car is a row with
+  `claim_kind = 'car'` and `vehicle_id` set; it never touches `hood_state`. It pays a flat
+  `CAR_POINTS` clamped by `min()` against what is left of `CAR_WEEKLY_CAP`, computed once
+  in `commitCar()` and frozen. Past the cap the claim still lands, worth 0 — that is a
+  success, and there must never be a `WEEKLY_CAP_REACHED` error. `commitCar()` re-runs
+  `evaluateCar()` inside its transaction, like `commitClaim`.
+- **The week is a stored string.** `week_key` is computed at claim time in
+  `America/Toronto` by `server/lib/week.js`, with a real timezone conversion, and the cap
+  is an exact match on it. Never compute a rolling window and never add a fixed offset —
+  `test/carcap.test.js` pins both DST transitions. The week is independent of the season.
+- **`park_id IS NULL` no longer means territory.** Car claims have no park either. The Hood
+  discovery bonus now filters on `claim_kind IN ('conquer','steal','reinforce')`, and
+  `holosInHood()` filters to parks so a car hologram cannot use up a Hood's park hologram.
+  Any new query that means "territory claims" has to say so by kind.
+- **The dedupe key is make + model, trim and generation stripped.** `vehicleKey()` in
+  `server/lib/vehicles.js` is the only place one is made. Too fine and the Case fills with
+  Civics; too coarse and every Toyota is one package. Single letters are never stripped as
+  trim unless the identifier reported them as trim — "Model S" is a model.
+- **The identify call happens in the route, never in the transaction**, and is swappable
+  with `setIdentifier()`. Tests never touch the network; `CTH_IDENTIFY_STUB` exists for the
+  end-to-end suite and is ignored unless `NODE_ENV=test`. `in_situ` false marks a package
+  as suspect for flaggers and never rejects it.
+- **Plates are blurred before the claim is written**, in the display and thumbnail only.
+  A blur that throws fails the collection; do not catch it and publish the plate.
 - **A reinforce does not arm the steal lock.** A conquer and a steal do. If a reinforce
   locked the Hood, a player could shield one indefinitely on a 72-hour timer.
 - **Losing a Hood costs no points.** The superseded claim keeps its `points_awarded` and
@@ -172,6 +196,10 @@ changing one, read the test first — it says why.
   `trade_resolved` frame addressed to this player, because a notification badge that
   only appears on reload is not a notification. Five labels fit down to 320px; check
   that before adding a sixth.
+- **The Garage lives inside the Cards tab** as a **Parks | Garage** control, carried in
+  the URL as `?kind=car`, because the tab bar has no room for a sixth label. The shelf is
+  the **Case**, the collectable is a **Not Wheels package** (`NotWheelsPack.jsx`), and a
+  card component that might receive either branches on `card.kind`.
 - **The app is ParkeMans GO! — the sub-game inside it is just "parks".** A button reading
   "Play Parkemans GO" inside an app of that name is a button offering to launch the app
   you are already in, so the Hood sheet says **Collect parks** and the parks screen is
@@ -193,7 +221,7 @@ changing one, read the test first — it says why.
 ## Testing
 
 ```bash
-npm test        # 251 tests, no server needed, touches nothing in data/
+npm test        # 311 tests, no server needed, touches nothing in data/
 ```
 
 - `test/game.test.js` — the rules, driving the game module directly. Time is simulated by
@@ -207,6 +235,10 @@ npm test        # 251 tests, no server needed, touches nothing in data/
 - `test/trades.test.js` — trading. The first suite in it exists only to assert that a
   trade changes no points, no XP and no standings; the rest covers the rules, stale
   offers and the inbox.
+- `test/garage.test.js` — the Garage: the dedupe key, what a car may not touch, the
+  season hologram and its fall-through, and that cars never inflate the parks numbers.
+- `test/carcap.test.js` — the weekly points cap and the week-key arithmetic, including
+  both Toronto DST transitions and the ISO year boundary.
 - `test/xp.test.js` — the level curve (asserted to invert exactly across 200 levels), the
   XP schedule, and that XP survives season rollovers, reversals and lost territory.
 - `test/reproject.test.js` — the importer's coordinate maths, against fixtures lifted
@@ -221,6 +253,11 @@ There is no linter and no CI. Validate frontend changes by running the app
   table that already exists, so a new column needs an entry in the migrations block at the
   top of `server/db.js`. Keep those append-only and idempotent: they run on deploy against
   a live database with real claims in it.
+- **The Garage needs an Anthropic API key on the Pi** — `CTH_ANTHROPIC_API_KEY` in
+  `/home/shinobi/cth/.env`. Without it every car collection is `IDENTIFY_UNAVAILABLE` and
+  nothing is written, which is safe but looks broken. Every collection is one billed vision
+  call, made after the cheap checks (Hood, season) and before the dedupe check, because the
+  dedupe key comes out of the identification.
 - **Login and registration are the only endpoints a stranger can reach**, and argon2id
   makes every attempt cost real Pi CPU, so both are rate limited per IP (and login per
   handle too) in `server/lib/ratelimit.js`. The limits are env-tunable. If you add

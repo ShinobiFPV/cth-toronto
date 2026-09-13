@@ -14,6 +14,7 @@ import { broadcast, postMessage } from '../lib/hub.js';
 import { withLevelUp, announceLevelUp } from '../lib/xp-announce.js';
 import { notFound } from '../lib/errors.js';
 import { hoodLabel } from '../lib/hood-seed.js';
+import { packagesOf, garageSummary, getPackageByClaim } from '../lib/garage.js';
 
 export const parkRoutes = Router();
 
@@ -129,6 +130,9 @@ parkRoutes.post('/parks/:id/collect', requireAuth, upload.single('photo'), async
 parkRoutes.get('/cards', requireAuth, (req, res, next) => {
   const seasonId = req.query.season ? Number(req.query.season) : null;
   const playerId = req.query.player ? Number(req.query.player) : req.player.id;
+  // `?kind=car` is the Case — Not Wheels packages instead of park cards. Same shelf
+  // rules: holdings, public, optionally one season.
+  const kind = req.query.kind === 'car' ? 'car' : 'park';
 
   const player = db.prepare('SELECT id, handle, display_name, colour FROM players WHERE id = ?')
     .get(playerId);
@@ -137,8 +141,9 @@ parkRoutes.get('/cards', requireAuth, (req, res, next) => {
   res.json({
     player,
     is_you: player.id === req.player.id,
-    cards: cardsOf(player.id, { seasonId }),
-    summary: collectionSummary(player.id),
+    kind,
+    cards: kind === 'car' ? packagesOf(player.id, { seasonId }) : cardsOf(player.id, { seasonId }),
+    summary: kind === 'car' ? garageSummary(player.id) : collectionSummary(player.id),
   });
 });
 
@@ -148,7 +153,8 @@ parkRoutes.get('/cards', requireAuth, (req, res, next) => {
  * the feed already shows, laid out as the card it printed.
  */
 parkRoutes.get('/cards/:claimId', requireAuth, (req, res, next) => {
-  const card = getCardByClaim(Number(req.params.claimId));
+  const claimId = Number(req.params.claimId);
+  const card = getCardByClaim(claimId) ?? getPackageByClaim(claimId);
   if (!card) return next(notFound('CARD_NOT_FOUND', 'No card with that id.'));
   res.json({ card });
 });

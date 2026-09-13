@@ -73,6 +73,7 @@ export default function Standings() {
                     <b className="lvl">L{row.level}</b> {row.title} ·{' '}
                     {row.conquers}C · {row.steals}S · {row.reinforces}R
                     {row.parks > 0 && ` · ${row.parks} parks`}
+                    {row.cars > 0 && ` · ${row.cars} cars`}
                   </span>
                 </td>
                 <td className="r">{row.hoods_held}</td>

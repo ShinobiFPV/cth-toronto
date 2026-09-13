@@ -147,6 +147,54 @@ async function readShotData(buffer) {
   }
 }
 
+/**
+ * Blur regions of a processed upload's display and thumbnail derivatives — licence plates,
+ * in practice. Boxes are fractions of the image (x, y top-left; 0-1), which is how the
+ * identifier reports them, so they map onto the display frame at any resolution.
+ *
+ * Each box is padded generously: a vision model's boxes are approximate, and a blurred
+ * bumper costs nothing while half a readable plate defeats the point. The thumbnail is
+ * re-cut from the blurred display rather than blurred separately, because its crop is
+ * attention-based and a box cannot be mapped onto it.
+ *
+ * The original is left exactly as it was. It sits behind the login for dispute review,
+ * which is the one place a plate might matter to the game.
+ */
+export async function blurRegions(photo, boxes, { pad = 0.35 } = {}) {
+  if (!photo || !boxes?.length) return photo;
+  const displayPath = path.join(config.mediaDir, photo.path_display);
+  const source = await fs.readFile(displayPath);
+  const { width, height } = await sharp(source).metadata();
+  if (!width || !height) return photo;
+
+  const patches = [];
+  for (const b of boxes) {
+    const padX = b.width * width * pad;
+    const padY = b.height * height * pad;
+    const left = Math.max(0, Math.floor(b.x * width - padX));
+    const top = Math.max(0, Math.floor(b.y * height - padY));
+    const right = Math.min(width, Math.ceil((b.x + b.width) * width + padX));
+    const bottom = Math.min(height, Math.ceil((b.y + b.height) * height + padY));
+    const w = right - left;
+    const h = bottom - top;
+    if (w < 2 || h < 2) continue;
+    const patch = await sharp(source)
+      .extract({ left, top, width: w, height: h })
+      .blur(Math.max(6, Math.min(w, h) / 3))
+      .toBuffer();
+    patches.push({ input: patch, left, top });
+  }
+  if (!patches.length) return photo;
+
+  const blurred = await sharp(source).composite(patches).webp({ quality: 80 }).toBuffer();
+  await fs.writeFile(displayPath, blurred);
+  await sharp(blurred)
+    .resize({ width: 400, height: 400, fit: 'cover', position: 'attention' })
+    .webp({ quality: 70 })
+    .toFile(path.join(config.mediaDir, photo.path_thumb));
+  return photo;
+}
+
 /** Delete the three files behind a photo row. Used only when a claim fails to land. */
 export async function discardUpload(photo) {
   if (!photo) return;
