@@ -712,7 +712,8 @@ displays "needs an animal photo" or "reinforce available in 14h" up front.
 8. **Offers** — incoming and outgoing trades.
 
 The map also carries **every park in the city as a dot** once you zoom past the whole-city
-view: solid for one you have not collected this season, hollow for one you have. The
+view: the accent for one you have not collected this season, **green** and a shade larger
+for one you have. The
 legend's park count doubles as the switch that hides them. They are deliberately not
 tappable — tapping a Hood is the map's one interaction, and 1,513 hit targets laid over it
 would fight with that.

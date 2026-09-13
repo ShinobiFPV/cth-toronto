@@ -48,6 +48,20 @@ const dotRadius = (zoom) => {
   return 6;
 };
 
+/**
+ * How a dot is drawn. Collected parks are solid green and a shade larger; everything
+ * else is the accent, a little softer.
+ *
+ * They used to be hollow rings, on the theory that a finished thing should recede. At
+ * a 3px radius a 1.5px ring is not a colour, it is a smudge — and receding is wrong
+ * anyway: six green dots in a field of 1,513 are the part of the map worth looking at.
+ */
+const dotStyle = (collected, r) => ({
+  radius: collected ? r + 1 : r,
+  opacity: 0.9,
+  fillOpacity: collected ? 0.95 : 0.7,
+});
+
 export default function MapScreen() {
   const { hoods, player } = useGame();
   // `appearance` as well as `resolved`: the dot colours are read out of CSS, so they
@@ -323,14 +337,11 @@ export default function MapScreen() {
     const dots = parks.parks.map((p) => {
       const marker = L.circleMarker([p.la, p.ln], {
         renderer,
-        radius,
-        // A collected park is hollow, an uncollected one solid — the same language the
-        // per-Hood park map already speaks, so the two read as one feature.
+        // Green for one you already have, the accent for one you do not.
         color: p.c ? got : want,
-        weight: p.c ? 1.5 : 1,
-        opacity: 0.9,
-        fillColor: want,
-        fillOpacity: p.c ? 0 : 0.75,
+        fillColor: p.c ? got : want,
+        weight: 1,
+        ...dotStyle(p.c, radius),
         // Not clickable, on purpose. Tapping a Hood is the map's whole interaction, and
         // a canvas of 1,513 hit targets laid over the polygons takes that tap: with the
         // dots interactive, aiming at one either opened the Hood underneath or did
@@ -351,9 +362,7 @@ export default function MapScreen() {
       if (r === zoomBucketRef.current) return;
       zoomBucketRef.current = r;
       if (r > 0) {
-        for (const { marker, collected } of dots) {
-          marker.setStyle({ radius: r, opacity: 0.9, fillOpacity: collected ? 0 : 0.75 });
-        }
+        for (const { marker, collected } of dots) marker.setStyle(dotStyle(collected, r));
       }
       show(r);
     };
