@@ -78,6 +78,9 @@ back and forth all evening like a pair of idiots.
 **Conquer empty ground and its neighbours close to you for six hours.** This rule exists
 entirely because of drones. One flight should not hand somebody the whole west end.
 
+Every one of these clocks can be bent, once, by an [item](#items) — and the Hood you're
+about to steal might have a Fortify on it that only its owner can see.
+
 ---
 
 ## Parks
@@ -101,6 +104,9 @@ Every park in Toronto has the same municipal sign with the park's name on it. Th
   one. There is nothing to fight over. It's the calm part of the game.
 - The points go into the same total as territory, so you can genuinely win this thing
   without holding a single Hood, just by walking a lot
+- …but **park points stop at 300 per Hood per week.** Past that a park still prints its
+  card and pays its XP, it just scores nothing. Living next to a park-dense Hood only gets
+  you so far — the way to keep climbing is to go somewhere else
 - **Rarity** comes off the value: Common, Uncommon, Rare, **Legendary**
 
 ### Special editions
@@ -122,9 +128,6 @@ there's no limit on how many anybody pulls.
 They pay **XP, never points** — so a lucky pull is a permanent brag and not a shortcut up
 the table. Nobody wins a season because the dice liked them. What Gold and Hologram do hand
 you is [items](#items).
-
-**Park points stop at 300 per Hood per week.** Past that a park still prints its card and
-pays its XP, it just scores nothing — so the way to keep climbing is to go somewhere else.
 
 The border on each card is unique to that card. The **season** picks the palette — Fall is
 amber and rust, Winter goes ice blue, Spring green, Summer teal — and a seed derived from
@@ -216,9 +219,10 @@ park cards, and everybody's Case is open.
 ## Items
 
 A Gold pull hands you **one item**, a Hologram **three** — as long as the card scored
-points, and up to **4 a week**. Past that you keep pulling cards and XP; you just stop
-stockpiling power. Your bag lives under **Cards → Items**, and items expire when the season
-ends, so spend them.
+points, and up to **4 a week** (back on Monday). Past that you keep pulling cards and XP;
+you just stop stockpiling power. Your bag lives under **Cards → Items** and on your profile,
+and everything in it expires when the season ends, so spend it in week 12 instead of
+hoarding it into a reset.
 
 | | What it does |
 |---|---|
@@ -230,8 +234,13 @@ ends, so spend them.
 | **Clover** | Double your Gold and Hologram odds for six hours. Pop it before a long walk, not before bed. |
 
 The Hood sheet offers the right one when you need it — a Crowbar when a lock stops you, a
-Tune-Up when your reinforce is still counting down. Items stay with whoever pulled them:
-trade the card away and the items don't go with it.
+Tune-Up when your reinforce is still counting down. A Crowbar or Sprint is only spent if
+the claim actually lands. Items stay with whoever pulled them: trade the card away and the
+items don't go with it.
+
+Walk into a Fortify and you find out the hard way — your photo's spent, the Hood doesn't
+budge, and chat hears about it. It doesn't say what subject you brought. That part's up
+to you.
 
 ---
 
@@ -239,8 +248,8 @@ trade the card away and the items don't go with it.
 
 Points are about **value**. XP is about **turning up**.
 
-A steal is 70 XP, a conquer 50, a reinforce 20, a park 10 plus a bit for rarity, a car
-25 and up by edition. Going
+A steal is 70 XP, a conquer 50, a reinforce 20, a park 10 plus a bit for rarity and its
+edition (15 at the least), a car 25 and up by edition. Going
 somewhere you have **never been before** is worth +100 — which is the entire point, because
 it means the person who has seen all 25 Hoods out-levels the person farming four of them
 next to their flat, even if that person is winning on points.
@@ -355,6 +364,9 @@ Hood that nobody has *ever* conquered becomes 25 points more valuable. An untouc
 Park climbs 50 → 75 → 100 → 125 over the year, which is the mechanism by which one of us
 eventually drives out there in February.
 
+Unspent **items expire** at the rollover too, and any armed Fortify comes off. Chat lists
+what everybody failed to use.
+
 Four season winners, and one **Champion**: most points across all four. Both come out of
 the same append-only ledger, because storing a running total is how you end up with a score
 nobody can explain.
@@ -381,14 +393,14 @@ The Garage needs an Anthropic API key in `.env` as `CTH_ANTHROPIC_API_KEY`. With
 everything else works and every car comes back "the identifier is not answering".
 
 ```bash
-npm test                 # 312 tests, no server needed, touches nothing in data/, never calls Claude
+npm test                 # 357 tests, no server needed, touches nothing in data/, never calls Claude
 ```
 
 | Command | Does what |
 |---|---|
 | `npm run import-hoods` | Fetches the ward boundaries, simplifies 1.1 MB down to 66 kB, works out each Hood's difficulty and which Hoods border which |
 | `npm run import-parks` | Fetches every park, files each under the Hood it sits in, scores it 5–100 |
-| `npm run rollover` | Checks whether the season has ended. Idempotent. `--dry-run` to peek |
+| `npm run rollover` | Checks whether the season has ended; escalates untouched Hoods and expires items. Idempotent. `--dry-run` to peek |
 | `npm run invite [n]` | More invite codes |
 | `npm run dev` + `npm run dev:web` | API on 8096, Vite on 5173 |
 
@@ -412,6 +424,8 @@ amber) because the map already spends every other colour on somebody's territory
 server/lib/game.js    ←  the claim state machine. This is the game.
 server/lib/parks.js      Parks: collection rules, card seeds, the binder
 server/lib/garage.js     the Garage: the weekly cap, dedupe, the Case
+server/lib/editions.js   the edition roll: one draw, a table that sums to 100
+server/lib/items.js      items: grants minus uses, Fortify, Clover, season expiry
 server/lib/identify.js   the one Claude call — what car is this?
 server/lib/vehicles.js   what counts as the same car
 server/lib/week.js       Toronto calendar weeks, DST included
