@@ -70,7 +70,7 @@ export default function MapScreen() {
   // have to be redrawn when the accent changes and not only on a light/dark flip.
   const { resolved, appearance } = useTheme();
   const [geo, setGeo] = useState(null);
-  // The Garage's capture sheet, straight from the map: a car is something you see while
+  // The car card capture sheet, straight from the map: a car is something you see while
   // you are out, and the map is the screen people have open when they are.
   const [snapping, setSnapping] = useState(false);
   const [geoError, setGeoError] = useState(null);
@@ -432,8 +432,13 @@ export default function MapScreen() {
               </span>
             </button>
           )}
-          <div className="map-hint">Refresh the page if the map is not showing info</div>
         </div>
+      )}
+
+      {/* The map's whole interaction, said out loud for anybody opening it for the first
+          time. Taps go straight through it to the Hoods, and it steps aside for a sheet. */}
+      {!geoError && !selected && !snapping && (
+        <div className="map-start" aria-hidden="true">Tap a Hood to Start!</div>
       )}
 
       {/* Hidden while a Hood sheet is up, so there is never a second primary action

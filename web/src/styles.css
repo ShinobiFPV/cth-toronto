@@ -1003,7 +1003,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 }
 
 /* ── Not Wheels cards ───────────────────────────────────────────────────────
-   The Garage's collectable. It used to be a blister pack — a hang tab with a punched
+   The car card. It used to be a blister pack — a hang tab with a punched
    slot and a plastic bubble over the photo — and under the packaging it was already a
    card, so the packaging went and the card stayed: printed backing, the photo in a
    window, a spec strip. House style: no radii, 2px ink borders, hard offset shadows.
@@ -1286,15 +1286,39 @@ button, input, select, textarea { font: inherit; color: inherit; }
   font-variant-numeric: tabular-nums;
 }
 
-/* The map's one line of small print. Sits under the legend rows, quiet enough to
-   ignore until the moment you need it. */
-.map-hint {
-  margin-top: 0.35rem;
-  padding-top: 0.35rem;
-  border-top: 1px solid var(--rule);
-  font-size: 0.58rem;
-  line-height: 1.35;
-  color: var(--dim);
+/* "Tap a Hood to Start!" — the map's one instruction, loud enough to read at arm's length
+   outdoors. Top centre, because the other three corners already belong to the zoom
+   buttons, the legend and Snap a car; narrow enough to clear the zoom buttons on a 320px
+   phone. A sticker, not a panel: accent fill, 2px border, hard offset shadow, a slight
+   tilt. It never takes a tap — pointer-events: none hands every one to the Hood under it. */
+.map-start {
+  position: absolute;
+  top: 0.7rem;
+  left: 50%;
+  z-index: 500;
+  max-width: calc(100% - 7rem);
+  padding: 0.45rem 0.8rem;
+  background: var(--accent);
+  color: var(--accent-ink);
+  border: 2px solid var(--border);
+  box-shadow: 4px 4px 0 var(--accent-deep);
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: clamp(0.95rem, 4.2vw, 1.2rem);
+  line-height: 1.15;
+  letter-spacing: -0.005em;
+  text-align: center;
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translateX(-50%) rotate(-2deg);
+  animation: map-start-bob 2.4s ease-in-out infinite;
+}
+@keyframes map-start-bob {
+  0%, 100% { transform: translateX(-50%) rotate(-2deg) translateY(0); }
+  50%      { transform: translateX(-50%) rotate(-2deg) translateY(-3px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .map-start { animation: none; }
 }
 
 /* ── XP and levels ─────────────────────────────────────────────────────────
