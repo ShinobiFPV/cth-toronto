@@ -8,7 +8,7 @@
      • structural borders are 2px solid, hairlines (1px --rule) only separate
        rows inside a container
      • hover/press is a hard offset shadow, never a glow, never a blur
-     • Rubik Mono One for display only; Space Mono for everything else
+     • Inter Tight throughout — Bold for titles, Regular for everything else
      • one accent, used for signal — here it is hazard amber, because the map
        already spends every other colour on player territory
 
@@ -23,20 +23,40 @@
   src: url('/fonts/KolkerBrush-Regular.woff2') format('woff2');
   font-weight: 400; font-style: normal; font-display: swap;
 }
+/* Inter Tight, self-hosted. Each file is variable, so one per style covers Regular and
+   Bold alike. Split latin / latin-ext the way Google splits it: an accented park name
+   fetches the second file only when one is actually on screen. */
 @font-face {
-  font-family: 'RubikMonoOne';
-  src: url('/fonts/RubikMonoOne-Regular.woff2') format('woff2');
-  font-weight: 400; font-style: normal; font-display: swap;
+  font-family: 'InterTight';
+  src: url('/fonts/InterTight-latin-normal.woff2') format('woff2');
+  font-weight: 100 900; font-style: normal; font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215,
+    U+FEFF, U+FFFD;
 }
 @font-face {
-  font-family: 'SpaceMono';
-  src: url('/fonts/SpaceMono-Regular.woff2') format('woff2');
-  font-weight: 400; font-style: normal; font-display: swap;
+  font-family: 'InterTight';
+  src: url('/fonts/InterTight-latin-ext-normal.woff2') format('woff2');
+  font-weight: 100 900; font-style: normal; font-display: swap;
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304,
+    U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB,
+    U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
 }
 @font-face {
-  font-family: 'SpaceMono';
-  src: url('/fonts/SpaceMono-Bold.woff2') format('woff2');
-  font-weight: 700; font-style: normal; font-display: swap;
+  font-family: 'InterTight';
+  src: url('/fonts/InterTight-latin-italic.woff2') format('woff2');
+  font-weight: 100 900; font-style: italic; font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215,
+    U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'InterTight';
+  src: url('/fonts/InterTight-latin-ext-italic.woff2') format('woff2');
+  font-weight: 100 900; font-style: italic; font-display: swap;
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304,
+    U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB,
+    U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
 }
 
 :root {
@@ -87,10 +107,12 @@
   --warn:  #FFB020;
   --bad:   #FF4D4D;
 
-  --mono:    'SpaceMono', ui-monospace, 'Courier New', monospace;
-  --display: 'RubikMonoOne', 'SpaceMono', monospace;
+  --body:    'InterTight', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  /* Titles are the same face at Bold. Anything set in --display also sets
+     font-weight: 700 — the token names the role, the weight does the work. */
+  --display: var(--body);
   /* The app's name, and only the app's name. */
-  --wordmark: 'KolkerBrush', 'RubikMonoOne', cursive;
+  --wordmark: 'KolkerBrush', 'InterTight', cursive;
 
   --radius: 0px;
   --tap: 44px;              /* minimum touch target */
@@ -169,7 +191,7 @@ html, body, #root {
 body {
   background: var(--bg);
   color: var(--text);
-  font-family: var(--mono);
+  font-family: var(--body);
   font-size: 15px;
   line-height: 1.5;
   font-synthesis: none;
@@ -177,8 +199,8 @@ body {
   overscroll-behavior-y: none;
 }
 
-h1, h2, h3 { margin: 0; font-weight: 400; }
-h1 { font-family: var(--display); font-size: 1.15rem; letter-spacing: 0.01em; }
+h1, h2, h3 { margin: 0; font-family: var(--display); font-weight: 700; }
+h1 { font-size: 1.15rem; letter-spacing: -0.005em; }
 h2 { font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--dim); }
 p { margin: 0 0 0.75rem; }
 a { color: var(--accent-text); }
@@ -434,7 +456,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .grow { flex: 1; min-width: 0; }
 .dim { color: var(--dim); }
 .tiny { font-size: 0.7rem; }
-.num { font-family: var(--display); font-size: 1.1rem; }
+.num { font-family: var(--display); font-weight: 700; font-size: 1.1rem; font-variant-numeric: tabular-nums; }
 .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ── Chips ─────────────────────────────────────────────────────────────── */
@@ -478,7 +500,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .map-wrap { position: relative; height: 100%; }
 .map { position: absolute; inset: 0; background: var(--bg); }
 
-.leaflet-container { background: var(--bg); font-family: var(--mono); }
+.leaflet-container { background: var(--bg); font-family: var(--body); }
 
 /* Only the tile pane is filtered, so player colours in the overlay pane come through
    exactly as the server sent them. --map-filter is `none` in light mode, which is what
@@ -510,6 +532,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
   text-align: center;
   pointer-events: none;
   font-family: var(--display);
+  font-weight: 700;
   text-shadow: var(--label-shadow);
 }
 .hood-label .n { display: block; font-size: 0.8rem; line-height: 1; }
@@ -520,7 +543,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .hood-label .v.blocked { color: var(--label-dim); }
 .hood-label .v {
   display: block;
-  font-family: var(--mono);
+  font-family: var(--body);
   font-size: 0.62rem;
   color: var(--accent-text);
   line-height: 1.4;
@@ -820,7 +843,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
   margin: 0;
   flex: none;
   color: #fff;
-  font-family: var(--mono);
+  font-family: var(--body);
   user-select: none;
 }
 .pcard-compact { width: 160px; height: 224px; }
@@ -844,14 +867,13 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .pcard-name {
   flex: 1;
   min-width: 0;
-  /* The card's title, in the same brush as the app's own name. A script face sits
-     small on its em box, so this is set roughly twice the size the blocky face was —
-     and with no tracking and no uppercasing, because both wreck a script. Park names
-     arrive from the City in title case, which is what the face wants anyway. */
-  font-family: var(--wordmark);
-  font-size: 1.55rem;
-  line-height: 1;
-  letter-spacing: 0;
+  /* The card's title: Inter Tight Bold, like every other title. Not uppercased — park
+     names arrive from the City in title case and read better left that way. */
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 1.2rem;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
   text-transform: none;
   overflow: hidden;
   display: -webkit-box;
@@ -859,13 +881,14 @@ button, input, select, textarea { font: inherit; color: inherit; }
   -webkit-box-orient: vertical;
   text-shadow: 0 1px 0 rgba(0, 0, 0, 0.7);
 }
-/* 0.9rem, not 0.95: at the larger size the longest park names in the set ("Scarborough
-   Heights Waterfront Parkette") came a pixel short of fitting two lines. */
-.pcard-compact .pcard-name { font-size: 0.9rem; -webkit-line-clamp: 2; }
+/* Sized so the longest park name in the set ("Scarborough Heights Waterfront Parkette")
+   still fits two lines on a compact card. */
+.pcard-compact .pcard-name { font-size: 0.68rem; -webkit-line-clamp: 2; }
 
 .pcard-value {
   flex: none;
   font-family: var(--display);
+  font-weight: 700;
   font-size: 1.35rem;
   line-height: 1;
   padding: 2px 6px;
@@ -974,19 +997,18 @@ button, input, select, textarea { font: inherit; color: inherit; }
   .pcard-ed-hologram .pcard-frame { animation: none; }
 }
 
-/* ── Not Wheels packages ────────────────────────────────────────────────────
-   The Garage's collectable. The format of a blister pack — hang tab, punched slot,
-   a bubble over the photo, a printed backing, a spec strip — in the house style: no
-   radii (the bubble is bevelled), 2px ink borders, hard offset shadows. Same fixed
-   sizes as a park card so the two tile in one grid. Like the park card it is an
-   object, so its colours do not change with the theme. */
+/* ── Not Wheels cards ───────────────────────────────────────────────────────
+   The Garage's collectable. It used to be a blister pack — a hang tab with a punched
+   slot and a plastic bubble over the photo — and under the packaging it was already a
+   card, so the packaging went and the card stayed: printed backing, the photo in a
+   window, a spec strip. House style: no radii, 2px ink borders, hard offset shadows.
+   Same fixed sizes as a park card so the two tile in one grid. Like the park card it is
+   an object, so its colours do not change with the theme. */
 
 :root {
   --nw-stock:        #E9E6DE;   /* plain backing stock */
   --nw-stock-ink:    #16181C;
   --nw-stripe:       rgba(22, 24, 28, 0.07);
-  --nw-tab:          #16181C;
-  --nw-tab-ink:      #E9E6DE;
   --nw-gold-hi:      #F6DE8B;
   --nw-gold:         #C9A227;
   --nw-gold-lo:      #7A5E0C;
@@ -997,84 +1019,42 @@ button, input, select, textarea { font: inherit; color: inherit; }
   --nw-holo-4:       #2FC4FF;
   --nw-holo-5:       #9B6BE0;
   --nw-holo-ink:     #0B0D10;
-  --nw-bubble-edge:  rgba(255, 255, 255, 0.8);
-  --nw-bubble-fill:  rgba(255, 255, 255, 0.12);
   --nw-window:       rgba(0, 0, 0, 0.55);
-  --nw-shine:        rgba(255, 255, 255, 0.6);
+  --nw-window-ink:   #E9E6DE;
   --nw-shadow:       rgba(0, 0, 0, 0.45);
   --nw-check:        #C8102E;
   --nw-check-ink:    #FFFFFF;
 }
 
-.nwpack {
-  --nw-bevel-size: 12px;
-  --nw-bevel: polygon(var(--nw-bevel-size) 0, calc(100% - var(--nw-bevel-size)) 0,
-    100% var(--nw-bevel-size), 100% calc(100% - var(--nw-bevel-size)),
-    calc(100% - var(--nw-bevel-size)) 100%, var(--nw-bevel-size) 100%,
-    0 calc(100% - var(--nw-bevel-size)), 0 var(--nw-bevel-size));
+/* The card is the backing. Plain stock by default; the edition repaints it. */
+.nwcard {
   position: relative;
   width: 320px;
   height: 448px;
   margin: 0;
   flex: none;
   display: grid;
-  grid-template-rows: 46px 1fr;
-  color: var(--nw-stock-ink);
-  font-family: var(--mono);
-  user-select: none;
-}
-.nwpack-compact { --nw-bevel-size: 6px; width: 160px; height: 224px; grid-template-rows: 23px 1fr; }
-
-/* The hang tab: a trapezoid of ink with a euro slot punched through it. */
-.nwpack-tab {
-  position: relative;
-  justify-self: center;
-  width: 46%;
-  display: grid;
-  align-items: end;
-  justify-items: center;
-  background: var(--nw-tab);
-  color: var(--nw-tab-ink);
-  clip-path: polygon(14% 0, 86% 0, 100% 100%, 0 100%);
-}
-.nwpack-hole {
-  position: absolute;
-  top: 9px;
-  left: 50%;
-  width: 30px;
-  height: 9px;
-  transform: translateX(-50%);
-  background: var(--bg);
-  clip-path: polygon(20% 0, 80% 0, 100% 50%, 80% 100%, 20% 100%, 0 50%);
-}
-.nwpack-mark {
-  padding-bottom: 5px;
-  font-family: var(--display);
-  font-size: 0.5rem;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  white-space: nowrap;
-}
-.nwpack-compact .nwpack-hole { top: 4px; width: 15px; height: 5px; }
-.nwpack-compact .nwpack-mark { font-size: 0.26rem; padding-bottom: 2px; letter-spacing: 0.1em; }
-
-/* The backing card. Plain stock by default; the edition repaints it. */
-.nwpack-card {
-  position: relative;
-  min-height: 0;
-  display: grid;
   grid-template-rows: auto 1fr auto auto;
   gap: 6px;
   padding: 10px;
+  color: var(--nw-stock-ink);
+  font-family: var(--body);
+  user-select: none;
   border: 2px solid var(--nw-stock-ink);
   box-shadow: 4px 4px 0 var(--nw-shadow);
   background-color: var(--nw-stock);
   background-image: repeating-linear-gradient(var(--nw-stripe-angle),
     var(--nw-stripe) 0 2px, transparent 2px var(--nw-stripe-gap));
 }
-.nwpack-compact .nwpack-card { gap: 3px; padding: 5px; box-shadow: 2px 2px 0 var(--nw-shadow); }
+.nwcard-compact {
+  width: 160px;
+  height: 224px;
+  gap: 3px;
+  padding: 5px;
+  box-shadow: 2px 2px 0 var(--nw-shadow);
+}
 
-.nwpack-gold .nwpack-card {
+.nwcard-gold {
   color: var(--nw-gold-ink);
   border-color: var(--nw-gold-lo);
   background-image:
@@ -1083,42 +1063,51 @@ button, input, select, textarea { font: inherit; color: inherit; }
       var(--nw-gold) 55%, var(--nw-gold-hi) 72%, var(--nw-gold-lo));
 }
 
-.nwpack-hologram .nwpack-card {
+.nwcard-hologram {
   color: var(--nw-holo-ink);
   background-image:
     repeating-linear-gradient(var(--nw-stripe-angle), var(--nw-stripe) 0 2px, transparent 2px var(--nw-stripe-gap)),
     linear-gradient(calc(var(--nw-stripe-angle) + 30deg), var(--nw-holo-1), var(--nw-holo-2),
       var(--nw-holo-3), var(--nw-holo-4), var(--nw-holo-5), var(--nw-holo-1));
   background-size: 100% 100%, 300% 300%;
-  animation: nwpack-holo 8s linear infinite;
+  animation: nwcard-holo 8s linear infinite;
 }
-@keyframes nwpack-holo {
+@keyframes nwcard-holo {
   from { background-position: 0 0, 0% 50%; }
   to   { background-position: 0 0, 300% 50%; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .nwpack-hologram .nwpack-card { animation: none; }
+  .nwcard-hologram { animation: none; }
 }
 
-.nwpack-head { display: flex; align-items: flex-end; gap: 6px; min-width: 0; }
+.nwcard-head { display: flex; align-items: flex-start; gap: 6px; min-width: 0; }
+.nwcard-titles { flex: 1; min-width: 0; display: grid; }
 
-/* The vehicle's name, in the brush, the way a park card's title is. */
-.nwpack-name {
-  flex: 1;
-  min-width: 0;
-  font-family: var(--wordmark);
-  font-size: 1.7rem;
-  line-height: 1;
-  letter-spacing: 0;
-  text-transform: none;
+/* The brand that used to ride on the hang tab. */
+.nwcard-mark {
+  font-size: 0.5rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+.nwcard-compact .nwcard-mark { font-size: 0.3rem; letter-spacing: 0.1em; }
+
+/* The vehicle's name is the card's title, set the way a park card's is. */
+.nwcard-name {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 1.2rem;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
   overflow: hidden;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
 }
-.nwpack-compact .nwpack-name { font-size: 0.95rem; }
+.nwcard-compact .nwcard-name { font-size: 0.68rem; }
 
-.nwpack-ed {
+.nwcard-ed {
   flex: none;
   padding: 1px 5px;
   border: 1px solid currentColor;
@@ -1127,53 +1116,34 @@ button, input, select, textarea { font: inherit; color: inherit; }
   letter-spacing: 0.14em;
   text-transform: uppercase;
 }
-.nwpack-compact .nwpack-ed { font-size: 0.36rem; padding: 0 3px; letter-spacing: 0.08em; }
+.nwcard-compact .nwcard-ed { font-size: 0.36rem; padding: 0 3px; letter-spacing: 0.08em; }
 
-/* The bubble: an edge, a window, and one highlight down one side. It sits a degree or
-   two off square, per the seed, and throws a hard shadow onto the backing. */
-.nwpack-blister {
+/* The photo, straight onto the card: a window with an ink rule, nothing over it. */
+.nwcard-photo {
   position: relative;
   min-height: 0;
-  margin: 2px 8px;
-  transform: rotate(var(--nw-tilt));
-  filter: drop-shadow(3px 3px 0 var(--nw-shadow));
+  overflow: hidden;
+  background: var(--nw-window);
+  border: 2px solid currentColor;
 }
-.nwpack-compact .nwpack-blister { margin: 1px 4px; filter: drop-shadow(2px 2px 0 var(--nw-shadow)); }
+.nwcard-compact .nwcard-photo { border-width: 1px; }
+.nwcard-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
-.nwpack-bubble,
-.nwpack-photo,
-.nwpack-shine { position: absolute; clip-path: var(--nw-bevel); }
-.nwpack-bubble { inset: 0; background: var(--nw-bubble-edge); }
-.nwpack-photo { inset: 3px; background: var(--nw-window); overflow: hidden; }
-.nwpack-compact .nwpack-photo,
-.nwpack-compact .nwpack-shine { inset: 2px; }
-.nwpack-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
-
-.nwpack-shine {
-  inset: 3px;
-  pointer-events: none;
-  background:
-    linear-gradient(90deg, transparent calc(var(--nw-shine-x) - 4%), var(--nw-shine) var(--nw-shine-x),
-      transparent calc(var(--nw-shine-x) + 5%)),
-    linear-gradient(to bottom, var(--nw-bubble-fill), transparent 45%);
-  mix-blend-mode: screen;
-}
-
-.nwpack-nophoto {
+.nwcard-nophoto {
   display: grid;
   place-items: center;
   height: 100%;
   font-size: 0.65rem;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--nw-tab-ink);
+  color: var(--nw-window-ink);
   opacity: 0.6;
 }
 
-.nwpack-check {
+.nwcard-check {
   position: absolute;
-  top: 8px;
-  left: 8px;
+  top: 6px;
+  left: 6px;
   padding: 1px 5px;
   background: var(--nw-check);
   color: var(--nw-check-ink);
@@ -1183,7 +1153,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
   text-transform: uppercase;
 }
 
-.nwpack-flavour {
+.nwcard-flavour {
   padding-top: 3px;
   border-top: 1px solid currentColor;
   font-size: 0.62rem;
@@ -1191,7 +1161,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
   opacity: 0.8;
 }
 
-.nwpack-foot {
+.nwcard-foot {
   display: flex;
   flex-wrap: wrap;
   gap: 2px 8px;
@@ -1201,13 +1171,13 @@ button, input, select, textarea { font: inherit; color: inherit; }
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
-.nwpack-no { margin-left: auto; opacity: 0.7; font-variant-numeric: tabular-nums; }
-.nwpack-compact .nwpack-foot { gap: 0 4px; padding-top: 2px; border-top-width: 1px; font-size: 0.38rem; }
+.nwcard-no { margin-left: auto; opacity: 0.7; font-variant-numeric: tabular-nums; }
+.nwcard-compact .nwcard-foot { gap: 0 4px; padding-top: 2px; border-top-width: 1px; font-size: 0.38rem; }
 
-/* A full-size package inside a sheet. 320px does not fit a 320px phone with gutters. */
-.nwpack-reveal { display: grid; justify-items: center; }
+/* A full-size card inside a sheet. 320px does not fit a 320px phone with gutters. */
+.nwcard-reveal { display: grid; justify-items: center; }
 @media (max-width: 380px) {
-  .nwpack-reveal .nwpack { transform: scale(0.85); transform-origin: top center; margin-bottom: -67px; }
+  .nwcard-reveal .nwcard { transform: scale(0.85); transform-origin: top center; margin-bottom: -67px; }
 }
 
 /* A line of context under a card in the lightbox, which is dark in both themes. */
@@ -1251,6 +1221,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
   min-width: 2.4rem;
   text-align: right;
   font-family: var(--display);
+  font-weight: 700;
   font-size: 0.9rem;
 }
 
@@ -1342,6 +1313,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
   position: relative;
   z-index: 1;
   font-family: var(--display);
+  font-weight: 700;
   font-size: 0.85rem;
   line-height: 1;
 }
@@ -1374,6 +1346,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 
 .xp-title {
   font-family: var(--display);
+  font-weight: 700;
   font-size: 1.1rem;
   color: var(--accent-text);
 }
@@ -1418,6 +1391,13 @@ button, input, select, textarea { font: inherit; color: inherit; }
 @media (prefers-reduced-motion: reduce) {
   .swatch { transition: none; }
 }
+
+/* A colour another player is wearing. Still visible, so the admin can see the whole
+   palette, but plainly not on offer. */
+.swatch:disabled { opacity: 0.2; cursor: not-allowed; transform: none; box-shadow: none; }
+
+/* The admin's per-player palette: the name on one line, the swatches under it. */
+.row.player-paint { display: grid; align-items: stretch; gap: 0.5rem; }
 
 /* ── Captions ──────────────────────────────────────────────────────────────
    A photo's one line of prose, in the feed, on the Hood sheet, and in a Hood's

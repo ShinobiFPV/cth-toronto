@@ -137,7 +137,7 @@ export function evaluateCar({ identification, playerId, at = nowIso() }) {
       return { ...base, ok: false, error: 'ALREADY_COLLECTED', claim_id: existing.id,
         repeat_xp: config.CAR_REPEAT_XP > 0 && !trickled ? config.CAR_REPEAT_XP : 0,
         message: `You already have ${withArticle(vehicleName(vehicle))} this season. `
-          + 'One package per car per season — the hard part is finding one you have not got.' };
+          + 'One card per car per season — the hard part is finding one you have not got.' };
     }
   }
 

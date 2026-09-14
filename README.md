@@ -134,8 +134,7 @@ different cards. Legendaries get a slow sheen, because obviously they do.
 </p>
 <p align="center">
   <em>A real card. Somebody walked to 455 Cosburn Avenue, photographed the sign, and got
-  #0368 of 1513 — uncommon, worth 26, Fall 2026. The title is in the same hand as the
-  app&rsquo;s own name.</em>
+  #0368 of 1513 — uncommon, worth 26, Fall 2026.</em>
 </p>
 
 <p align="center">
@@ -181,28 +180,24 @@ means you get to see that they went all the way out to Rouge Park and you didn't
 ## The Garage
 
 Parks are the calm part. The Garage is for the walk between them: **photograph any car on
-the street** and it prints you a **Not Wheels** package for your Case.
-
-<p align="center">
-  <img src="docs/screenshots/22-package-hologram.png" width="330" alt="A Not Wheels package: a hang tab with a punched slot, a bevelled bubble over the photo of a red car, a holographic backing card reading Porsche 911, and a spec strip along the bottom">
-  <br><em>A hologram package, from the test data. Blister, hang tab, spec strip — and no flames.</em>
-</p>
+the street** and it prints you a **Not Wheels** card for your Case: the photo on a printed
+backing, the edition in the stock, a spec strip along the bottom — and no flames.
 
 - **5 points a car, up to 100 a week.** The week resets Monday midnight, Toronto time, so
-  Sunday night is the scramble. Past the cap you keep collecting: the package still prints,
+  Sunday night is the scramble. Past the cap you keep collecting: the card still prints,
   the XP still lands, it's just worth nothing on the table.
-- **One package per car per season, per player.** A Civic is a Civic whether it's an Si or
-  a base sedan — trim and generation ride along on the package, but they don't make it a
+- **One card per car per season, per player.** A Civic is a Civic whether it's an Si or
+  a base sedan — trim and generation ride along on the card, but they don't make it a
   different car. By midseason the hard part isn't the cap, it's finding something you
   haven't got.
 - **The server works out what it is.** Every photo goes to Claude, which reads the make and
   model. If it isn't sure, you're asked for a better angle. If it thinks you've photographed
-  a screen, a magazine or a Hot Wheels car, the package prints anyway with an
+  a screen, a magazine or a Hot Wheels car, the card prints anyway with an
   **Unverified** stamp — and then it's between you and the flag button.
 - **Licence plates are blurred** before anybody else sees the photo. A park sign is
   nobody's; a plate is somebody's.
 
-Packages roll editions like cards, but every one is at least Steel:
+Cards roll editions like cards, but every one is at least Steel:
 
 | | Backing | Worth |
 |---|---|---|
@@ -210,7 +205,7 @@ Packages roll editions like cards, but every one is at least Steel:
 | Gold | foil | +75 XP |
 | **Hologram** | holographic, **one in the whole game per season** | **+250 XP** |
 
-Snap a car straight from the map, or from **Cards → Garage**. Packages trade exactly like
+Snap a car straight from the map, or from **Cards → Garage**. Cards trade exactly like
 park cards, and everybody's Case is open.
 
 ---
@@ -361,7 +356,7 @@ The Garage needs an Anthropic API key in `.env` as `CTH_ANTHROPIC_API_KEY`. With
 everything else works and every car comes back "the identifier is not answering".
 
 ```bash
-npm test                 # 311 tests, no server needed, touches nothing in data/, never calls Claude
+npm test                 # 312 tests, no server needed, touches nothing in data/, never calls Claude
 ```
 
 | Command | Does what |
@@ -383,7 +378,7 @@ across the whole city.
 
 The look is *Arctic Classified after dark* — the house style from shintech.online, inverted
 for something you use outdoors at night. No rounded corners, 2px ink borders, hard offset
-shadows instead of glows, Space Mono throughout, and exactly one accent colour (hazard
+shadows instead of glows, Inter Tight throughout, and exactly one accent colour (hazard
 amber) because the map already spends every other colour on somebody's territory.
 
 ## Where everything lives
@@ -398,7 +393,7 @@ server/lib/week.js       Toronto calendar weeks, DST included
 server/lib/views.js      read models; every score derived from the ledger
 server/lib/xp.js         XP, the level curve, the titles
 web/src/components/ParkCard.jsx       the card art — inline SVG, seeded
-web/src/components/NotWheelsPack.jsx  the package art — CSS, seeded
+web/src/components/NotWheelsCard.jsx  the car card art — CSS, seeded
 scripts/                 the importers, the season rollover, icon generation
 deploy/                  systemd units, nginx vhost, backups, install.sh
 ```
@@ -414,8 +409,8 @@ presentation. Deployment is in `SETUP.md`, the design doc is
 Hood boundaries and all 1,513 parks come from
 [City of Toronto Open Data](https://open.toronto.ca/), used under the
 [Open Government Licence – Toronto](https://open.toronto.ca/open-data-license/). Map tiles
-© [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors. Type is Rubik Mono
-One and Space Mono, both under the SIL Open Font License. Cars are identified by
+© [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors. Type is Inter Tight,
+with Kolker Brush for the wordmark, both under the SIL Open Font License. Cars are identified by
 [Claude](https://www.anthropic.com/claude). Not Wheels is a joke about the format, not a
 product, and has nothing to do with anybody's diecast cars.
 

@@ -389,12 +389,12 @@ CREATE UNIQUE INDEX idx_park_once_per_season
 ## 1.8c The Garage
 
 Photograph cars on the street. The server identifies the vehicle with a Claude vision call
-and prints a **Not Wheels** package, which lives in your **Case** — the other half of the
+and prints a **Not Wheels** card, which lives in your **Case** — the other half of the
 Cards tab, beside the binder.
 
 - **Points** — a flat **5** per car, capped at **100 per player per week** (20 scoring cars).
 - **XP** — by edition, flat and rising, **never capped**.
-- **Past the weekly cap you keep collecting.** The package mints, the edition rolls, the XP
+- **Past the weekly cap you keep collecting.** The card mints, the edition rolls, the XP
   lands, and the claim is worth 0 points. Being over the cap is a success, never an error —
   there is no `WEEKLY_CAP_REACHED` code.
 
@@ -433,15 +433,15 @@ edition, `week_key` set, and the Hood it was snapped in recorded for the feed. *
 touches `hood_state`**, and does not count as having set foot in a Hood for the discovery bonus.
 
 **Once per vehicle per player per season**, enforced in `evaluateCar()` and by a partial
-unique index that excludes reverted rows, so a package the group throws out frees the vehicle
+unique index that excludes reverted rows, so a card the group throws out frees the vehicle
 up again. A repeat is `ALREADY_COLLECTED` and mints nothing. `CTH_CAR_REPEAT_XP` turns on a
 small trickle instead — a `sighting` claim worth that much XP, once per vehicle per week,
-never a second package.
+never a second card.
 
 ### Editions
 
 `rollEdition()` unchanged in odds and order, with fresh randomness and never `card_seed`.
-Every package is at least **Steel** — plain stock is what snapping a car is worth.
+Every card is at least **Steel** — plain stock is what snapping a car is worth.
 
 | Edition | Backing | XP |
 |---|---|---|
@@ -457,9 +457,9 @@ hologram, which is what makes collecting past the cap worth doing.
 
 ### Identification
 
-Its job is the package face and the **dedupe key**. It does not touch scoring, so accuracy
+Its job is the card face and the **dedupe key**. It does not touch scoring, so accuracy
 barely matters for fairness and consistency matters enormously. The key is **make + model with
-trim and generation stripped** — `honda|civic` is one package whether it was an Si or a base
+trim and generation stripped** — `honda|civic` is one card whether it was an Si or a base
 sedan — normalised in `server/lib/vehicles.js` as a second line of defence behind the prompt.
 Generation, trim and year ride on the claim as sighting detail.
 
@@ -479,7 +479,7 @@ and `plates`.
 | `ALREADY_COLLECTED` | you have that car this season |
 | `HOOD_REQUIRED` | the upload did not say which Hood |
 
-`in_situ` false (a screen, a magazine, a diecast, game footage) **marks** the package for
+`in_situ` false (a screen, a magazine, a diecast, game footage) **marks** the card for
 flaggers and never rejects it. The honour system and flagging remain the enforcement model.
 The identifier is swappable (`setIdentifier()`), so no test touches the network.
 
@@ -488,17 +488,19 @@ written (`CTH_CAR_BLUR_PLATES`), using the boxes the identifier returns, padded.
 nobody's; a plate is traceable to a person. The original, behind the login for disputes, is
 left untouched. A blur that fails fails the collection rather than publishing the plate.
 
-### The package
+### The card
 
-`NotWheelsPack.jsx`: a hang tab with a punched slot carrying the wordmark, a bevelled bubble
-over the photo with a highlight down one edge and a hard shadow onto the backing, the backing
-carrying the edition, and a spec strip with make, model, year, Hood and date. Seeded from
-(player, vehicle, season) like a park card; every colour a token; the vehicle's name in the
-brush. It evokes the *format* of a blister pack in the house style — no flame, no red and
-yellow, no reproduction of anybody's trade dress.
+`NotWheelsCard.jsx`: a printed backing carrying the edition (plain stock, foil or
+holographic), the "Not Wheels" mark over the vehicle's name in Inter Tight Bold, the photo
+in a plain window, and a spec strip with make, model, year, Hood and date. Seeded from
+(player, vehicle, season) like a park card; every colour a token. It began as a blister
+pack — hang tab, punched slot, a plastic bubble over the photo — and the packaging was
+removed because underneath it was already a card. No flame, no red and yellow, no
+reproduction of anybody's trade dress. (The API still calls it a `package`; that's a wire
+name, not a player-facing one.)
 
 The capture sheet shows **this week's capacity before the shutter** — `75 / 100 this week`, or
-**XP only — resets Monday** — and says "Identifying…" across the round trip. Packages and
+**XP only — resets Monday** — and says "Identifying…" across the round trip. Cards and
 Cases are public, like binders, and trade through the same offers as park cards.
 
 ---
@@ -773,6 +775,9 @@ GET    /api/hoods/:id              detail + claim history + current photo
 POST   /api/hoods/:id/claim        multipart: photo, declared_type, caption (optional)
 GET    /api/hoods/:id/history
 
+GET    /api/players                every player + the colour palette
+PUT    /api/players/:id/colour     admin only; palette colour nobody else wears (§7.1)
+
 GET    /api/leaderboard?season=    current season standings (carries xp/level/title)
 GET    /api/leaderboard/champion   all-season totals
 GET    /api/seasons                schedule + which is active
@@ -783,7 +788,7 @@ GET    /api/parks/:id             one park + whether you can collect it
 GET    /api/parks/:id/check       dry run
 POST   /api/parks/:id/collect     multipart: photo of the sign, caption (optional)
 GET    /api/cards?season=&player=&kind= a binder, or with kind=car a Case — yours by default
-GET    /api/cards/:claimId        one card or package, whoever collected it (the feed opens these)
+GET    /api/cards/:claimId        one park card or car card, whoever collected it (the feed opens these)
 
 GET    /api/cars/capacity          this week's points so far, the cap, when it resets
 GET    /api/cars                   the catalogue: every vehicle pulled, and who holds what
@@ -878,8 +883,14 @@ swatches). Both are cosmetic, both are per-device, and neither touches the game.
   shadows. Dark is the after-dark variant the app was built in. The chrome bars stay black
   in both, so the header and tab bar are the one constant.
 - **The accent only ever dresses the chrome.** Player colours are handed out by the server
-  and are unaffected, so nobody's territory can be recoloured out from under them — which
+  and are unaffected, so no appearance setting can recolour anybody's territory — which
   also means the accent can never be confused with a player.
+- **The admin can repaint a player** from the profile screen: any colour in the server's
+  eight-colour player palette that nobody else is wearing. Never an arbitrary hex (the
+  palette is what stays clear of every accent) and never a shared colour (the map would
+  lie). Enforced server-side, broadcast as `player_updated` so every map follows at once,
+  and announced in chat, because a Hood changing colour with no explanation reads as a
+  steal.
 
 Implemented as CSS custom properties on `:root`, with a `[data-theme="light"]` block
 overriding the tokens. Switching mode is one attribute; there is no second stylesheet and

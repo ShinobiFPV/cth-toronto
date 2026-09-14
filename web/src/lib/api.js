@@ -10,7 +10,7 @@ export class ApiError extends Error {
     this.code = body?.error ?? 'UNKNOWN';
     this.availableAt = body?.available_at ?? null;
     this.requiredTypes = body?.required_types ?? null;
-    // The Garage: what the identifier half-thought it saw, and the package you already have.
+    // The Garage: what the identifier half-thought it saw, and the card you already have.
     this.guess = body?.guess ?? null;
     this.claimId = body?.claim_id ?? null;
   }
@@ -42,6 +42,9 @@ export const api = {
   logout: () => request('/auth/logout', { method: 'POST' }),
   me: () => request('/me'),
   players: () => request('/players'),
+  // Admin only, and only from the palette /players returns.
+  setPlayerColour: (id, colour) =>
+    request(`/players/${id}/colour`, { method: 'PUT', body: { colour } }),
   invites: () => request('/invites'),
   createInvite: (note) => request('/invites', { method: 'POST', body: { note } }),
 
@@ -75,7 +78,7 @@ export const api = {
   park: (id) => request(`/parks/${id}`),
   parkCheck: (id) => request(`/parks/${id}/check`),
   // Omit playerId for your own binder; pass one to read somebody else's. kind 'car' is
-  // the Case — Not Wheels packages rather than park cards.
+  // the Case — Not Wheels cards rather than park cards.
   cards: (season, playerId, kind = 'park') => {
     const q = new URLSearchParams();
     if (season) q.set('season', season);
@@ -84,7 +87,7 @@ export const api = {
     const qs = q.toString();
     return request(`/cards${qs ? `?${qs}` : ''}`);
   },
-  // A park card or a package — the server works out which from the claim.
+  // A park card or a car card — the server works out which from the claim.
   card: (claimId) => request(`/cards/${claimId}`),
 
   // The Garage

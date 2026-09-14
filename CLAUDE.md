@@ -152,11 +152,11 @@ changing one, read the test first — it says why.
   Any new query that means "territory claims" has to say so by kind.
 - **The dedupe key is make + model, trim and generation stripped.** `vehicleKey()` in
   `server/lib/vehicles.js` is the only place one is made. Too fine and the Case fills with
-  Civics; too coarse and every Toyota is one package. Single letters are never stripped as
+  Civics; too coarse and every Toyota is one card. Single letters are never stripped as
   trim unless the identifier reported them as trim — "Model S" is a model.
 - **The identify call happens in the route, never in the transaction**, and is swappable
   with `setIdentifier()`. Tests never touch the network; `CTH_IDENTIFY_STUB` exists for the
-  end-to-end suite and is ignored unless `NODE_ENV=test`. `in_situ` false marks a package
+  end-to-end suite and is ignored unless `NODE_ENV=test`. `in_situ` false marks a card
   as suspect for flaggers and never rejects it.
 - **Plates are blurred before the claim is written**, in the display and thumbnail only.
   A blur that throws fails the collection; do not catch it and publish the plate.
@@ -187,6 +187,12 @@ changing one, read the test first — it says why.
 - **A caption edit posts no chat message.** The claim already announced itself, and an
   edit is not an event — it broadcasts `caption_changed`, which the client uses to patch
   the one field rather than refetching 25 Hoods.
+- **Only the admin changes a player's colour, only from `PLAYER_COLOURS`, and never into
+  one somebody else wears.** `setPlayerColour()` in `server/lib/auth.js` is the only writer
+  after registration. The palette restriction is what keeps "the accent never touches a
+  player colour" true, and uniqueness is what keeps the map honest. No view stores a
+  colour — they all join `players.colour` at read time — so a repaint needs no backfill,
+  just the `player_updated` frame and a chat line.
 - **A reinforce's `beaten_player_id` is yourself.** `shapeClaim()` deliberately exposes
   `beaten` only for steals, and `replaced_photo_type` for reinforces, so no card ever
   says you beat yourself.
@@ -201,8 +207,11 @@ changing one, read the test first — it says why.
   that before adding a sixth.
 - **The Garage lives inside the Cards tab** as a **Parks | Garage** control, carried in
   the URL as `?kind=car`, because the tab bar has no room for a sixth label. The shelf is
-  the **Case**, the collectable is a **Not Wheels package** (`NotWheelsPack.jsx`), and a
-  card component that might receive either branches on `card.kind`.
+  the **Case**, the collectable is a **Not Wheels card** (`NotWheelsCard.jsx`), and a
+  card component that might receive either branches on `card.kind`. It was a blister
+  package with a hang tab and a plastic bubble; both were removed because underneath it
+  was already a card. The API still says `package` / `packages_held` / `packagesOf()` —
+  wire names, not player-facing — so don't rename those without a reason.
 - **The app is Park-E-Mans GO! — the sub-game inside it is just "parks".** A button reading
   "Play Parkemans GO" inside an app of that name is a button offering to launch the app
   you are already in, so the Hood sheet says **Collect parks** and the parks screen is
@@ -224,7 +233,7 @@ changing one, read the test first — it says why.
 ## Testing
 
 ```bash
-npm test        # 311 tests, no server needed, touches nothing in data/
+npm test        # 312 tests, no server needed, touches nothing in data/
 ```
 
 - `test/game.test.js` — the rules, driving the game module directly. Time is simulated by
@@ -355,23 +364,20 @@ There is no linter and no CI. Validate frontend changes by running the app
 
 ## Visual style
 
-**Kolker Brush is for the wordmark and the card titles, and nothing else.** `--wordmark`
-holds the brush face; `--display` (Rubik Mono One) still sets every heading, the map's
-Hood numbers and every `.num`, because a brush face on a table header or a two-digit map
-label would be unreadable. The card title is the other place a script belongs: it is the
-name of the object you are holding, it echoes the app's own mark, and park names arrive
-from the City in title case, which is what a script wants — so `.pcard-name` also drops
-the tracking and any uppercasing. It is set at roughly twice the size the blocky face
-was, since a script sits small on its em box; `0.9rem` on a compact card is the largest
-that still fits the longest park name in the set across two lines. The font is
-self-hosted in `web/public/fonts` with its OFL licence beside the other two — nothing
-here fetches a font at run time.
+**Inter Tight everywhere, Bold for titles.** `--body` is Inter Tight; `--display` is the
+same face and names the *role* — every rule that uses it also sets `font-weight: 700`
+(headings, the map's Hood numbers, every `.num`, card titles and values). Both kinds of
+card use it too. **Kolker Brush survives only in the wordmark** (`--wordmark`: the header
+brand and the login mark) — it's the logo, not text. Inter Tight is self-hosted in
+`web/public/fonts` as variable woff2 split latin / latin-ext, with its OFL licence beside
+it; nothing here fetches a font at run time. `0.68rem` on a compact card title is sized
+to fit the longest park name in the set across two lines.
 
 "Arctic Classified after dark" — the shintech.online house style inverted for a map-first
 app used outdoors at night. The rules carry over unchanged and `web/src/styles.css`
 states them at the top: no radii, 2px structural borders, 1px hairlines only inside
-containers, hard offset shadows instead of glows, Rubik Mono One for display only, Space
-Mono for everything else. This project's accent is **hazard amber `#FFB020`** — chosen
+containers, hard offset shadows instead of glows, Inter Tight throughout with Bold for
+titles. This project's accent is **hazard amber `#FFB020`** — chosen
 because the map already spends every other colour on player territory, so nothing in the
 chrome may take a hue a player could be wearing.
 

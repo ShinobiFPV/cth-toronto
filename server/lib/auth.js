@@ -63,6 +63,32 @@ function nextColour() {
     ?? PLAYER_COLOURS[db.prepare('SELECT COUNT(*) AS c FROM players').get().c % PLAYER_COLOURS.length];
 }
 
+/**
+ * The admin repaints a player. Only from the palette, because every colour in it was
+ * picked to read on the dark map and to stay clear of every accent, and never into a
+ * colour somebody else is wearing — two players in one colour makes the map a lie.
+ * Nothing stores a colour but this row: every view joins it at read time, so the whole
+ * territory, feed and binder follow on the next fetch.
+ */
+export function setPlayerColour(playerId, colour) {
+  const hex = String(colour ?? '').trim().toUpperCase();
+  const wanted = PLAYER_COLOURS.find((c) => c.toUpperCase() === hex);
+  if (!wanted) throw badRequest('BAD_COLOUR', 'That colour is not in the player palette.');
+
+  return db.transaction(() => {
+    const player = db.prepare('SELECT * FROM players WHERE id = ?').get(playerId);
+    if (!player) throw new GameError('NO_SUCH_PLAYER', 'No such player.', {}, 404);
+    if (player.colour === wanted) return { player, changed: false };
+    const wearer = db.prepare('SELECT display_name FROM players WHERE colour = ? AND id != ?')
+      .get(wanted, playerId);
+    if (wearer) {
+      throw new GameError('COLOUR_TAKEN', `${wearer.display_name} is already wearing that.`, {}, 409);
+    }
+    db.prepare('UPDATE players SET colour = ? WHERE id = ?').run(wanted, playerId);
+    return { player: db.prepare('SELECT * FROM players WHERE id = ?').get(playerId), changed: true };
+  })();
+}
+
 export function createInvite({ createdBy = null, note = null, expiresAt = null } = {}) {
   // Six groups of four uppercase base32-ish characters; no vowels, no 0/1/I/O.
   const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';

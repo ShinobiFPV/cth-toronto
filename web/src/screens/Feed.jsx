@@ -71,7 +71,7 @@ export default function Feed() {
                   ? (
                     c.claim_kind === 'car' ? (
                       <button className="btn btn-sm btn-ghost" onClick={() => setCardClaim(c.id)}
-                              title={`See the ${c.vehicle.name} package`}>
+                              title={`See the ${c.vehicle.name} card`}>
                         <CarIcon style={{ width: 14, height: 14 }} />
                         {c.vehicle.name}
                       </button>

@@ -186,6 +186,39 @@ describe('the API end to end', () => {
     });
   });
 
+  test('the admin repaints a player, from the palette, into a colour nobody wears', async () => {
+    const { data: { players, colours } } = await alice('/players');
+    assert.ok(colours.length >= players.length, 'the palette arrives with the player list');
+    const bobRow = players.find((p) => p.handle === 'bob');
+    const carolRow = players.find((p) => p.handle === 'carol');
+    const free = colours.find((c) => !players.some((p) => p.colour === c));
+    const path = `/players/${bobRow.id}/colour`;
+
+    const notAdmin = await bob(path, { method: 'PUT', body: { colour: free } });
+    assert.equal(notAdmin.status, 403);
+    assert.equal(notAdmin.data.error, 'NOT_ADMIN');
+
+    const offPalette = await alice(path, { method: 'PUT', body: { colour: '#FFB020' } });
+    assert.equal(offPalette.data.error, 'BAD_COLOUR', 'the accent amber is never a player colour');
+
+    const taken = await alice(path, { method: 'PUT', body: { colour: carolRow.colour } });
+    assert.equal(taken.status, 409);
+    assert.equal(taken.data.error, 'COLOUR_TAKEN');
+
+    const missing = await alice('/players/9999/colour', { method: 'PUT', body: { colour: free } });
+    assert.equal(missing.data.error, 'NO_SUCH_PLAYER');
+
+    // Case-insensitive on the way in, stored exactly as the palette spells it.
+    const ok = await alice(path, { method: 'PUT', body: { colour: free.toLowerCase() } });
+    assert.equal(ok.status, 200);
+    assert.equal(ok.data.player.colour, free);
+    assert.equal((await bob('/me')).data.player.colour, free, 'bob sees his new colour');
+
+    const { data: { messages } } = await alice('/chat');
+    assert.ok(messages.some((m) => m.meta?.event === 'colour' && m.meta.player_id === bobRow.id),
+      'a repaint is announced, like everything else in this game');
+  });
+
   test('an invite code burns on use', async () => {
     const code = invite();
     const a = client();

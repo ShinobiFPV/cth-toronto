@@ -10,17 +10,37 @@ import Appearance from '../components/Appearance.jsx';
 import { BUILD } from '../lib/build.js';
 
 export default function Profile() {
-  const { session, player, players, hoods, signOut } = useGame();
+  const { session, player, players, hoods, signOut, refreshPlayers, refreshHoods, refreshMe } = useGame();
   const navigate = useNavigate();
   const [rules, setRules] = useState(null);
   const [invites, setInvites] = useState(null);
   const [newCode, setNewCode] = useState(null);
   const [error, setError] = useState(null);
+  const [palette, setPalette] = useState([]);
+  const [painting, setPainting] = useState(null);     // the player id mid-repaint
+  const [colourError, setColourError] = useState(null);
 
   useEffect(() => {
     api.seasons().then((s) => setRules(s.rules)).catch(() => {});
-    if (player?.is_admin) api.invites().then((r) => setInvites(r.invites)).catch(() => {});
+    if (player?.is_admin) {
+      api.invites().then((r) => setInvites(r.invites)).catch(() => {});
+      api.players().then((r) => setPalette(r.colours ?? [])).catch(() => {});
+    }
   }, [player?.is_admin]);
+
+  const repaint = async (id, colour) => {
+    setPainting(id);
+    setColourError(null);
+    try {
+      await api.setPlayerColour(id, colour);
+      // The socket frame does this for everybody else; do not wait on it for yourself.
+      await Promise.all([refreshPlayers(), refreshHoods(), id === player?.id ? refreshMe() : null]);
+    } catch (err) {
+      setColourError(err.message);
+    } finally {
+      setPainting(null);
+    }
+  };
 
   const mine = hoods.filter((h) => h.owner?.id === player?.id);
   const xp = session?.xp;
@@ -195,6 +215,40 @@ export default function Profile() {
           <button className="btn btn-block" style={{ marginTop: '0.6rem' }} onClick={mintInvite}>
             Mint an invite
           </button>
+        </div>
+      )}
+
+      {player?.is_admin && palette.length > 0 && (
+        <div>
+          <h2 style={{ marginBottom: '0.5rem' }}>Player colours</h2>
+          {colourError && <Banner kind="bad">{colourError}</Banner>}
+          <div className="sheet">
+            {players.map((p) => (
+              <div key={p.id} className="row player-paint">
+                <div className="cluster">
+                  <i className="dot" style={{ background: p.colour }} />
+                  <span className="grow">{p.display_name}</span>
+                  {painting === p.id && <span className="tiny dim">repainting…</span>}
+                </div>
+                <div className="swatches" role="radiogroup" aria-label={`${p.display_name}’s colour`}>
+                  {palette.map((c) => {
+                    const wearer = players.find((o) => o.colour === c && o.id !== p.id);
+                    return (
+                      <button key={c} type="button" className="swatch" role="radio"
+                              aria-checked={p.colour === c} disabled={!!wearer || painting != null}
+                              title={wearer ? `${wearer.display_name} is wearing this` : c}
+                              style={{ '--sw': c }}
+                              onClick={() => p.colour !== c && repaint(p.id, c)} />
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="tiny dim" style={{ marginTop: '0.4rem' }}>
+            Greyed-out colours are already taken. The change lands on everybody’s map at once
+            and is announced in chat.
+          </div>
         </div>
       )}
 

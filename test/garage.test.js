@@ -364,7 +364,8 @@ describe('the Case, and what it does not inflate', () => {
   test('cars have their own counters and never count as parks', () => {
     db.prepare(`INSERT INTO parks (id, name, hood_id, lat, lng, value, distance_km, set_number)
                 VALUES (8802, 'Counter Park', 13, 43.65, -79.38, 40, 5, 1)`).run();
-    parks.commitCollect({ parkId: 8802, playerId: alice, photo: photo() });
+    // rand: never, or one run in ten the park rolls its own Steel and by_edition is not {}.
+    parks.commitCollect({ parkId: 8802, playerId: alice, photo: photo(), rand: never });
     snap(alice, 'Honda', 'Civic', { rand: always('gold') });
     snap(alice, 'Mazda', 'CX-5');
 

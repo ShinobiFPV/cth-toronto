@@ -12,7 +12,7 @@ import { api } from '../lib/api.js';
 import { CloseIcon } from './icons.jsx';
 import { Spinner } from './bits.jsx';
 import ParkCard from './ParkCard.jsx';
-import NotWheelsPack from './NotWheelsPack.jsx';
+import NotWheelsCard from './NotWheelsCard.jsx';
 
 export default function CardLightbox({ claimId, onClose }) {
   const [card, setCard] = useState(null);
@@ -43,7 +43,7 @@ export default function CardLightbox({ claimId, onClose }) {
          aria-label="Park card">
       {/* Stop a tap on the card itself from closing the thing you just opened. */}
       <div onClick={(e) => e.stopPropagation()}>
-        {card && (card.kind === 'car' ? <NotWheelsPack card={card} /> : <ParkCard card={card} />)}
+        {card && (card.kind === 'car' ? <NotWheelsCard card={card} /> : <ParkCard card={card} />)}
         {!card && !error && <Spinner />}
         {error && <div className="empty">{error}</div>}
       </div>

@@ -4,7 +4,7 @@
 //     snaps three cars past it already knows why no points moved — otherwise it gets
 //     filed as a bug.
 //   - The identify call. The server asks what the car is between the upload and the
-//     package, which takes a few seconds, so the sheet says "Identifying…" instead of
+//     card, which takes a few seconds, so the sheet says "Identifying…" instead of
 //     leaving a dead spinner.
 import { useEffect, useRef, useState } from 'react';
 import { api, uploadCar } from '../lib/api.js';
@@ -12,7 +12,7 @@ import { useGame } from '../lib/store.jsx';
 import { CameraIcon, CloseIcon } from './icons.jsx';
 import { Banner, Spinner } from './bits.jsx';
 import { CAPTION_MAX } from './Caption.jsx';
-import NotWheelsPack from './NotWheelsPack.jsx';
+import NotWheelsCard from './NotWheelsCard.jsx';
 
 const HEIC = /\.(heic|heif)$/i;
 const isHeic = (f) => HEIC.test(f.name || '') || /image\/hei[cf]/i.test(f.type || '');
@@ -133,8 +133,8 @@ export default function CarCollect({ onClose, onDone }) {
         <div className="sheet-body stack">
           {phase === 'done' && result ? (
             <>
-              <div className="nwpack-reveal">
-                <NotWheelsPack card={result.package} />
+              <div className="nwcard-reveal">
+                <NotWheelsCard card={result.package} />
               </div>
               <div className="tiny" style={{ textAlign: 'center' }}>
                 {result.repeat
@@ -152,7 +152,7 @@ export default function CarCollect({ onClose, onDone }) {
             <>
               <div className="tiny dim">
                 Any car on the street. Get the whole thing in — side-on or three-quarters is
-                what the identifier reads best. One package per car per season; plates are
+                what the identifier reads best. One card per car per season; plates are
                 blurred before anybody else sees the photo.
               </div>
 
@@ -192,10 +192,10 @@ export default function CarCollect({ onClose, onDone }) {
               {preview && (
                 <div>
                   <input className="caption-input" value={caption} maxLength={CAPTION_MAX}
-                         placeholder="Flavour text for the package (optional)" disabled={busy}
+                         placeholder="Flavour text for the card (optional)" disabled={busy}
                          onChange={(e) => setCaption(e.target.value)} />
                   <div className="cluster tiny dim" style={{ marginTop: '0.3rem' }}>
-                    <span className="grow">Printed on the backing card.</span>
+                    <span className="grow">Printed on the card.</span>
                     <span>{CAPTION_MAX - caption.length}</span>
                   </div>
                 </div>

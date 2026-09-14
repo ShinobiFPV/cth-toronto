@@ -122,7 +122,7 @@ export function resolveIdentification(raw, { minConfidence = 0.5 } = {}) {
   if (!make || !model || confidence < minConfidence) {
     throw new GameError('IDENTIFY_UNSURE',
       make && model
-        ? `It might be a ${make} ${model}, but it is not sure enough to print a package. `
+        ? `It might be a ${make} ${model}, but it is not sure enough to print a card.`
           + 'A side-on or three-quarter shot of the whole car usually does it.'
         : 'It could not tell what that is. A side-on or three-quarter shot of the whole car '
           + 'usually does it.',

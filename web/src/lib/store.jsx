@@ -32,6 +32,11 @@ export function GameProvider({ children }) {
     setHoods(hoods);
   }, []);
 
+  const refreshPlayers = useCallback(async () => {
+    const { players } = await api.players();
+    setPlayers(players);
+  }, []);
+
   const refreshMe = useCallback(async () => {
     const me = await api.me();
     setSession(me);
@@ -105,6 +110,12 @@ export function GameProvider({ children }) {
           if (me && (payload?.to?.id === me || payload?.from?.id === me)) {
             refreshMe().catch(() => {});
           }
+        } else if (type === 'player_updated') {
+          // The admin repainted somebody. Colours are joined at read time everywhere, so
+          // the Hood list carries the new one; the header needs /me if it was you.
+          refreshPlayers().catch(() => {});
+          refreshHoods().catch(() => {});
+          if (payload?.player?.id === session?.player?.id) refreshMe().catch(() => {});
         } else if (type === 'caption_changed') {
           // Nothing in the ledger moved, so patch the one field rather than refetching
           // 25 Hoods. Anyone with that Hood's sheet open sees the new line.
@@ -134,7 +145,7 @@ export function GameProvider({ children }) {
       socketRef.current?.close();
       socketRef.current = null;
     };
-  }, [session?.player?.id, refreshHoods, refreshMe]);
+  }, [session?.player?.id, refreshHoods, refreshMe, refreshPlayers]);
 
   // Re-sync whenever the app comes back to the foreground — a phone that was in a
   // pocket for an hour has a stale map and quite possibly a dead socket.
@@ -190,10 +201,10 @@ export function GameProvider({ children }) {
   const value = useMemo(() => ({
     session, player: session?.player ?? null,
     hoods, players, messages, online, unreadChat, booting, connected,
-    refreshHoods, refreshMe, say, loadOlderMessages, markChatRead, signIn, signOut,
+    refreshHoods, refreshMe, refreshPlayers, say, loadOlderMessages, markChatRead, signIn, signOut,
     hoodById: (id) => hoods.find((h) => h.id === Number(id)) ?? null,
   }), [session, hoods, players, messages, online, unreadChat, booting, connected,
-       refreshHoods, refreshMe, say, loadOlderMessages, markChatRead, signIn, signOut]);
+       refreshHoods, refreshMe, refreshPlayers, say, loadOlderMessages, markChatRead, signIn, signOut]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

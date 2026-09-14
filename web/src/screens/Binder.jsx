@@ -105,7 +105,7 @@ export default function Binder() {
         {kind === 'car'
           ? (isMine
             ? `Every car you have snapped. ${session?.season ? 'Five points a car, up to 100 a week; ' : ''}`
-              + 'past that, still a package and still the XP.'
+              + 'past that, still a card and still the XP.'
             : 'Every car they have snapped. Nobody loses anything to a photo of a car, so '
               + 'compare away.')
           : (isMine

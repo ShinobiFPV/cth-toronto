@@ -58,16 +58,16 @@ export default function Trades() {
     }
   };
 
-  // A park card shows what the park is worth; a Not Wheels package's worth is its print.
+  // A park card shows what the park is worth; a Not Wheels card's worth is its print.
   const Card = ({ side, card }) => {
     const name = card.name ?? card.park_name;
     return (
       <button className="trade-card" onClick={() => setCardClaim(card.claim_id)}
-              title={`See the ${name} ${card.kind === 'car' ? 'package' : 'card'}`}>
+              title={`See the ${name} card`}>
         <span className="tiny dim">{side}</span>
         <b className="truncate">{name}</b>
         <span className="tiny dim">
-          {card.kind === 'car' ? `${card.edition} package` : `+${card.value}`}
+          {card.kind === 'car' ? `${card.edition} car card` : `+${card.value}`}
         </span>
       </button>
     );
@@ -150,7 +150,7 @@ export default function Trades() {
 
       <h1>Offers</h1>
       <p className="tiny dim" style={{ margin: '0.3rem 0 0.9rem' }}>
-        Cards and packages change hands; scores do not. Whoever went and got one keeps its
+        Cards change hands; scores do not. Whoever went and got one keeps its
         points and XP, whatever happens to it afterwards.
       </p>
 

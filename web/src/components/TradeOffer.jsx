@@ -31,7 +31,7 @@ export default function TradeOffer({ card, onClose, onSent }) {
     let cancelled = false;
     setTheirCards(null);
     setWantId(null);
-    // Both shelves: a package can be asked for in exchange for a park card and back.
+    // Both shelves: a car card can be asked for in exchange for a park card and back.
     Promise.all([api.cards(null, toId), api.cards(null, toId, 'car')])
       .then(([parksShelf, carShelf]) => !cancelled
         && setTheirCards([...parksShelf.cards, ...carShelf.cards]))
@@ -68,7 +68,7 @@ export default function TradeOffer({ card, onClose, onSent }) {
             <h1>Offer {cardName(card)}</h1>
             <div className="tiny dim">
               {card.kind === 'car'
-                ? `${card.edition_label} package · ${card.season?.name}${card.vehicle.year ? ` · ${card.vehicle.year}` : ''}`
+                ? `${card.edition_label} car card · ${card.season?.name}${card.vehicle.year ? ` · ${card.vehicle.year}` : ''}`
                 : `${card.rarity_label} · ${card.season?.name} · #${String(card.park.set_number ?? card.park.id).padStart(4, '0')}`}
             </div>
           </div>

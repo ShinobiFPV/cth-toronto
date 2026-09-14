@@ -1,4 +1,4 @@
-// The Case: every Not Wheels package somebody holds. The Garage half of the Cards tab.
+// The Case: every Not Wheels card somebody holds. The Garage half of the Cards tab.
 //
 // Public, like a binder, for the same reason — nobody loses anything when you photograph
 // a car, and comparing pulls is most of the fun. Only your own Case has the camera
@@ -8,7 +8,7 @@ import { api } from '../lib/api.js';
 import { useGame } from '../lib/store.jsx';
 import { CameraIcon, CloseIcon, SwapIcon } from './icons.jsx';
 import { Spinner } from './bits.jsx';
-import NotWheelsPack from './NotWheelsPack.jsx';
+import NotWheelsCard from './NotWheelsCard.jsx';
 import CarCollect from './CarCollect.jsx';
 
 // Rarest first, as everywhere editions are listed.
@@ -86,7 +86,7 @@ export default function Case({ viewing, isMine, onOffer }) {
           </div>
           <div className="row">
             <span className="grow dim">
-              Packages in the Case
+              Cards in the Case
               {(s.packages_received > 0 || s.packages_given_away > 0) && (
                 <span className="tiny"> · {s.packages_received} in, {s.packages_given_away} out</span>
               )}
@@ -124,7 +124,7 @@ export default function Case({ viewing, isMine, onOffer }) {
       {!loading && !packs.length && (
         <div className="empty">
           {isMine
-            ? 'The Case is empty. Every car on the street is a package waiting to be printed.'
+            ? 'The Case is empty. Every car on the street is a card waiting to be printed.'
             : 'They have not snapped a car yet.'}
         </div>
       )}
@@ -132,7 +132,7 @@ export default function Case({ viewing, isMine, onOffer }) {
       <div className="card-grid">
         {packs.map((p) => (
           <div key={p.claim_id} className="card-slot">
-            <NotWheelsPack card={p} compact onClick={() => setZoom(p)} />
+            <NotWheelsCard card={p} compact onClick={() => setZoom(p)} />
             {p.traded && (
               <span className="card-from tiny" title={`Snapped by ${p.player.display_name}`}>
                 <i className="dot" style={{ background: p.player.colour }} />
@@ -146,7 +146,7 @@ export default function Case({ viewing, isMine, onOffer }) {
       {zoom && (
         <div className="lightbox" onClick={() => setZoom(null)} role="dialog" aria-modal="true">
           <div onClick={(e) => e.stopPropagation()} className="stack" style={{ alignItems: 'center' }}>
-            <NotWheelsPack card={zoom} />
+            <NotWheelsCard card={zoom} />
             <div className="lightbox-note">
               Snapped by {zoom.player.display_name} in {zoom.hood?.label}
               {zoom.confidence != null && ` · identified ${Math.round(zoom.confidence * 100)}% sure`}
@@ -154,7 +154,7 @@ export default function Case({ viewing, isMine, onOffer }) {
             </div>
             {isMine && players.length > 1 && (
               <button className="btn btn-primary" onClick={() => { onOffer?.(zoom); setZoom(null); }}>
-                <SwapIcon style={{ width: 16, height: 16 }} /> Offer this package
+                <SwapIcon style={{ width: 16, height: 16 }} /> Offer this card
               </button>
             )}
           </div>
