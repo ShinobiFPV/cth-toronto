@@ -367,8 +367,10 @@ There is no linter and no CI. Validate frontend changes by running the app
 **Inter Tight everywhere, Bold for titles.** `--body` is Inter Tight; `--display` is the
 same face and names the *role* — every rule that uses it also sets `font-weight: 700`
 (headings, the map's Hood numbers, every `.num`, card titles and values). Both kinds of
-card use it too. **Kolker Brush survives only in the wordmark** (`--wordmark`: the header
-brand and the login mark) — it's the logo, not text. Inter Tight is self-hosted in
+card use it too, and so does the wordmark (`--wordmark`, the header brand and the login
+mark) — the Kolker Brush script it used to wear is gone. The header mark's `clamp()` is
+sized to the width the brush mark had, which was measured against the whole header row;
+re-check a 320px phone if you change it. Inter Tight is self-hosted in
 `web/public/fonts` as variable woff2 split latin / latin-ext, with its OFL licence beside
 it; nothing here fetches a font at run time. `0.68rem` on a compact card title is sized
 to fit the longest park name in the set across two lines.

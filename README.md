@@ -410,7 +410,7 @@ Hood boundaries and all 1,513 parks come from
 [City of Toronto Open Data](https://open.toronto.ca/), used under the
 [Open Government Licence – Toronto](https://open.toronto.ca/open-data-license/). Map tiles
 © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors. Type is Inter Tight,
-with Kolker Brush for the wordmark, both under the SIL Open Font License. Cars are identified by
+under the SIL Open Font License. Cars are identified by
 [Claude](https://www.anthropic.com/claude). Not Wheels is a joke about the format, not a
 product, and has nothing to do with anybody's diecast cars.
 

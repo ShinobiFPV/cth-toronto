@@ -16,13 +16,6 @@
    file may claim a hue that a player could also be wearing.
    ──────────────────────────────────────────────────────────────────────── */
 
-/* The wordmark's own face. A brush script is wonderful for a name and unreadable for a
-   table header, so it is scoped to the wordmark and nothing else — see --wordmark. */
-@font-face {
-  font-family: 'KolkerBrush';
-  src: url('/fonts/KolkerBrush-Regular.woff2') format('woff2');
-  font-weight: 400; font-style: normal; font-display: swap;
-}
 /* Inter Tight, self-hosted. Each file is variable, so one per style covers Regular and
    Bold alike. Split latin / latin-ext the way Google splits it: an accented park name
    fetches the second file only when one is actually on screen. */
@@ -111,8 +104,9 @@
   /* Titles are the same face at Bold. Anything set in --display also sets
      font-weight: 700 — the token names the role, the weight does the work. */
   --display: var(--body);
-  /* The app's name, and only the app's name. */
-  --wordmark: 'KolkerBrush', 'InterTight', cursive;
+  /* The app's name. Inter Tight Bold like every other title; kept as its own token so
+     the mark can be restyled without touching headings. */
+  --wordmark: var(--display);
 
   --radius: 0px;
   --tap: 44px;              /* minimum touch target */
@@ -238,35 +232,34 @@ button, input, select, textarea { font: inherit; color: inherit; }
 }
 
 /* The sign-in page's wordmark. Bigger than the header's, since it is the only thing
-   on the screen, and the brush face wants room. */
+   on the screen. */
 .login-mark {
   font-family: var(--wordmark);
-  /* "Park-E-Mans" is the longest line; this is as big as it gets before it stops fitting
-     a 320px phone. */
-  font-size: clamp(3.4rem, 18vw, 4.8rem);
-  line-height: 0.95;
-  letter-spacing: 0;
+  font-weight: 700;
+  /* "Park-E-Mans" is the longest line, about 6.2em wide in Inter Tight Bold, so 13vw
+     keeps it inside a 320px phone's gutters. */
+  font-size: clamp(2.4rem, 13vw, 3.4rem);
+  line-height: 1;
+  letter-spacing: -0.02em;
   margin: 0;
 }
 .login-mark span { color: var(--accent); }
 
 .header .brand {
   font-family: var(--wordmark);
-  /* A brush script sits small on its em box and has no business being letter-spaced,
-     so the wordmark is set much larger than the blocky face it replaced and pulled
-     back onto the header's baseline.
-     Scaled with the viewport rather than fixed: the header shares its row with the
+  font-weight: 700;
+  /* Scaled with the viewport rather than fixed: the header shares its row with the
      points and Hoods stats and the level badge, so the largest size that fits a 390px
-     phone would push them off a 320px one. ~25px at 320, ~37px at 390, 40px from
-     about 410. Measured against the whole row, badge included — sizing it against the
-     stats alone once widened every screen by 11-20px. */
-  font-size: clamp(1.55rem, 17.14vw - 1.87rem, 2.5rem);
+     phone would push them off a 320px one. The mark is ~8.2em wide in Inter Tight
+     Bold; this gives it the same width the old brush mark had — ~17px at 320, ~26px at
+     390, 28px from about 410 — and that width was measured against the whole row,
+     badge included. Sizing against the stats alone once widened every screen. */
+  font-size: clamp(1.09rem, 11.86vw - 1.28rem, 1.75rem);
   line-height: 1;
-  letter-spacing: 0;
+  letter-spacing: -0.01em;
   white-space: nowrap;
-  padding-bottom: 0.15rem;
 }
-.header .brand b { color: var(--accent); font-weight: 400; }
+.header .brand b { color: var(--accent); font-weight: inherit; }
 
 /* Chrome is black whatever the theme, so its contents do not follow --text. */
 .header, .tabbar, .composer { color: var(--on-chrome); }

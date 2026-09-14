@@ -38,7 +38,7 @@ export default function Login() {
 
   return (
     <div className="screen-pad" style={{ maxWidth: 420, margin: '0 auto', paddingTop: '3rem' }}>
-      {/* The wordmark, in the brush face, same as the header once you are in. Not an
+      {/* The wordmark, set the same as the header once you are in. Not an
           <h1> default: this is the app's name rather than a page title. */}
       <h1 className="login-mark">
         Park-E-Mans<br /><span>GO!</span>
