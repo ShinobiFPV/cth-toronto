@@ -874,6 +874,113 @@ tell it needs to re-resolve without diffing. An admin change also broadcasts `au
 
 ---
 
+## 1.8g Scavenger Blitz
+
+A hunt is five things to find. Two kinds:
+
+- **Park hunt** — five things in one park you pick: at least two amenities the park actually
+  has (a third half the time, when it has three), the rest things any green space has — a
+  bench, a big tree, a squirrel. At most two animals. The easy mode, made for doing with a kid.
+- **Street hunt** — five passenger vehicles by make, model and year window: three common, two
+  uncommon, from `server/data/hunt-vehicles.json` (versioned). Worth three times the XP.
+
+Three hunts at a time, no time limit, and they survive season rollover. Reached from the
+map's small **Blitz** button and the profile; the screen is `/hunts`.
+
+### Generation
+
+`server/lib/hunt-generate.js`, pure. A hunt is drawn from a fresh random seed and **frozen**:
+every item's label is written onto its `hunt_items` row, so a hunt issued in October still
+reads the same after the vehicle list changes. The seed is stored and regenerates the same
+five items, which makes "why did I get this hunt" answerable. Pools are season-filtered —
+no splash pad in winter, no rink or snow in summer — using the game season's name, or the
+Toronto calendar between seasons.
+
+**Amenities come from the City's data, never a model's guess.** A model asked to invent
+items for a park by its name puts a splash pad in a parkette that is a bench and two trees,
+and a child goes looking for it. `park_amenities` is rebuilt from `parks.amenities` — the
+same `parks-and-recreation-facilities` records the parks came from, keyed by the same
+ASSET_ID — by `import-parks.js`, by `scripts/import-amenities.js`, and on boot when it is
+empty. A park with no amenity record still gets a full hunt from the universal pool. Ice
+rinks, splash pads and wading pools are in the item pool but not in that dataset, so they
+come up only if a later import adds them.
+
+### Finding things
+
+`POST /api/hunts/:id/submit` with one photo for one slot.
+
+- **Park**: a vision call (`server/lib/hunt-verify.js`) asks whether the item is in the
+  photo, generously. One billed call per photo.
+- **Street**: the car identifier, with the slot's target named in the same call — one call,
+  both answers. The slot ticks if the model says `target_match`, or if its identification
+  matches the target: same make, the target's model anywhere in model, trim or generation,
+  and an overlapping year window when it gave one.
+
+**Confirm, don't gatekeep.** A photo the camera does not confirm is kept, and the sheet
+offers **"I'm sure — mark it anyway"** (`POST /override`), which marks the item unverified,
+flags it, and says so in chat. Once the hunt completes, its claim can be flagged like any
+other. It never tells the player they were wrong.
+
+**Hunt progress and card minting are independent.** A street photo also goes through the
+ordinary car pipeline. A car already in the binder refuses with `ALREADY_COLLECTED` and the
+slot still ticks; a car past the weekly car cap mints for 0 and the slot still ticks.
+
+### Rewards
+
+Completion writes a claim, `claim_kind = 'hunt'` with `hunt_id` set, so scoring, the feed,
+chat, flags and reversal need no special cases. It never touches `hood_state`, and it uses
+`hunt_id` rather than `park_id` so it cannot collide with the once-per-season park index.
+
+| | |
+|---|---|
+| Points | `CTH_HUNT_POINTS` 10, clamped by `min()` against what is left of `CTH_HUNT_SEASON_POINTS_CAP` 200 |
+| XP | 80 park, 240 street |
+| Items | `CTH_HUNT_ITEMS` 3, source `hunt`, **exempt from the weekly item cap** |
+| Cards | whatever the street photos mint through the normal pipeline |
+
+**Rewards attribute to the season the hunt is completed in**, and that season's cap applies.
+
+**The item problem, §5.2 of the draft, resolved as its recommendation:** hunt items do not
+count against `CTH_ITEM_WEEKLY_CAP`. Instead the first `CTH_HUNT_WEEKLY_SCORING_LIMIT` (3)
+completions a week score; past that a hunt completes for XP only — no points, no items. A
+completion reverted by flags gives its place back.
+
+Park hunt photos stay with the player: they are not on the claim, and the chat line carries
+no thumbnails, unless `CTH_HUNT_PARK_PHOTOS_PUBLIC`. A five-photo log of a child's afternoon
+in a park is a different thing from a binder. Street hunts post a strip of their five
+thumbnails with the completion line.
+
+### Slots and abandoning
+
+`HUNT_SLOTS_FULL` past three. Abandoning frees the slot with no reward, and starts a 6-hour
+`ABANDON_COOLDOWN` on abandoning again — derived from the last abandoned hunt's `ended_at`,
+not a table — because abandoning is a reroll.
+
+### Data
+
+```sql
+hunts(id, player_id, kind, park_id, seed, pool_version, status, started_at, ended_at,
+      completed_at, season_id, week_key, claim_id, scoring)
+hunt_items(id, hunt_id, slot, target_type, target_key, label, target_json, photo_id, hood_id,
+           verified, overridden, flagged, attempted_at, completed_at, UNIQUE(hunt_id, slot))
+park_amenities(park_id, amenity, PRIMARY KEY (park_id, amenity))
+-- plus claims.hunt_id and item_grants.source ('pull' | 'hunt')
+```
+
+| Code | Condition |
+|---|---|
+| `BAD_HUNT_KIND` | not `park` or `street` |
+| `HUNT_SLOTS_FULL` | three hunts already going |
+| `PARK_NOT_FOUND` | a park hunt without a real park |
+| `HUNT_NOT_FOUND` | no hunt of yours with that id |
+| `HUNT_COMPLETE` / `HUNT_NOT_ACTIVE` | finished, or abandoned |
+| `BAD_SLOT` / `SLOT_ALREADY_DONE` | not 0–4, or already found |
+| `HOOD_REQUIRED` | a street photo without its Hood |
+| `NO_ATTEMPT` | "I'm sure" before any photo was sent |
+| `ABANDON_COOLDOWN` | abandoned another inside 6h — returns `available_at` |
+
+---
+
 ## 1.9 XP and levels
 
 Season points answer *who is winning right now*. XP answers *how long have you been doing
@@ -1198,6 +1305,13 @@ PUT    /api/claims/:id/caption     caption — author only; empty clears it (§1
 POST   /api/claims/:id/flag        reason
 DELETE /api/claims/:id/flag        let people withdraw a flag
 
+GET    /api/hunts                  active hunts, recent ones, and every limit (§1.8g)
+GET    /api/hunts/parks            in-season amenities per park, for the picker — no positions
+POST   /api/hunts                  kind, park_id? — a new hunt, generated and frozen
+POST   /api/hunts/:id/submit       multipart: photo, slot, hood_id (street)
+POST   /api/hunts/:id/override     slot — "I'm sure": marks, flags, posts to chat
+POST   /api/hunts/:id/abandon      no reward; starts the abandon cooldown
+
 GET    /api/chat?before=           message history, paginated
 WS     /ws                         chat + live hood_changed / claim_created / caption_changed
 ```
@@ -1407,6 +1521,18 @@ see how people actually behave.
   - *Photo EXIF GPS* — the shot-data panel still reads a photo's GPS from its EXIF for disputes.
     It predates the location feature and sits inside the image rather than in a request, but it
     is the obvious next thing to decide if "location never reaches the server" is to be total.
+- **Scavenger Blitz (§1.8g)** — built on these defaults, every one a lever in `server/config.js`:
+  - *Hunt items versus the item cap* — **exempt, with a weekly limit of 3 scoring hunts**, as
+    the draft recommended. `CTH_ITEM_WEEKLY_CAP` was left at 4; it now limits pulls only.
+  - *XP gap* — 80 park, 240 street. Big enough that a street hunt reads as the bigger outing.
+  - *Common/uncommon* — 3/2. `CTH_HUNT_COMMON` / `CTH_HUNT_UNCOMMON`; 4/1 finishes faster.
+  - *Abandon cooldown* — 6h.
+  - *The DoorDash bike* — **out**, with the rest of the non-passenger vehicles. Pickups are in.
+  - *Presence at the park* — not required; the picker suggests nearby parks and any Hood's
+    parks can be picked by hand. If players shop across the city for easy hunts, a cooldown
+    on generation is the lighter fix.
+  - *Park hunt photos* — **private** by default (`CTH_HUNT_PARK_PHOTOS_PUBLIC`).
+  - *Cost* — every park hunt photo is one billed vision call, like every street one.
 - **Items (§1.8d)** — built on these defaults, every one a lever in `server/config.js`:
   - *Weekly item cap* — **4** is a guess. It is the one number that decides whether Fortify
     is an event or a tax, and the first thing worth revisiting after a month of play.

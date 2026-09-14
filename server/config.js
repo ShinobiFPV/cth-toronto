@@ -190,6 +190,30 @@ export const config = {
   FFMPEG: process.env.CTH_FFMPEG || 'ffmpeg',
   FFPROBE: process.env.CTH_FFPROBE || 'ffprobe',
 
+  // ── Scavenger Blitz ────────────────────────────────────────────────────
+  HUNT_ACTIVE_LIMIT: num('CTH_HUNT_ACTIVE_LIMIT', 3),
+  // Abandoning is a reroll; the cooldown makes scumming slower than doing the hunt.
+  HUNT_ABANDON_COOLDOWN_HOURS: num('CTH_HUNT_ABANDON_COOLDOWN_HOURS', 6),
+  HUNT_POINTS: num('CTH_HUNT_POINTS', 10),
+  // Per player per season; the hunt that crosses it is clamped. 0 = uncapped.
+  HUNT_SEASON_POINTS_CAP: num('CTH_HUNT_SEASON_POINTS_CAP', 200),
+  // Scoring completions per week. Past it a hunt still completes and pays its XP; it earns
+  // no points and no items. Hunt items do not count against ITEM_WEEKLY_CAP — this limit is
+  // what bounds them instead. 0 = unlimited.
+  HUNT_WEEKLY_SCORING_LIMIT: num('CTH_HUNT_WEEKLY_SCORING_LIMIT', 3),
+  HUNT_ITEMS: num('CTH_HUNT_ITEMS', 3),
+  // Five specific models is materially harder than a bench and a squirrel, and pays like it.
+  HUNT_XP_PARK: num('CTH_HUNT_XP_PARK', 80),
+  HUNT_XP_STREET: num('CTH_HUNT_XP_STREET', 240),
+  HUNT_COMMON: num('CTH_HUNT_COMMON', 3),
+  HUNT_UNCOMMON: num('CTH_HUNT_UNCOMMON', 2),
+  // Park hunts are often a child's afternoon. Their photos stay with the player — out of the
+  // feed and chat — unless this is turned on. Street hunt photos are car photos, and public.
+  HUNT_PARK_PHOTOS_PUBLIC: bool('CTH_HUNT_PARK_PHOTOS_PUBLIC', false),
+  // The street target list. Read on every new hunt, so a copy on the Pi can be topped up
+  // without a deploy.
+  HUNT_VEHICLES_FILE: process.env.CTH_HUNT_VEHICLES || path.join(ROOT, 'server', 'data', 'hunt-vehicles.json'),
+
   timezone: process.env.CTH_TZ || 'America/Toronto',
 };
 

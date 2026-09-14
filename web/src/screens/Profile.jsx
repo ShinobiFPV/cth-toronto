@@ -132,6 +132,11 @@ export default function Profile() {
           : <span className="tiny dim">from Gold and Hologram pulls</span>}
       </Link>
 
+      <Link className="btn btn-block" to="/hunts" style={{ justifyContent: 'space-between' }}>
+        <span>Scavenger Blitz</span>
+        <span className="tiny dim">find five things</span>
+      </Link>
+
       <div>
         <h2 style={{ marginBottom: '0.5rem' }}>Your Hoods</h2>
         {!mine.length && <div className="empty">None yet. The map is right there.</div>}
@@ -214,6 +219,18 @@ export default function Profile() {
                     for one. Crowbar breaks a lock, Sprint skips the next-door cooldown,
                     Tune-Up opens a reinforce gate, Clover doubles your Gold and Hologram
                     odds for {rules.clover_hours}h. Items expire at the end of the season.</li>
+                {rules.hunt_points != null && (
+                  <li><b>Scavenger Blitz:</b> find five things in a park, or five cars on the
+                      street. A finished hunt pays +{rules.hunt_points} (at most
+                      {' '}{rules.hunt_season_points_cap} a season), {rules.hunt_xp_park} XP in a
+                      park or {rules.hunt_xp_street} on the street, and {rules.hunt_items} items
+                      that do not count against the weekly item limit.
+                      {rules.hunt_weekly_scoring_limit > 0 && ` The first ${rules.hunt_weekly_scoring_limit} a week score; after that a hunt pays XP only.`}
+                      {' '}{rules.hunt_active_limit} hunts at a time; abandon one and you cannot
+                      abandon another for {rules.hunt_abandon_cooldown_hours}h. The camera checks
+                      each photo, and when it cannot tell, "I'm sure" marks it and tells
+                      everybody.</li>
+                )}
                 <li>Honour system: recent photo, taken inside the Hood, actually showing
                     what you declared. Nobody checks. Everybody can flag.</li>
               </ul>

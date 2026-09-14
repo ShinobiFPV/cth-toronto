@@ -22,6 +22,7 @@ import { carRoutes } from './routes/cars.js';
 import { itemRoutes } from './routes/items.js';
 import { cardRoutes } from './routes/cards.js';
 import { audioRoutes } from './routes/audio.js';
+import { huntRoutes } from './routes/hunts.js';
 import { sendAudio } from './lib/audio.js';
 import { refuseCoordinates } from './lib/privacy.js';
 import { activeSeason } from './lib/seasons.js';
@@ -60,6 +61,7 @@ app.use('/api', carRoutes);
 app.use('/api', itemRoutes);
 app.use('/api', cardRoutes);
 app.use('/api', audioRoutes);
+app.use('/api', huntRoutes);
 
 // Sound files, resolved per slot to the admin's override or the repo default. Ahead of the
 // static roots, which also contain the defaults under the same path.

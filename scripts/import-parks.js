@@ -194,6 +194,12 @@ async function main() {
   // so it can never describe a different set of parks than the game has.
   const { buildParkIndex } = await import('./build-park-index.js');
   console.log(`[parks] ${buildParkIndex(db)} parks written to web/public/parks.index.json`);
+
+  // Park hunts draw from each park's amenities. They came in on the same records, keyed by
+  // the same ASSET_ID, so they are rebuilt from what was just written.
+  const { rebuildAmenitiesFromParks } = await import('../server/lib/amenities.js');
+  const amenities = rebuildAmenitiesFromParks(db);
+  console.log(`[parks] ${amenities.rows} amenities recorded across ${amenities.parks} parks, for park hunts`);
 }
 
 main().then(() => process.exit(0)).catch((err) => {

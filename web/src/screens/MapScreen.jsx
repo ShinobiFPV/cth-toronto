@@ -17,7 +17,7 @@ import { useNavigate } from 'react-router-dom';
 import HoodSheet from '../components/HoodSheet.jsx';
 import CarCollect from '../components/CarCollect.jsx';
 import FindPark from '../components/FindPark.jsx';
-import { CarIcon, CloseIcon, LocateIcon, PinIcon } from '../components/icons.jsx';
+import { CarIcon, CloseIcon, HuntIcon, LocateIcon, PinIcon } from '../components/icons.jsx';
 import { watchFix, secureContext, locationSupported } from '../lib/location.js';
 import { formatDistance, directionsUrl, locateFailure } from '../lib/nearby.js';
 import { setMusicWanted } from '../lib/audio.js';
@@ -584,6 +584,11 @@ export default function MapScreen() {
         <div className="map-fabs">
           {locateNote && <div className="map-locate-note tiny">{locateNote}</div>}
           <div className="map-locate">
+            {/* Scavenger Blitz. Small and in the furniture row, not a third primary FAB. */}
+            <button className="btn btn-sm map-locate-btn map-blitz-btn" title="Scavenger Blitz"
+                    onClick={() => navigate('/hunts')}>
+              <HuntIcon style={{ width: 18, height: 18 }} /> Blitz
+            </button>
             {tracking && (
               <button className="btn btn-sm map-locate-btn" aria-label="Hide my location"
                       title="Hide my location"

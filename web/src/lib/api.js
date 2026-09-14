@@ -117,6 +117,14 @@ export const api = {
   useItem: (grantId, targetHoodId = null) =>
     request('/items/use', { method: 'POST', body: { grant_id: grantId, target_hood_id: targetHoodId } }),
 
+  // Scavenger Blitz. Photos go through uploadHuntPhoto, below.
+  hunts: () => request('/hunts'),
+  // In-season amenities per park, for the park picker. No positions: the phone has those.
+  huntParks: () => request('/hunts/parks'),
+  startHunt: (kind, parkId = null) => request('/hunts', { method: 'POST', body: { kind, park_id: parkId } }),
+  overrideHunt: (huntId, slot) => request(`/hunts/${huntId}/override`, { method: 'POST', body: { slot } }),
+  abandonHunt: (huntId) => request(`/hunts/${huntId}/abandon`, { method: 'POST' }),
+
   // The admin sound board. Players only ever read /audio/manifest, from lib/audio.js.
   adminAudio: () => request('/admin/audio'),
   setAudioMeta: (slot, body) => request(`/admin/audio/${slot}`, { method: 'PATCH', body }),
@@ -141,7 +149,10 @@ export const uploadPark = (parkId, formData, onProgress) =>
 export const uploadCar = (formData, onProgress) =>
   upload('/api/cars/collect', formData, onProgress);
 
-export const uploadAudio = (slot, formData, onProgress) =>
+export const uploadHuntPhoto = (huntId, formData, onProgress) =>
+  upload(`/api/hunts/${huntId}/submit`, formData, onProgress);
+
+export const uploadAudio =(slot, formData, onProgress) =>
   upload(`/api/admin/audio/${slot}`, formData, onProgress);
 
 function upload(url, formData, onProgress) {

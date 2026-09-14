@@ -32,16 +32,24 @@ plates lists every visible licence plate as a box in fractions of the image (x a
 top-left corner, 0 to 1). Include partially visible plates. Return an empty list if none.
 
 confidence is your probability, 0 to 1, that make and model are both right. Say so honestly;
-a low number is useful.`;
+a low number is useful.
+
+target_match: the request sometimes names a vehicle the player is hunting for. Set it true if
+the photo shows that make and model — be generous about trim and exact model year, since years
+within a generation cannot be seen — false if it is clearly a different vehicle, and null if you
+cannot tell. When no vehicle is named, set it to null.`;
 
 /** Structured output schema. Nullable fields are nullable rather than optional. */
 const SCHEMA = {
   type: 'object',
   additionalProperties: false,
   required: ['is_vehicle', 'in_situ', 'make', 'model', 'generation', 'trim', 'year_range',
-    'body_style', 'confidence', 'plates'],
+    'body_style', 'confidence', 'plates', 'target_match'],
   properties: {
     is_vehicle: { type: 'boolean' },
+    // A Street Blitz rides on this same call: one call answers both "what car is this"
+    // and "is it the one being hunted". Null when no target was named.
+    target_match: { type: ['boolean', 'null'] },
     in_situ: { type: 'boolean' },
     make: { type: ['string', 'null'] },
     model: { type: ['string', 'null'] },
@@ -83,7 +91,7 @@ const anthropic = () => {
  * The real identifier: an image buffer in, the model's JSON out. Throws
  * IDENTIFY_UNAVAILABLE for anything that is the service's fault rather than the photo's.
  */
-export async function claudeIdentifier(image, mediaType) {
+export async function claudeIdentifier(image, mediaType, { target = null } = {}) {
   if (!config.IDENTIFY_ENABLED || !config.IDENTIFY_API_KEY) {
     throw unavailable(config.IDENTIFY_ENABLED ? 'no API key configured' : 'disabled');
   }
@@ -104,7 +112,9 @@ export async function claudeIdentifier(image, mediaType) {
         role: 'user',
         content: [
           { type: 'image', source: { type: 'base64', media_type: mediaType, data: image.toString('base64') } },
-          { type: 'text', text: 'Identify the vehicle in this photo.' },
+          { type: 'text', text: target
+            ? `Identify the vehicle in this photo. The player is hunting for: ${target}.`
+            : 'Identify the vehicle in this photo.' },
         ],
       }],
     });
@@ -161,7 +171,7 @@ export function setIdentifier(fn) {
  * Identify the car in a processed upload. Reads the display derivative, which is at most
  * 1600px and already rotated upright — the original can be a 40 MB drone frame.
  */
-export async function identifyPhoto(photo) {
+export async function identifyPhoto(photo, { target = null } = {}) {
   const image = await fs.readFile(path.join(config.mediaDir, photo.path_display));
-  return identifier(image, 'image/webp');
+  return identifier(image, 'image/webp', { target });
 }

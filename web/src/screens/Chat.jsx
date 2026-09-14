@@ -52,6 +52,12 @@ export default function Chat() {
         {messages.map((m) => (m.kind === 'system' ? (
           <div key={m.id} className="msg-system">
             {m.body} <span className="msg-time">{clock(m.created_at)}</span>
+            {/* A finished hunt is one line with its photos as a strip, not five messages. */}
+            {m.meta?.thumbs?.length > 0 && (
+              <div className="msg-thumbs">
+                {m.meta.thumbs.map((src) => <img key={src} src={src} alt="" loading="lazy" />)}
+              </div>
+            )}
           </div>
         ) : (
           <div key={m.id} className="msg">

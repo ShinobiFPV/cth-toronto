@@ -107,7 +107,8 @@ export const activeClover = (playerId, at = nowIso()) => db.prepare(`
 export const grantsInWeek = (playerId, week) => db.prepare(`
   SELECT COUNT(*) AS n FROM item_grants g
     JOIN claims c ON c.id = g.claim_id
-   WHERE g.player_id = ? AND g.week_key = ? AND c.status != 'reverted'`).get(playerId, week).n;
+   WHERE g.player_id = ? AND g.week_key = ? AND c.status != 'reverted'
+     AND g.source = 'pull'`).get(playerId, week).n;
 
 export function itemCapacity(playerId, at = nowIso()) {
   const week = weekKey(at);
@@ -185,6 +186,31 @@ export function grantItems({
 }
 
 // ── holding and spending ──────────────────────────────────────────────────
+
+/**
+ * A completed Scavenger Blitz's items. Exempt from the weekly item cap — hunts are the
+ * designed, deliberate path to items and have their own weekly limit on scoring
+ * completions (lib/hunts.js) — so these are recorded as source 'hunt', which
+ * grantsInWeek() leaves out. The Clover rule still applies. Call inside the completion's
+ * transaction, after its claim row is written.
+ */
+export function grantHuntItems({
+  claimId, playerId, seasonId, count, at,
+  clover = !!activeClover(playerId, at), rand = crypto.randomInt,
+}) {
+  const insert = db.prepare(`
+    INSERT INTO item_grants (claim_id, player_id, season_id, week_key, item_type, created_at, source)
+    VALUES (?, ?, ?, ?, ?, ?, 'hunt')`);
+  const week = weekKey(at);
+  const items = [];
+  for (let i = 0; i < count; i += 1) {
+    const type = rollItemType({ rand, exclude: clover ? ['clover'] : [] });
+    if (!type) break;
+    const id = Number(insert.run(claimId, playerId, seasonId, week, type, at).lastInsertRowid);
+    items.push({ grant_id: id, item_type: type, label: itemLabel(type) });
+  }
+  return items;
+}
 
 const grantRow = (grantId) => db.prepare(`
   SELECT g.*, c.status AS claim_status, u.id AS use_id,

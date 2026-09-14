@@ -1,12 +1,12 @@
 // What a claim is about, as a line in the feed or a Hood's history: the card it printed,
 // whatever kind, as a button that opens it — or, for a claim that printed no card, the car
-// it spotted or the subject it declared. The server marks every card-printing claim with
+// it spotted, the hunt it finished, or the subject it declared. The server marks every card-printing claim with
 // `card`, so this never has to know which kinds of card exist.
 import { collectable } from '../lib/collectables.js';
 import { Subject } from './bits.jsx';
 
 export default function CardLink({ claim: c, onOpen }) {
-  const name = c.park?.name ?? c.vehicle?.name;
+  const name = c.park?.name ?? c.vehicle?.name ?? c.hunt?.title;
   if (c.card) {
     const { Icon } = collectable(c.card.kind);
     return (

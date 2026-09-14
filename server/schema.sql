@@ -226,7 +226,10 @@ CREATE TABLE IF NOT EXISTS item_grants (
   season_id  INTEGER NOT NULL,   -- items expire when this season ends
   week_key   TEXT NOT NULL,      -- the weekly item cap counts on it
   item_type  TEXT NOT NULL,      -- fortify | recon | crowbar | sprint | tuneup | clover
-  created_at TEXT NOT NULL
+  created_at TEXT NOT NULL,
+  -- 'pull' for a Gold or Hologram, 'hunt' for a completed Scavenger Blitz. Hunt grants do
+  -- not count against the weekly item cap; hunts have their own weekly limit instead.
+  source     TEXT NOT NULL DEFAULT 'pull'
 );
 CREATE INDEX IF NOT EXISTS idx_item_grants_week ON item_grants(player_id, week_key);
 CREATE INDEX IF NOT EXISTS idx_item_grants_season ON item_grants(player_id, season_id);
@@ -254,6 +257,57 @@ CREATE TABLE IF NOT EXISTS item_armed (
   grant_id  INTEGER NOT NULL UNIQUE,
   player_id INTEGER NOT NULL,
   armed_at  TEXT NOT NULL
+);
+
+-- ── Scavenger Blitz ─────────────────────────────────────────────────────────
+-- Five-item hunts, in a park or on the street. A hunt's items are generated from its seed
+-- and frozen here, labels included, so a hunt issued in October still reads the same in
+-- December however the pools change. Completion writes an ordinary claims row
+-- (claim_kind = 'hunt'), which is what scoring, the feed, chat and flags read.
+-- No REFERENCES, like the item tables: every read joins, and nothing here should block a
+-- player or park row being deleted by hand.
+CREATE TABLE IF NOT EXISTS hunts (
+  id           INTEGER PRIMARY KEY,
+  player_id    INTEGER NOT NULL,
+  kind         TEXT NOT NULL,            -- park | street
+  park_id      INTEGER,                  -- park hunts only
+  seed         TEXT NOT NULL,            -- regenerates the item list identically
+  pool_version TEXT,                     -- the vehicle list a street hunt was drawn from
+  status       TEXT NOT NULL,            -- active | complete | abandoned
+  started_at   TEXT NOT NULL,
+  ended_at     TEXT,                     -- when it was abandoned; the cooldown reads this
+  completed_at TEXT,
+  season_id    INTEGER,                  -- the season it was COMPLETED in; null while active
+  week_key     TEXT,                     -- set at completion, for the weekly scoring limit
+  claim_id     INTEGER,                  -- the claims row its completion wrote
+  scoring      INTEGER NOT NULL DEFAULT 0 -- whether that completion counted toward the week
+);
+CREATE INDEX IF NOT EXISTS idx_hunts_player ON hunts(player_id, status);
+
+CREATE TABLE IF NOT EXISTS hunt_items (
+  id           INTEGER PRIMARY KEY,
+  hunt_id      INTEGER NOT NULL,
+  slot         INTEGER NOT NULL,         -- 0..4
+  target_type  TEXT NOT NULL,            -- amenity | universal | wildlife | vehicle_model
+  target_key   TEXT NOT NULL,            -- 'playground', 'bird', 'honda|civic|2016-2021'
+  label        TEXT NOT NULL,            -- frozen at generation
+  target_json  TEXT,                     -- a vehicle target's make, model and years, frozen
+  photo_id     INTEGER,                  -- the latest photo sent for this item
+  hood_id      INTEGER,                  -- where a street item was photographed
+  verified     INTEGER NOT NULL DEFAULT 0, -- 1 = the camera confirmed it
+  overridden   INTEGER NOT NULL DEFAULT 0, -- 1 = "I'm sure — mark it anyway"
+  flagged      INTEGER NOT NULL DEFAULT 0, -- raised for the group, like a disputed claim
+  attempted_at TEXT,
+  completed_at TEXT,
+  UNIQUE (hunt_id, slot)
+);
+
+-- Which amenities each park has, from the city's parks-and-recreation-facilities records.
+-- Slugged ('ball_diamond'). A park with no rows still gets hunts, drawn from the universal pool.
+CREATE TABLE IF NOT EXISTS park_amenities (
+  park_id INTEGER NOT NULL,
+  amenity TEXT NOT NULL,
+  PRIMARY KEY (park_id, amenity)
 );
 
 CREATE TABLE IF NOT EXISTS flags (

@@ -44,6 +44,7 @@ export const KIND_VERB = {
   park: 'Collected',
   car: 'Snapped',
   sighting: 'Spotted',
+  hunt: 'Blitz',
 };
 
 /** What a card is called, whatever kind it is. Every card carries `name`. */

@@ -234,10 +234,14 @@ describe('when location fails', () => {
     const map = read('web/src/screens/MapScreen.jsx');
     assert.match(map, /const \[tracking, setTracking\] = useState\(false\);/, 'the dot starts off');
     assert.match(map, /if \(!map \|\| !tracking\) return undefined;/, 'and the watch starts only once it is on');
-    // One fix, only from the component a Find a Park tap mounts.
-    const callers = ['web/src/components/FindPark.jsx', 'web/src/screens/MapScreen.jsx']
-      .filter((f) => /\bgetFix\(/.test(read(f)));
-    assert.deepEqual(callers, ['web/src/components/FindPark.jsx']);
+    // One fix, only from the components a tap mounts: Find a Park, and the park hunt picker.
+    const callers = [
+      'web/src/components/FindPark.jsx', 'web/src/components/HuntParkPicker.jsx',
+      'web/src/screens/MapScreen.jsx', 'web/src/screens/Hunts.jsx',
+    ].filter((f) => /\bgetFix\(/.test(read(f)));
+    assert.deepEqual(callers, ['web/src/components/FindPark.jsx', 'web/src/components/HuntParkPicker.jsx']);
+    const hunts = read('web/src/screens/Hunts.jsx');
+    assert.match(hunts, /const \[picking, setPicking\] = useState\(false\);/, 'the picker opens on a tap');
   });
 });
 

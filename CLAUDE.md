@@ -152,7 +152,29 @@ changing one, read the test first — it says why.
   `test/nearby.test.js` scans for both.
 - **Location is not verification.** Nothing may gate a collection on proximity. The game is
   honour-based and enforced by flagging; a geofence would quietly replace that.
-- **The location permission is only asked for by a tap** — Find a Park (`getFix`, one fix) or
+- **A hunt is frozen when it starts.** Every item's `label` (and a street target's make, model
+  and years in `target_json`) is written onto `hunt_items`; never render a hunt from the
+  current pool or vehicle list, which are versioned and will change under active hunts.
+- **Park hunt amenities come from the City's data, never from a model.** `park_amenities` is
+  rebuilt from `parks.amenities` (`server/lib/amenities.js`) by the park importer,
+  `scripts/import-amenities.js`, and on boot when empty. A park hunt must draw at least two
+  amenities the park has, when it has two, and none it does not.
+- **A street hunt slot and the car card are independent.** `submitStreetPhoto()` runs
+  `commitCar()` and catches its `GameError` into `car_error`; the slot ticks on the match
+  whatever the card did. `ALREADY_COLLECTED` must never stop a hunt — that bug would land in
+  the first week, since hunts draw common cars people already hold.
+- **"I'm sure" marks, flags and announces; the camera never gatekeeps.** An unconfirmed photo
+  is kept on the slot so `overrideSlot()` needs no second upload. `NO_ATTEMPT` is the only
+  refusal.
+- **A hunt claim is `claim_kind = 'hunt'` with `hunt_id`, never `park_id`** — a park id would
+  hit the once-per-season park index. It pays into the season it is *completed* in, clamped
+  against `HUNT_SEASON_POINTS_CAP` there.
+- **Hunt items are `item_grants.source = 'hunt'` and exempt from the weekly item cap**;
+  `grantsInWeek()` counts `source = 'pull'` only. Hunts have `HUNT_WEEKLY_SCORING_LIMIT`
+  instead: past it a hunt completes for XP only — no points, no items.
+- **Park hunt photos are private by default.** Not on the claim, no chat thumbnails, and
+  `getHunt()` returns thumbnails only to the owner. `CTH_HUNT_PARK_PHOTOS_PUBLIC` opens them.
+- **The location permission is only asked for by a tap** — Find a Park or the park hunt picker (`getFix`, one fix) or
   the locate button (`watchFix`, only while the dot is on and the map is in front, stopped on
   unmount and on a hidden tab). Never on load: a reflexive denial cannot be asked again. The
   dot never recentres by itself, and it only ever shows yourself.
@@ -298,7 +320,7 @@ changing one, read the test first — it says why.
 ## Testing
 
 ```bash
-npm test        # 406 tests, no server needed, touches nothing in data/
+npm test        # 439 tests, no server needed, touches nothing in data/
 ```
 
 - `test/game.test.js` — the rules, driving the game module directly. Time is simulated by
@@ -325,6 +347,12 @@ npm test        # 406 tests, no server needed, touches nothing in data/
   the season-scoped uncollected filter, "XP only" agreeing with `evaluateCollect()` row by
   row, every location failure falling back to the Hood picker, and the privacy guarantee —
   the coordinate middleware, no route reading a coordinate, no location code on the network.
+- `test/hunts.test.js` — Scavenger Blitz: deterministic generation, park hunts drawing only
+  amenities the park has, the wildlife limit and season filter, street hunts being 3 common +
+  2 uncommon passenger vehicles, the target matcher, a slot ticking despite
+  `ALREADY_COLLECTED` and the car cap, "I'm sure", slots and the abandon cooldown, the season
+  cap's partial clamp, completion-season attribution, hunt items bypassing the item cap, and
+  the weekly scoring limit.
 - `test/audio.test.js` — sound slots: override over default over silent, a changed file
   being a changed URL and version, upload size and duration limits, and the client's
   preferences, mixer levels and silent failure. The transcoder is stubbed; no ffmpeg needed.

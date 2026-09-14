@@ -56,6 +56,14 @@ miscRoutes.get('/seasons', requireAuth, (_req, res) => {
       fortify_cooldown_hours: config.FORTIFY_COOLDOWN_HOURS,
       nearby_park_count: config.NEARBY_PARK_COUNT,
       nearby_accuracy_warn_m: config.NEARBY_ACCURACY_WARN_M,
+      hunt_active_limit: config.HUNT_ACTIVE_LIMIT,
+      hunt_points: config.HUNT_POINTS,
+      hunt_season_points_cap: config.HUNT_SEASON_POINTS_CAP,
+      hunt_weekly_scoring_limit: config.HUNT_WEEKLY_SCORING_LIMIT,
+      hunt_items: config.HUNT_ITEMS,
+      hunt_xp_park: config.HUNT_XP_PARK,
+      hunt_xp_street: config.HUNT_XP_STREET,
+      hunt_abandon_cooldown_hours: config.HUNT_ABANDON_COOLDOWN_HOURS,
     },
   });
 });

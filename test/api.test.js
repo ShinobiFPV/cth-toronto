@@ -43,6 +43,8 @@ before(async () => {
         trim: 'Si', year_range: '2022-2024', body_style: 'sedan', confidence: 0.91,
         plates: [{ x: 0.4, y: 0.7, width: 0.2, height: 0.08 }],
       }),
+      // The park hunt's "is there a bench in this photo" check, canned the same way.
+      CTH_HUNT_VERIFY_STUB: JSON.stringify({ found: true, confidence: 0.9 }),
       NODE_ENV: 'test',
     },
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -790,6 +792,78 @@ describe('the API end to end', () => {
     const { status, data } = await alice('/cards?player=999999');
     assert.equal(status, 404);
     assert.equal(data.error, 'PLAYER_NOT_FOUND');
+  });
+
+  // ── Scavenger Blitz over HTTP ──
+  let streetHunt;
+
+  test('a street hunt starts with five frozen targets, three common and two uncommon', async () => {
+    const bogus = await bob('/hunts', { method: 'POST', body: { kind: 'treasure' } });
+    assert.equal(bogus.data.error, 'BAD_HUNT_KIND');
+
+    const { status, data } = await bob('/hunts', { method: 'POST', body: { kind: 'street' } });
+    assert.equal(status, 201);
+    streetHunt = data.hunt;
+    assert.equal(data.hunt.items.length, 5);
+    assert.deepEqual(data.hunt.items.map((i) => i.tier).sort(), ['common', 'common', 'common', 'uncommon', 'uncommon']);
+    assert.ok(data.hunt.items.every((i) => /\d{4}–\d{4}$/.test(i.label)));
+  });
+
+  test('a street photo the camera cannot confirm is kept, and "I’m sure" marks it', async () => {
+    const form = new FormData();
+    form.append('photo', new Blob([await jpeg(33)], { type: 'image/jpeg' }), 'car.jpg');
+    form.append('slot', '0');
+    form.append('hood_id', '13');
+    const sent = await bob(`/hunts/${streetHunt.id}/submit`, { method: 'POST', raw: form });
+    assert.equal(sent.status, 201);
+    // The stub is always a 2022–24 Civic Si, which no target in the list is.
+    assert.equal(sent.data.verified, false);
+    assert.equal(sent.data.can_override, true);
+    assert.equal(sent.data.hunt.items[0].pending, true);
+    assert.ok(sent.data.car_error, 'bob already has that Civic, so no card — which does not matter here');
+
+    const marked = await bob(`/hunts/${streetHunt.id}/override`, { method: 'POST', body: { slot: 0 } });
+    assert.equal(marked.status, 200);
+    assert.equal(marked.data.hunt.items[0].done, true);
+    assert.equal(marked.data.hunt.items[0].overridden, true);
+
+    const chat = await bob('/chat');
+    assert.ok(chat.data.messages.some((m) => m.meta?.event === 'hunt_override'), 'raised for the group');
+
+    const again = await bob(`/hunts/${streetHunt.id}/override`, { method: 'POST', body: { slot: 0 } });
+    assert.equal(again.data.error, 'SLOT_ALREADY_DONE');
+  });
+
+  test('a park hunt photo the camera confirms ticks its slot, and nobody else can send one', async () => {
+    const { status, data } = await bob('/hunts', { method: 'POST', body: { kind: 'park', park_id: 7001 } });
+    assert.equal(status, 201);
+    assert.equal(data.hunt.items.length, 5);
+
+    const form = () => {
+      const f = new FormData();
+      return jpeg(44).then((buf) => {
+        f.append('photo', new Blob([buf], { type: 'image/jpeg' }), 'bench.jpg');
+        f.append('slot', '2');
+        return f;
+      });
+    };
+    const sent = await bob(`/hunts/${data.hunt.id}/submit`, { method: 'POST', raw: await form() });
+    assert.equal(sent.status, 201);
+    assert.equal(sent.data.verified, true);
+    assert.equal(sent.data.hunt.items[2].done, true);
+    assert.ok(sent.data.hunt.items[2].thumb_url, 'the owner sees their own photo');
+
+    const carols = await carol(`/hunts/${data.hunt.id}/submit`, { method: 'POST', raw: await form() });
+    assert.equal(carols.status, 404);
+    assert.equal(carols.data.error, 'HUNT_NOT_FOUND');
+
+    const list = await bob('/hunts');
+    assert.equal(list.data.limits.used, 2);
+    assert.equal(list.data.limits.slots, 3);
+
+    const index = await bob('/hunts/parks');
+    assert.equal(index.status, 200);
+    assert.equal(typeof index.data.season, 'string');
   });
 
   // ── Location and sound over HTTP ──

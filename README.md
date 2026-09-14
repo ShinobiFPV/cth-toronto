@@ -290,6 +290,29 @@ phone picks up the new sound straight away instead of playing the old one out of
 
 ---
 
+## Scavenger Blitz
+
+Tap **Blitz** on the map and you get five things to find.
+
+- **Park hunt** — pick a park (the nearest ones come up first, worked out on your phone) and
+  find five things in it: a couple of things that park really has, like its playground or
+  tennis courts, and a few that every park has — a bench, a big tree, a squirrel. Made for
+  doing with a kid.
+- **Street hunt** — five cars by make, model and years, like a *Honda Civic, 2016–2021*. Three
+  common, two you will have to look for. Any car from that generation counts, and each photo
+  can print a car card for your binder too.
+
+Send a photo for each item and the camera says **Found it!** If it can't tell — a bird is
+often a smudge in the corner — tap **I'm sure** and it counts anyway; everybody gets told, and
+they can flag it if it looks wrong.
+
+A finished hunt pays **+10 points** (up to 200 a season), **XP** (80 in a park, 240 on the
+street) and **three items** that don't use up your weekly item limit. Your first three hunts
+each week score; after that a hunt still pays its XP. Three hunts at a time, no time limit.
+Photos from a park hunt stay with you.
+
+---
+
 ## XP, which never resets
 
 Points are about **value**. XP is about **turning up**.
@@ -439,7 +462,7 @@ Car cards need an Anthropic API key in `.env` as `CTH_ANTHROPIC_API_KEY`. Withou
 everything else works and every car comes back "the identifier is not answering".
 
 ```bash
-npm test                 # 406 tests, no server needed, touches nothing in data/, never calls Claude
+npm test                 # 439 tests, no server needed, touches nothing in data/, never calls Claude
 ```
 
 | Command | Does what |

@@ -75,7 +75,7 @@ carRoutes.post('/cars/collect', requireAuth, upload.single('photo'), async (req,
       identification, playerId: req.player.id, hoodId: hood.id, photo, caption: req.body?.caption,
     }));
 
-    announce(req.player, result);
+    announceCarCollection(req.player, result);
     broadcast('car_collected', {
       claim_id: result.repeat ? result.claim_id : result.card.claim_id,
       vehicle_id: result.vehicle.id, hood_id: hood.id, player_id: req.player.id,
@@ -106,7 +106,7 @@ carRoutes.post('/cars/collect', requireAuth, upload.single('photo'), async (req,
  * Chat is where everyone reads the game, so the message says which kind of collection it
  * was: a scoring one and a post-cap one are different events.
  */
-function announce(player, result) {
+export function announceCarCollection(player, result) {
   const where = hoodLabel(result.hood.id, result.hood.name);
   const name = `${result.vehicle.make} ${result.vehicle.model}`;
 

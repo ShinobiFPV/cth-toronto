@@ -7,6 +7,7 @@ import { config, ROOT } from './config.js';
 import { HOOD_SEED, NEIGHBOUR_SEED, DIFFICULTY_SEED } from './lib/hood-seed.js';
 import { SEASON_SEED } from './lib/season-seed.js';
 import { weekKey } from './lib/week.js';
+import { rebuildAmenitiesFromParks } from './lib/amenities.js';
 
 fs.mkdirSync(path.dirname(config.dbPath), { recursive: true });
 
@@ -63,6 +64,13 @@ const migrations = db.transaction(() => {
   // escalated but not expired — and have nothing to expire.
   addColumn('seasons', 'items_expired', 'INTEGER NOT NULL DEFAULT 0');
 
+  // Scavenger Blitz. A hunt's completion is a claim with claim_kind = 'hunt' and hunt_id
+  // set — deliberately not park_id, which would collide with the once-per-season park rule.
+  addColumn('claims', 'hunt_id', 'INTEGER');
+  // Hunt item grants are exempt from the weekly item cap, so a grant has to say where it
+  // came from. Every grant before this was a pull.
+  addColumn('item_grants', 'source', "TEXT NOT NULL DEFAULT 'pull'");
+
   // XP and levels.
   const addedXp = addColumn('claims', 'xp_awarded', 'INTEGER NOT NULL DEFAULT 0');
 
@@ -112,6 +120,16 @@ migrations();
   }
 }
 
+// Park amenities, for park hunts. The parks table already carries each park's amenity list
+// from the same city dataset, keyed by the dataset's own ASSET_ID, so a database that has
+// parks but no amenity rows can fill them in on boot. `scripts/import-amenities.js`
+// refreshes them from Open Data.
+if (!db.prepare('SELECT COUNT(*) AS n FROM park_amenities').get().n
+    && db.prepare('SELECT COUNT(*) AS n FROM parks WHERE amenities IS NOT NULL').get().n) {
+  const filled = rebuildAmenitiesFromParks(db);
+  console.log(`[cth] migrated: ${filled.rows} amenities recorded across ${filled.parks} parks`);
+}
+
 /**
  * Indexes that reference migrated columns. These have to run after migrations(), which
  * is why they are not in schema.sql: that file executes first, and on a database created
@@ -127,6 +145,9 @@ db.exec(`
   -- whether it counts by week or by season.
   CREATE INDEX IF NOT EXISTS idx_claims_hood_week ON claims(player_id, hood_id, week_key);
   CREATE INDEX IF NOT EXISTS idx_claims_hood_season ON claims(player_id, hood_id, season_id);
+
+  -- A hunt's completion claim, and the season's hunt points sum over these.
+  CREATE INDEX IF NOT EXISTS idx_claims_hunt ON claims(hunt_id) WHERE hunt_id IS NOT NULL;
 
   -- One collection per player per park per season. Partial so it governs only park rows,
   -- and excludes reverted ones so a claim the group threw out frees the park up again.

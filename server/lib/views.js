@@ -15,6 +15,7 @@ import { progressFor } from './xp.js';
 import { withArticle } from './vehicles.js';
 import { armedFortifyOn, itemSummary } from './items.js';
 import { isCardKind } from './collectables.js';
+import { huntBrief } from './hunts.js';
 
 /** Every Hood with its holder and, if a viewer is given, what that viewer can do. */
 export function listHoods(viewerId = null, at = nowIso()) {
@@ -187,6 +188,8 @@ export function shapeClaim(r, viewerId = null) {
     // Set on any claim that printed a card, whatever kind: the feed and a Hood's history
     // open it the same way. A repeat car sighting prints nothing and has none.
     card: isCardKind(r.claim_kind) ? { kind: r.claim_kind, claim_id: r.id } : null,
+    // A finished Scavenger Blitz: which kind, and its title.
+    hunt: r.claim_kind === 'hunt' ? huntBrief(r.hunt_id) : null,
     // Set on a car card ('car') and a repeat sighting ('sighting'), for the name.
     vehicle: r.vehicle_id && r.vehicle_make
       ? { id: r.vehicle_id, make: r.vehicle_make, model: r.vehicle_model,
@@ -218,6 +221,10 @@ export function claimSummary(r) {
     case 'car': {
       const car = r.vehicle_make ? withArticle(`${r.vehicle_make} ${r.vehicle_model}`) : 'a car';
       return `${who} snapped ${car} in ${where} (${r.points_awarded ? `+${r.points_awarded}` : 'XP only'})${said}`;
+    }
+    case 'hunt': {
+      const title = huntBrief(r.hunt_id)?.title ?? 'Scavenger Blitz';
+      return `${who} finished a ${title} (${r.points_awarded ? `+${r.points_awarded}` : 'XP only'})`;
     }
     case 'sighting':
       return `${who} spotted another ${r.vehicle_make ? `${r.vehicle_make} ${r.vehicle_model}` : 'car'} in ${where}${said}`;
@@ -314,6 +321,9 @@ export function leaderboard(seasonId = null) {
       // dominate the table, but it is worth seeing where somebody's points came from.
       cars: kinds[p.id]?.car ?? 0,
       car_points: kindPoints[p.id]?.car ?? 0,
+      // Scavenger Blitz completions, capped at 200 points a season.
+      hunts: kinds[p.id]?.hunt ?? 0,
+      hunt_points: kindPoints[p.id]?.hunt ?? 0,
       territory_points: (kindPoints[p.id]?.conquer ?? 0)
         + (kindPoints[p.id]?.steal ?? 0)
         + (kindPoints[p.id]?.reinforce ?? 0),

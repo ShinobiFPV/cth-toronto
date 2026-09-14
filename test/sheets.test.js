@@ -38,6 +38,9 @@ const FLOWS = [
   // The Hood sheet was missed the first time round, and it is the one carrying two
   // actions: the claim and the parks button under it, which was reported invisible.
   { file: 'web/src/components/HoodSheet.jsx', action: 'the Hood sheet action' },
+  // Scavenger Blitz: a hunt photo, with "I'm sure" in the footer when the camera says no.
+  { file: 'web/src/components/HuntSubmit.jsx', action: 'Send it / I’m sure' },
+  { file: 'web/src/components/HuntParkPicker.jsx', action: 'the park hunt picker action' },
 ];
 
 describe('the sheet action footer', () => {

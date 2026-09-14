@@ -33,6 +33,14 @@ export const CameraIcon = (p) => svg(<>
   <rect x="9" y="10" width="6" height="6" />
 </>, p);
 
+// Scavenger Blitz: a checklist with a magnifier over it.
+export const HuntIcon = (p) => svg(<>
+  <path d="M3 5h2M3 11h2M3 17h2" />
+  <path d="M8 5h12M8 11h4" />
+  <circle cx="15" cy="15" r="3.5" />
+  <path d="M17.5 17.5L21 21" />
+</>, p);
+
 export const FlagIcon = (p) => svg(<>
   <path d="M5 3v18" />
   <path d="M5 4h13l-3 4 3 4H5z" />
