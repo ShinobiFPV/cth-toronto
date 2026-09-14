@@ -9,7 +9,7 @@ const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'cth-parks-'));
 process.env.CTH_DB = path.join(tmp, 'test.sqlite');
 process.env.CTH_JWT_SECRET = 'test-secret';
 
-let db, nowIso, parks, leaderboard, revertClaim, config, commitClaim;
+let db, nowIso, parks, leaderboard, revertClaim, config, commitClaim, weekKey, editionRates;
 
 before(async () => {
   ({ db, nowIso } = await import('../server/db.js'));
@@ -17,6 +17,8 @@ before(async () => {
   ({ leaderboard } = await import('../server/lib/views.js'));
   ({ revertClaim, commitClaim } = await import('../server/lib/game.js'));
   ({ config } = await import('../server/config.js'));
+  ({ weekKey } = await import('../server/lib/week.js'));
+  ({ editionRates } = await import('../server/lib/editions.js'));
 });
 
 // ── fixtures ──────────────────────────────────────────────────────────────
@@ -55,6 +57,8 @@ const points = (playerId) => db.prepare(`
 beforeEach(() => {
   db.exec(`UPDATE hood_state SET owner_id = NULL, active_claim_id = NULL, photo_type = NULL,
            last_claim_at = NULL, locked_until = NULL`);
+  // Item grants join to claims by id, and ids are reused once the table is emptied.
+  db.exec('DELETE FROM item_uses; DELETE FROM item_armed; DELETE FROM item_grants');
   db.exec('DELETE FROM flags; DELETE FROM claims; DELETE FROM photos; DELETE FROM messages');
   db.exec('DELETE FROM parks');
   db.exec('DELETE FROM players');
@@ -331,5 +335,142 @@ describe('the binder', () => {
     const theirs = collect(9002, bob).claim;
     assert.notEqual(mine.card_seed, theirs.card_seed, 'the art is seeded per player');
     assert.equal(mine.points, theirs.points, 'but the park is worth the same to both');
+  });
+});
+
+// ── the per-Hood points cap ───────────────────────────────────────────────
+// Past a Hood's ceiling a collection still succeeds: card, edition, XP, and 0 points. To
+// keep earning, go to a different Hood. Hood 25 holds 9003 (70) and 9004 (100) above.
+describe('the per-Hood points cap', () => {
+  let extra = 9100;
+  const addPark = (hoodId, value) => {
+    extra += 1;
+    db.prepare(`INSERT INTO parks (id, name, hood_id, lat, lng, value, distance_km, set_number)
+                VALUES (?, ?, ?, 43.7, -79.4, ?, 5, ?)`).run(extra, `Cap Park ${extra}`, hoodId, value, extra);
+    return extra;
+  };
+  const withConfig = (patch, fn) => {
+    const was = Object.fromEntries(Object.keys(patch).map((k) => [k, config[k]]));
+    Object.assign(config, patch);
+    try { return fn(); } finally { Object.assign(config, was); }
+  };
+  const gold = (n) => Math.round((editionRates().hologram / 100) * n);
+
+  test('pays up to the ceiling, clamps the last award, then pays 0 — and still collects', () => {
+    withConfig({ PARK_HOOD_CAP: 150 }, () => {
+      assert.equal(collect(9004, alice).claim.points, 100);
+      // 150 does not divide by 70: min() pays the 50 that is left rather than all or nothing.
+      assert.equal(collect(9003, alice).claim.points, 50);
+
+      const past = collect(addPark(25, 40), alice);
+      assert.equal(past.claim.points, 0);
+      const row = db.prepare('SELECT * FROM claims WHERE id = ?').get(past.claim.claim_id);
+      assert.equal(row.status, 'active', 'a success, not an error');
+      assert.ok(row.xp_awarded > 0, 'with its XP');
+      assert.ok(row.edition, 'and its edition');
+
+      const next = parks.evaluateCollect({ parkId: addPark(25, 60), playerId: alice });
+      assert.equal(next.ok, true);
+      assert.equal(next.points, 0);
+      assert.equal(next.capacity.xp_only, true, 'so the sheet can say XP only before the shutter');
+      assert.equal(points(alice), 150, 'the ceiling is never overshot');
+    });
+  });
+
+  test('a cap that does not divide the park’s value is neither overshot nor short-changed', () => {
+    withConfig({ PARK_HOOD_CAP: 12 }, () => {
+      const awards = [addPark(13, 5), addPark(13, 5), addPark(13, 5), addPark(13, 5)]
+        .map((id) => collect(id, alice).claim.points);
+      assert.deepEqual(awards, [5, 5, 2, 0]);
+    });
+  });
+
+  test('a capped player collecting in a different Hood earns normally', () => {
+    withConfig({ PARK_HOOD_CAP: 100 }, () => {
+      collect(9004, alice);
+      assert.equal(collect(9003, alice).claim.points, 0, 'Hood 25 is spent');
+      assert.equal(collect(9002, alice).claim.points, 30, 'Hood 13 is not — that is the whole rule');
+    });
+  });
+
+  test('the cap is per player', () => {
+    withConfig({ PARK_HOOD_CAP: 100 }, () => {
+      collect(9004, alice);
+      assert.equal(collect(9004, bob).claim.points, 100);
+    });
+  });
+
+  test('a reverted collection frees its capacity in that Hood', () => {
+    withConfig({ PARK_HOOD_CAP: 100 }, () => {
+      const { claim } = collect(9004, alice);
+      revertClaim(claim.claim_id);
+      assert.equal(parks.parkCapacity(alice, 25).remaining, 100);
+      assert.equal(collect(9003, alice).claim.points, 70);
+    });
+  });
+
+  test('two collections racing at the ceiling: the commit re-checks', () => {
+    withConfig({ PARK_HOOD_CAP: 120 }, () => {
+      collect(9004, alice);
+      const a = addPark(25, 70);
+      const b = addPark(25, 70);
+      // Both preflights see 20 left...
+      assert.equal(parks.evaluateCollect({ parkId: a, playerId: alice }).points, 20);
+      assert.equal(parks.evaluateCollect({ parkId: b, playerId: alice }).points, 20);
+      // ...and only one of them is paid it.
+      assert.deepEqual([collect(a, alice).claim.points, collect(b, alice).claim.points], [20, 0]);
+    });
+  });
+
+  test('past the cap: full XP, the edition rolled, zero points, and no item', () => {
+    withConfig({ PARK_HOOD_CAP: 100 }, () => {
+      collect(9004, alice);
+      const past = parks.commitCollect({ parkId: 9003, playerId: alice, photo: photo(), rand: gold });
+      assert.equal(past.claim.points, 0);
+      assert.equal(past.claim.edition, 'gold');
+      assert.ok(past.xp.edition_xp > 0);
+      assert.deepEqual(past.items.items, []);
+      assert.equal(past.items.reason, 'no_points');
+      // Scoped to this claim: the collection before it rolled its own edition, and one
+      // run in seven that is a Gold with a grant of its own.
+      assert.equal(db.prepare('SELECT COUNT(*) AS n FROM item_grants WHERE claim_id = ?')
+        .get(past.claim.claim_id).n, 0);
+    });
+  });
+
+  test('by week: each claim stores its Toronto week, and last week does not count', () => {
+    withConfig({ PARK_HOOD_CAP: 100, PARK_CAP_PERIOD: 'week' }, () => {
+      const { claim } = collect(9004, alice);
+      const row = db.prepare('SELECT week_key, created_at FROM claims WHERE id = ?').get(claim.claim_id);
+      // weekKey is the function carcap.test.js pins across both DST transitions.
+      assert.equal(row.week_key, weekKey(row.created_at));
+
+      db.prepare("UPDATE claims SET week_key = '2000-W01' WHERE id = ?").run(claim.claim_id);
+      assert.equal(collect(9003, alice).claim.points, 70, 'capacity came back with the new week');
+    });
+  });
+
+  test('by season: the same sum grouped by season, so a new week does not reset it', () => {
+    withConfig({ PARK_HOOD_CAP: 100, PARK_CAP_PERIOD: 'season' }, () => {
+      const { claim } = collect(9004, alice);
+      db.prepare("UPDATE claims SET week_key = '2000-W01' WHERE id = ?").run(claim.claim_id);
+      assert.equal(parks.parkCapacity(alice, 25).remaining, 0, 'a new week hands nothing back');
+
+      const other = db.prepare('SELECT id FROM seasons WHERE id != ? LIMIT 1').get(claim.season.id).id;
+      db.prepare('UPDATE claims SET season_id = ? WHERE id = ?').run(other, claim.claim_id);
+      assert.equal(parks.parkCapacity(alice, 25).remaining, 100, 'and it does not carry across seasons');
+    });
+  });
+
+  test('the Hood sheet can show where you stand', () => {
+    withConfig({ PARK_HOOD_CAP: 150 }, () => {
+      collect(9004, alice);
+      const { capacity } = parks.parkProgress(25, alice);
+      assert.equal(capacity.cap, 150);
+      assert.equal(capacity.spent, 100);
+      assert.equal(capacity.remaining, 50);
+      assert.ok(capacity.resets_at);
+      assert.equal(parks.parkProgress(25, bob).capacity.spent, 0);
+    });
   });
 });

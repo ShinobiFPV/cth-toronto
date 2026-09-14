@@ -19,6 +19,7 @@ import { miscRoutes } from './routes/misc.js';
 import { parkRoutes } from './routes/parks.js';
 import { tradeRoutes } from './routes/trades.js';
 import { carRoutes } from './routes/cars.js';
+import { itemRoutes } from './routes/items.js';
 import { activeSeason } from './lib/seasons.js';
 
 await ensureMediaDirs();
@@ -49,6 +50,7 @@ app.use('/api', miscRoutes);
 app.use('/api', parkRoutes);
 app.use('/api', tradeRoutes);
 app.use('/api', carRoutes);
+app.use('/api', itemRoutes);
 
 // Photos are behind the login. Originals in particular exist for dispute review, and
 // nothing in this game should be linkable to someone who is not playing it.

@@ -22,6 +22,10 @@ export function GameProvider({ children }) {
   const [unreadChat, setUnreadChat] = useState(0);
   const [booting, setBooting] = useState(true);
   const [connected, setConnected] = useState(false);
+  // Bumped whenever this player's items change anywhere — a grant, a use, a Fortify that
+  // fired while they were looking at something else. Screens holding an inventory
+  // refetch on it rather than the store carrying the whole bag around.
+  const [itemsTick, setItemsTick] = useState(0);
 
   const socketRef = useRef(null);
   const retryRef = useRef(0);
@@ -108,6 +112,13 @@ export function GameProvider({ children }) {
           // the player this socket belongs to.
           const me = session?.player?.id;
           if (me && (payload?.to?.id === me || payload?.from?.id === me)) {
+            refreshMe().catch(() => {});
+          }
+        } else if (type === 'items_changed') {
+          // Addressed to one player. Everybody else ignores it — which is also why arming
+          // a Fortify can be broadcast at all without telling anybody it happened.
+          if (payload?.player_id === session?.player?.id) {
+            setItemsTick((n) => n + 1);
             refreshMe().catch(() => {});
           }
         } else if (type === 'player_updated') {
@@ -198,13 +209,17 @@ export function GameProvider({ children }) {
     setMessages([]);
   }, []);
 
+  const itemsChanged = useCallback(() => setItemsTick((n) => n + 1), []);
+
   const value = useMemo(() => ({
     session, player: session?.player ?? null,
-    hoods, players, messages, online, unreadChat, booting, connected,
+    hoods, players, messages, online, unreadChat, booting, connected, itemsTick,
     refreshHoods, refreshMe, refreshPlayers, say, loadOlderMessages, markChatRead, signIn, signOut,
+    itemsChanged,
     hoodById: (id) => hoods.find((h) => h.id === Number(id)) ?? null,
-  }), [session, hoods, players, messages, online, unreadChat, booting, connected,
-       refreshHoods, refreshMe, refreshPlayers, say, loadOlderMessages, markChatRead, signIn, signOut]);
+  }), [session, hoods, players, messages, online, unreadChat, booting, connected, itemsTick,
+       refreshHoods, refreshMe, refreshPlayers, say, loadOlderMessages, markChatRead, signIn, signOut,
+       itemsChanged]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

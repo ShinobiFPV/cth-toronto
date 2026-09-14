@@ -788,6 +788,52 @@ describe('the API end to end', () => {
     assert.equal(data.error, 'PLAYER_NOT_FOUND');
   });
 
+  // ── Items over HTTP ──
+  // The rules are in test/items.test.js. These only prove the routes are wired, the
+  // errors carry stable codes, and the summary the header reads is on /me.
+  test('the bag is readable, and the header summary rides on /me', async () => {
+    const { status, data } = await alice('/items');
+    assert.equal(status, 200);
+    assert.equal(typeof data.held, 'number');
+    assert.ok(data.capacity.resets_on, 'the weekly item cap says when it resets');
+    assert.ok(data.catalogue.fortify.blurb, 'and the catalogue carries the configured numbers');
+    assert.equal(data.clover.active, false);
+
+    const me = await alice('/me');
+    assert.equal(typeof me.data.items.held, 'number');
+    assert.equal(me.data.items.clover_until, null);
+
+    const history = await alice('/items/history');
+    assert.equal(history.status, 200);
+    assert.ok(Array.isArray(history.data.grants) && Array.isArray(history.data.uses));
+  });
+
+  test('an item you do not hold cannot be used, armed or brought to a claim', async () => {
+    const use = await alice('/items/use', { method: 'POST', body: { grant_id: 999999 } });
+    assert.equal(use.status, 409);
+    assert.equal(use.data.error, 'ITEM_NOT_HELD');
+
+    const arm = await alice('/items/arm', { method: 'POST', body: { grant_id: 999999, hood_id: 13 } });
+    assert.equal(arm.data.error, 'ITEM_NOT_HELD');
+
+    const incomplete = await alice('/items/arm', { method: 'POST', body: {} });
+    assert.equal(incomplete.status, 400);
+
+    const claim = await alice('/hoods/1/claim', {
+      method: 'POST',
+      raw: (() => { const f = new FormData(); f.append('photo_type', 'animal'); f.append('use_grant_id', '999999'); return f; })(),
+    });
+    assert.equal(claim.data.error, 'ITEM_NOT_HELD', 'refused before any upload is processed');
+  });
+
+  test('the rules carry the edition table, and it sums to 100', async () => {
+    const { data } = await alice('/seasons');
+    const r = data.rules.edition_rates;
+    assert.equal(r.hologram + r.gold + r.steel, 100);
+    assert.ok(data.rules.item_weekly_cap >= 0);
+    assert.ok(data.rules.park_hood_cap >= 0);
+  });
+
   test('a non-image upload is refused', async () => {
     const form = new FormData();
     form.append('photo', new Blob([Buffer.from('this is not a photo')], { type: 'image/jpeg' }), 'fake.jpg');

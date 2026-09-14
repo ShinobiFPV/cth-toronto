@@ -21,6 +21,7 @@ export const article = (s) => `${s === 'animal' ? 'an' : 'a'} ${s}`;
  */
 export const GATE_CODES = new Set([
   'HOOD_LOCKED', 'REINFORCE_TOO_SOON', 'ADJACENT_COOLDOWN', 'REINFORCE_CAP_REACHED',
+  'FORTIFY_COOLDOWN',
 ]);
 
 /**

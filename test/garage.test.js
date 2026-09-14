@@ -1,5 +1,5 @@
 // The Garage: what counts as the same car, what a car collection may and may not touch,
-// and the one scarce thing in it — the season's hologram.
+// and how its editions roll — uncapped, and granting items only when the car scored.
 import { test, before, beforeEach, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -48,10 +48,13 @@ const ident = (make, model, extra = {}) => vehicles.resolveIdentification({
   year_range: '2019-2024', body_style: 'sedan', confidence: 0.9, plates: [], ...extra,
 });
 
-const never = () => 1;
-const always = (key) => {
-  const want = editions.EDITIONS.find((e) => e.key === key);
-  return (oneIn) => (want && oneIn === want.oneIn() ? 0 : 1);
+// The roll is one draw against the rate table: 0 is the first Hologram slot, the draw just
+// past the Hologram range is Gold, and the last draw is Steel.
+const never = (n) => n - 1;
+const always = (key) => (n) => {
+  if (key === 'hologram') return 0;
+  if (key === 'gold') return Math.round((editions.editionRates().hologram / 100) * n);
+  return n - 1;
 };
 
 const snap = (playerId, make, model, { hood = 13, rand = never, extra } = {}) =>
@@ -70,6 +73,8 @@ beforeEach(() => {
   db.exec('DELETE FROM trades; DELETE FROM card_holdings');
   db.exec(`UPDATE hood_state SET owner_id = NULL, active_claim_id = NULL, photo_type = NULL,
            last_claim_at = NULL, locked_until = NULL`);
+  // Item grants join to claims by id, and ids are reused once the table is emptied.
+  db.exec('DELETE FROM item_uses; DELETE FROM item_armed; DELETE FROM item_grants');
   db.exec('DELETE FROM flags; DELETE FROM claims; DELETE FROM photos; DELETE FROM messages');
   db.exec('DELETE FROM vehicles; DELETE FROM parks; DELETE FROM players');
   parks.forgetSetSize();
@@ -298,55 +303,27 @@ describe('editions on a package', () => {
   });
 });
 
-describe('the hologram cap', () => {
-  test('one per season, globally — the next one falls through to Gold', () => {
-    assert.equal(snap(alice, 'Honda', 'Civic', { rand: always('hologram') }).package.edition, 'hologram');
-    assert.notEqual(snap(bob, 'Mazda', 'CX-5', { rand: always('hologram') }).package.edition, 'hologram');
-    assert.equal(snap(bob, 'Audi', 'A4', { rand: () => 0 }).package.edition, 'gold',
-      'a hit is still a hit; it lands one tier down');
+describe('no hologram cap', () => {
+  test('every car can come out a hologram, for anybody, as often as the dice say', () => {
+    const editionsPulled = [
+      snap(alice, 'Honda', 'Civic', { rand: always('hologram') }),
+      snap(bob, 'Mazda', 'CX-5', { rand: always('hologram') }),
+      snap(alice, 'Audi', 'A4', { rand: always('hologram') }),
+    ].map((r) => r.package.edition);
+    assert.deepEqual(editionsPulled, ['hologram', 'hologram', 'hologram']);
   });
 
-  test('two collections in flight cannot both mint it', () => {
-    // Both preflights see the hologram still out there...
-    const a = ident('Honda', 'Civic');
-    const b = ident('Mazda', 'CX-5');
-    assert.equal(garage.carHolos(alice, seasons.activeSeason().id), 0);
-    assert.ok(garage.evaluateCar({ identification: a, playerId: alice }).ok);
-    assert.ok(garage.evaluateCar({ identification: b, playerId: bob }).ok);
-
-    // ...and the commits re-check inside their transactions.
-    const first = garage.commitCar({ identification: a, playerId: alice, hoodId: 13, photo: photo(), rand: () => 0 });
-    const second = garage.commitCar({ identification: b, playerId: bob, hoodId: 13, photo: photo(), rand: () => 0 });
-    assert.deepEqual([first.package.edition, second.package.edition], ['hologram', 'gold']);
-    assert.equal(count("SELECT COUNT(*) AS n FROM claims WHERE edition = 'hologram'"), 1);
-  });
-
-  test('a reverted hologram frees the slot', () => {
-    const { package: pack } = snap(alice, 'Honda', 'Civic', { rand: always('hologram') });
-    game.revertClaim(pack.claim_id);
-    assert.equal(snap(bob, 'Mazda', 'CX-5', { rand: always('hologram') }).package.edition, 'hologram');
-  });
-
-  test('per player per season is one lever away', () => {
-    withConfig({ CAR_HOLOGRAM_CAP_SCOPE: 'player-season' }, () => {
-      snap(alice, 'Honda', 'Civic', { rand: always('hologram') });
-      assert.equal(snap(bob, 'Mazda', 'CX-5', { rand: always('hologram') }).package.edition, 'hologram');
-      assert.notEqual(snap(alice, 'Audi', 'A4', { rand: always('hologram') }).package.edition, 'hologram');
-    });
-  });
-
-  test('a car hologram does not use up the Hood\'s park hologram', () => {
+  test('a car hologram and a park hologram in the same Hood are both holograms', () => {
     db.prepare(`INSERT INTO parks (id, name, hood_id, lat, lng, value, distance_km, set_number)
                 VALUES (8801, 'Garage Test Park', 13, 43.65, -79.38, 10, 1, 1)`).run();
     snap(alice, 'Honda', 'Civic', { hood: 13, rand: always('hologram') });
-    assert.equal(editions.holosInHood(13, seasons.activeSeason().id), 0);
     const card = parks.commitCollect({ parkId: 8801, playerId: bob, photo: photo(), rand: always('hologram') });
-    assert.equal(card.claim.edition, 'hologram', 'the Hood 13 park hologram is still out there');
+    assert.equal(card.claim.edition, 'hologram');
   });
 });
 
 describe('the edition roll is unaffected by the points cap', () => {
-  test('a hologram past the cap is still a hologram, worth 0 points and full XP', () => {
+  test('a hologram past the cap is still a hologram, worth 0 points and full XP — and no items', () => {
     withConfig({ CAR_WEEKLY_CAP: config.CAR_POINTS }, () => {
       snap(alice, 'Honda', 'Civic');
       const past = snap(alice, 'Mazda', 'CX-5', { rand: always('hologram') });
@@ -355,7 +332,15 @@ describe('the edition roll is unaffected by the points cap', () => {
       assert.equal(past.xp.xp, config.CAR_XP_HOLOGRAM);
       assert.equal(db.prepare('SELECT xp_awarded AS x FROM claims WHERE id = ?')
         .get(past.package.claim_id).x, config.CAR_XP_HOLOGRAM);
+      assert.deepEqual(past.items.items, [], 'no points, no items');
+      assert.equal(past.items.reason, 'no_points');
     });
+  });
+
+  test('a scoring Gold car grants its item', () => {
+    const gold = snap(alice, 'Honda', 'Civic', { rand: always('gold') });
+    assert.equal(gold.items.items.length, config.ITEMS_PER_GOLD);
+    assert.equal(count('SELECT COUNT(*) AS n FROM item_grants WHERE player_id = ?', alice), config.ITEMS_PER_GOLD);
   });
 });
 
@@ -364,7 +349,7 @@ describe('the Case, and what it does not inflate', () => {
   test('cars have their own counters and never count as parks', () => {
     db.prepare(`INSERT INTO parks (id, name, hood_id, lat, lng, value, distance_km, set_number)
                 VALUES (8802, 'Counter Park', 13, 43.65, -79.38, 40, 5, 1)`).run();
-    // rand: never, or one run in ten the park rolls its own Steel and by_edition is not {}.
+    // rand: never, so the park card is a plain Steel and the counts below are exact.
     parks.commitCollect({ parkId: 8802, playerId: alice, photo: photo(), rand: never });
     snap(alice, 'Honda', 'Civic', { rand: always('gold') });
     snap(alice, 'Mazda', 'CX-5');
@@ -373,7 +358,7 @@ describe('the Case, and what it does not inflate', () => {
     assert.equal(binder.season_collected, 1);
     assert.equal(binder.season_points, 40);
     assert.equal(binder.cards_held, 1);
-    assert.deepEqual(binder.by_edition, {}, 'a gold package is not a gold park card');
+    assert.deepEqual(binder.by_edition, { steel: 1 }, 'a gold package is not a gold park card');
 
     const shelf = garage.garageSummary(alice);
     assert.equal(shelf.season_collected, 2);

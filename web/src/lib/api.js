@@ -13,6 +13,11 @@ export class ApiError extends Error {
     // The Garage: what the identifier half-thought it saw, and the card you already have.
     this.guess = body?.guess ?? null;
     this.claimId = body?.claim_id ?? null;
+    // Items: the gate an item would get you past, a steal that walked into a Fortify, and
+    // when a running Clover ends.
+    this.bypassableWith = body?.bypassable_with ?? null;
+    this.fortified = body?.fortified === true;
+    this.expiresAt = body?.expires_at ?? null;
   }
 }
 
@@ -102,6 +107,15 @@ export const api = {
   acceptTrade: (id) => request(`/trades/${id}/accept`, { method: 'POST' }),
   declineTrade: (id) => request(`/trades/${id}/decline`, { method: 'POST' }),
   cancelTrade: (id) => request(`/trades/${id}`, { method: 'DELETE' }),
+
+  // Items. Crowbar and Sprint are not here: they ride on the claim upload as use_grant_id.
+  items: () => request('/items'),
+  itemHistory: () => request('/items/history'),
+  armItem: (grantId, hoodId) =>
+    request('/items/arm', { method: 'POST', body: { grant_id: grantId, hood_id: hoodId } }),
+  disarmItem: (hoodId) => request('/items/disarm', { method: 'POST', body: { hood_id: hoodId } }),
+  useItem: (grantId, targetHoodId = null) =>
+    request('/items/use', { method: 'POST', body: { grant_id: grantId, target_hood_id: targetHoodId } }),
 
   // chat
   chat: (before) => request(`/chat${before ? `?before=${before}` : ''}`),

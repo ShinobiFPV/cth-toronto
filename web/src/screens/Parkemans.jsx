@@ -14,6 +14,7 @@ import { BackIcon, CameraIcon, CloseIcon } from '../components/icons.jsx';
 import { Banner, Spinner } from '../components/bits.jsx';
 import ParkCard from '../components/ParkCard.jsx';
 import ParkCollect from '../components/ParkCollect.jsx';
+import { itemList, withheldText } from '../lib/items.js';
 
 const TILES = import.meta.env.VITE_MAP_TILES
   || 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
@@ -37,7 +38,7 @@ export default function Parkemans() {
   // link to one particular park is possible from anywhere.
   const [search] = useSearchParams();
   const navigate = useNavigate();
-  const { refreshMe } = useGame();
+  const { refreshMe, itemsChanged } = useGame();
 
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -78,7 +79,8 @@ export default function Parkemans() {
   const collected = async (card, meta) => {
     setSelected(null);
     await Promise.all([load().catch(() => {}), refreshMe().catch(() => {})]);
-    setJustGot({ ...card, xp: meta?.xp, level_up: meta?.level_up });
+    if (meta?.items?.items?.length) itemsChanged();
+    setJustGot({ ...card, xp: meta?.xp, level_up: meta?.level_up, items: meta?.items });
   };
 
   return (
@@ -103,6 +105,14 @@ export default function Parkemans() {
                 <span className="tiny dim">{progress.points} points from this Hood</span>
               </div>
               <div className="progress-bar"><i style={{ width: `${pct}%` }} /></div>
+              {/* The per-Hood park points cap, before anybody walks to a park that pays nothing. */}
+              {progress.capacity?.cap != null && (
+                <div className="tiny dim" style={{ marginTop: '0.45rem' }}>
+                  {progress.capacity.remaining === 0
+                    ? <><b>XP only in this Hood</b> until {progress.capacity.period === 'season' ? 'next season' : progress.capacity.resets_on} — cards and XP still count; go to another Hood for points.</>
+                    : <>{progress.capacity.remaining} of {progress.capacity.cap} park points left here {progress.capacity.period === 'season' ? 'this season' : 'this week'}.</>}
+                </div>
+              )}
             </div>
           </div>
 
@@ -157,12 +167,20 @@ export default function Parkemans() {
           <div className="bottom-sheet" role="dialog" aria-modal="true" aria-label="New card">
             <div className="sheet-head">
               <div className="grow">
-                <h1>{justGot.rarity_label} · +{justGot.points}</h1>
+                <h1>{justGot.rarity_label} · {justGot.points > 0 ? `+${justGot.points}` : 'XP only'}</h1>
                 <div className="tiny dim">
                   {justGot.park.name} is yours for {justGot.season?.name}
                   {justGot.xp && ` · +${justGot.xp.xp} XP`}
                   {justGot.xp?.discovery > 0 && ' (first time here)'}
                 </div>
+                {justGot.items?.items?.length > 0 && (
+                  <div className="tiny" style={{ color: 'var(--accent-text)' }}>
+                    It came with: {itemList(justGot.items.items)}
+                  </div>
+                )}
+                {withheldText(justGot.items) && (
+                  <div className="tiny dim">{withheldText(justGot.items)}</div>
+                )}
                 {justGot.level_up && (
                   <div className="tiny" style={{ color: 'var(--accent-text)' }}>
                     Level {justGot.level_up.to} — {justGot.level_up.title}
@@ -268,7 +286,7 @@ function ParkSheet({ parkId, onClose, onCollected }) {
       <div className="scrim" onClick={() => !collecting && onClose()} />
       <div className="bottom-sheet" role="dialog" aria-modal="true" aria-label={park.name}>
         {collecting ? (
-          <ParkCollect park={park} onClose={() => setCollecting(false)} onDone={onCollected} />
+          <ParkCollect park={park} viewer={viewer} onClose={() => setCollecting(false)} onDone={onCollected} />
         ) : (
           <>
             <div className="sheet-head">
@@ -320,13 +338,20 @@ function ParkSheet({ parkId, onClose, onCollected }) {
               ) : (
                 <>
                   {!viewer.ok && <Banner kind="info">{viewer.message}</Banner>}
+                  {viewer.ok && viewer.capacity?.xp_only && (
+                    <Banner kind="info">
+                      XP only in this Hood for now — the card and the XP, no points. Points
+                      here come back {viewer.capacity.period === 'season' ? 'next season' : viewer.capacity.resets_on}.
+                    </Banner>
+                  )}
                   <div className="tiny dim">
                     Honour system: a photo of this park's sign, taken by you, recently.
                     Nobody checks. Everybody can flag.
                   </div>
                   <button className="btn btn-primary btn-block" disabled={!viewer.ok}
                           onClick={() => setCollecting(true)}>
-                    <CameraIcon style={{ width: 18, height: 18 }} /> Collect (+{park.value})
+                    <CameraIcon style={{ width: 18, height: 18 }} />
+                    {' '}Collect ({viewer.capacity?.xp_only ? 'XP only' : `+${viewer.points ?? park.value}`})
                   </button>
                 </>
               )}

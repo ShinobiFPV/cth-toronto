@@ -27,6 +27,7 @@ import { cleanCaption } from './captions.js';
 import { rollEdition, editionLabel, editionCounts } from './editions.js';
 import { weekKey, weekResetsAt, weekStartName } from './week.js';
 import { withArticle } from './vehicles.js';
+import { activeClover, grantItems } from './items.js';
 
 /**
  * The package's art seed, from (player, vehicle, season) — the same collection always
@@ -72,18 +73,6 @@ export function capacityFor(playerId, at = nowIso()) {
     resets_at: weekResetsAt(at),
     resets_on: weekStartName(),
   };
-}
-
-// ── the hologram cap ───────────────────────────────────────────────────────
-
-/** Car holograms already out there in this season (for this player, if scoped so). */
-export function carHolos(playerId, seasonId) {
-  const perPlayer = config.CAR_HOLOGRAM_CAP_SCOPE === 'player-season';
-  return db.prepare(`
-    SELECT COUNT(*) AS n FROM claims
-     WHERE claim_kind = 'car' AND season_id = ? AND edition = 'hologram' AND status != 'reverted'
-       ${perPlayer ? 'AND player_id = ?' : ''}`)
-    .get(...(perPlayer ? [seasonId, playerId] : [seasonId])).n;
 }
 
 // ── evaluate / commit ──────────────────────────────────────────────────────
@@ -172,11 +161,12 @@ const identifyJson = (identification) => {
 
 /**
  * Collect a car. One transaction, which re-runs evaluateCar() inside itself — two
- * collections racing at 95 points spent cannot both be awarded 5, and two pulls cannot
- * both mint the season's hologram. The preflight is a courtesy; this is the ruling.
+ * collections racing at 95 points spent cannot both be awarded 5, and two pulls racing at
+ * the item cap cannot both be granted the last slot. The preflight is a courtesy; this is
+ * the ruling.
  */
 export const commitCar = db.transaction((
-  { identification, playerId, hoodId, photo, caption = null, rand = undefined },
+  { identification, playerId, hoodId, photo, caption = null, rand = undefined, itemRand = undefined },
 ) => {
   const at = nowIso();
   const hood = db.prepare('SELECT id, name FROM hoods WHERE id = ?').get(hoodId);
@@ -201,16 +191,13 @@ export const commitCar = db.transaction((
   }
 
   const seasonId = evaluation.season_id;
+  const clover = !!activeClover(playerId, at);
 
-  // The same roll as a park card — same odds, same rarest-first order, same fall-through
-  // — with the Garage's own hologram question. Unaffected by the points cap: a hologram
-  // on your 40th car of the week is still a hologram, which is what makes collecting past
-  // the cap worth doing at all. Nothing is ever less than Steel.
-  const edition = rollEdition({
-    seasonId,
-    ...(rand ? { rand } : {}),
-    holoTaken: () => carHolos(playerId, seasonId) >= config.CAR_HOLOS_PER_SCOPE,
-  }) ?? 'steel';
+  // The same roll as a park card — same table, same rarest-first order, Clover and all.
+  // Unaffected by the points cap: a hologram on your 40th car of the week is still a
+  // hologram, which is what makes collecting past the cap worth doing at all. Nothing is
+  // ever less than Steel.
+  const edition = rollEdition({ clover, ...(rand ? { rand } : {}) });
 
   const earned = xpFor({ kind: 'car', playerId, edition });
   const photoId = insertPhoto(playerId, photo, caption, at);
@@ -231,6 +218,12 @@ export const commitCar = db.transaction((
     db.prepare('UPDATE vehicles SET first_seen_claim_id = ? WHERE id = ?').run(claimId, vehicle.id);
   }
 
+  // No points, no items: a car past the weekly cap grants nothing, whatever it rolled.
+  const items = grantItems({
+    claimId, playerId, seasonId, edition, points: evaluation.points, at, clover,
+    ...(itemRand ? { rand: itemRand } : {}),
+  });
+
   return {
     repeat: false,
     package: getPackageByClaim(claimId),
@@ -239,6 +232,7 @@ export const commitCar = db.transaction((
     season_id: seasonId,
     points: evaluation.points,
     xp: earned,
+    items,
     first_sighting: firstSighting,
     capacity: capacityFor(playerId, at),
   };

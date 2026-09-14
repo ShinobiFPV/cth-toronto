@@ -1,4 +1,5 @@
-// Calendar weeks in Toronto, for the Garage's weekly points cap.
+// Calendar weeks in Toronto, for every weekly cap: the Garage's points, the per-Hood park
+// points (when counted by week), and items.
 //
 // The week is a stored string rather than a rolling window: a week key is computed once
 // at claim time and written onto the row, so the cap check is an exact match and a SUM
@@ -67,7 +68,7 @@ function weekStartDay(iso, { tz, start }) {
  * the week's first day is shifted onto a Monday before numbering, so a Sunday-start
  * week is still seven days and still numbered like the ISO week it mostly overlaps.
  */
-export function weekKey(iso, { tz = config.timezone, start = config.CAR_WEEK_START } = {}) {
+export function weekKey(iso, { tz = config.timezone, start = config.WEEK_START } = {}) {
   const monday = new Date(weekStartDay(iso, { tz, start })
     + ((DAY_INDEX.MO - startIndex(start) + 7) % 7) * DAY_MS);
   // The ISO year is the year of that week's Thursday.
@@ -78,9 +79,9 @@ export function weekKey(iso, { tz = config.timezone, start = config.CAR_WEEK_STA
 }
 
 /** When the week containing `iso` ends and capacity comes back, as a UTC instant. */
-export function weekResetsAt(iso, { tz = config.timezone, start = config.CAR_WEEK_START } = {}) {
+export function weekResetsAt(iso, { tz = config.timezone, start = config.WEEK_START } = {}) {
   return new Date(zonedMidnight(weekStartDay(iso, { tz, start }) + 7 * DAY_MS, tz)).toISOString();
 }
 
 /** "Monday", for "resets Monday". */
-export const weekStartName = (start = config.CAR_WEEK_START) => DAY_NAME[startIndex(start)];
+export const weekStartName = (start = config.WEEK_START) => DAY_NAME[startIndex(start)];

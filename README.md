@@ -105,23 +105,26 @@ Every park in Toronto has the same municipal sign with the park's name on it. Th
 
 ### Special editions
 
-Every collection rolls the dice. Most cards are ordinary; some come out **Steel**, fewer
-**Gold**, and once in a very long while a **Hologram** — full spectrum, and there is only
-**one per Hood per season**. Once somebody pulls the Rouge Park hologram, that is it
-until the season turns.
+Every collection rolls the dice. Every card is at least **Steel**; about one in seven comes
+out **Gold** or better, and one in fifty is a **Hologram** — full spectrum, animated, and
+there's no limit on how many anybody pulls.
 
 | | Chance | Worth |
 |---|---|---|
-| Steel | 1 in 10 | +15 XP |
-| Gold | 1 in 40 | +40 XP |
-| **Hologram** | 1 in 150, one per Hood per season | **+100 XP** |
+| Steel | 86% | +15 XP |
+| Gold | 12% | +40 XP and **1 item** |
+| **Hologram** | 2% | **+100 XP** and **3 items** |
 
 <p align="center">
-  <img src="docs/screenshots/21-card-hologram.png" width="330" alt="A hologram edition card: iridescent frame, HOLOGRAM stamp on the photo, one per Hood per season">
+  <img src="docs/screenshots/21-card-hologram.png" width="330" alt="A hologram edition card: iridescent frame, HOLOGRAM stamp on the photo">
 </p>
 
 They pay **XP, never points** — so a lucky pull is a permanent brag and not a shortcut up
-the table. Nobody wins a season because the dice liked them.
+the table. Nobody wins a season because the dice liked them. What Gold and Hologram do hand
+you is [items](#items).
+
+**Park points stop at 300 per Hood per week.** Past that a park still prints its card and
+pays its XP, it just scores nothing — so the way to keep climbing is to go somewhere else.
 
 The border on each card is unique to that card. The **season** picks the palette — Fall is
 amber and rust, Winter goes ice blue, Spring green, Summer teal — and a seed derived from
@@ -202,11 +205,33 @@ Cards roll editions like cards, but every one is at least Steel:
 | | Backing | Worth |
 |---|---|---|
 | Steel | plain stock | +25 XP |
-| Gold | foil | +75 XP |
-| **Hologram** | holographic, **one in the whole game per season** | **+250 XP** |
+| Gold | foil | +75 XP and 1 item |
+| **Hologram** | holographic | **+250 XP** and 3 items |
 
 Snap a car straight from the map, or from **Cards → Garage**. Cards trade exactly like
 park cards, and everybody's Case is open.
+
+---
+
+## Items
+
+A Gold pull hands you **one item**, a Hologram **three** — as long as the card scored
+points, and up to **4 a week**. Past that you keep pulling cards and XP; you just stop
+stockpiling power. Your bag lives under **Cards → Items**, and items expire when the season
+ends, so spend them.
+
+| | What it does |
+|---|---|
+| **Fortify** | Arm it on a Hood you hold. The first steal attempt bounces straight off, and that thief is shut out of the Hood for an hour. **Nobody else can see it's there.** |
+| **Recon** | Check whether somebody's Hood is fortified before you get on the bus. |
+| **Crowbar** | Steal through the lock on a Hood that just changed hands. |
+| **Sprint** | Conquer next door to a Hood you just took, without waiting out the cooldown. |
+| **Tune-Up** | Reinforce your Hood now instead of in three days. |
+| **Clover** | Double your Gold and Hologram odds for six hours. Pop it before a long walk, not before bed. |
+
+The Hood sheet offers the right one when you need it — a Crowbar when a lock stops you, a
+Tune-Up when your reinforce is still counting down. Items stay with whoever pulled them:
+trade the card away and the items don't go with it.
 
 ---
 

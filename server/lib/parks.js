@@ -3,19 +3,24 @@
 // Every Toronto park has the same green sign with the park's name on it. You photograph
 // the sign, you collect the park, you get a card. Each park is collectable once per
 // season per player, and nobody competes over one — there is no owner, no stealing, no
-// cooldown. The points simply add to your score.
+// cooldown. The points add to your score, up to PARK_HOOD_CAP per Hood per week (or per
+// season): past that a collection still prints, rolls and pays XP, worth 0 points. To keep
+// earning, go to a different Hood. Same shape as the car cap, and never an error.
 //
 // Collections ride in the same `claims` ledger as territory, with claim_kind = 'park'
 // and park_id set. That is what makes scoring, the feed, chat and flagging work on them
 // for free. They never touch hood_state: taking a park takes nothing from anybody.
 import crypto from 'node:crypto';
 import { db, nowIso } from '../db.js';
+import { config } from '../config.js';
 import { GameError, notFound } from './errors.js';
 import { activeSeason } from './seasons.js';
 import { hoodLabel } from './hood-seed.js';
 import { xpFor } from './xp.js';
 import { cleanCaption } from './captions.js';
 import { rollEdition, editionLabel, editionCounts } from './editions.js';
+import { weekKey, weekResetsAt, weekStartName } from './week.js';
+import { activeClover, grantItems } from './items.js';
 
 /** Rarity tiers, driven by the park's value. Drives the card art, nothing mechanical. */
 export const RARITIES = [
@@ -154,8 +159,60 @@ export function parkProgress(hoodId, playerId, at = nowIso()) {
      WHERE c.player_id = ? AND c.season_id = ? AND p.hood_id = ? AND c.status != 'reverted'`)
     .get(playerId, season.id, hoodId).pts : 0;
 
-  return { total, collected, points, remaining: total - collected };
+  return {
+    total, collected, points, remaining: total - collected,
+    // Where this player stands against the Hood's park points cap, so the Hood sheet can
+    // say "XP only here" before anybody sets off.
+    capacity: parkCapacity(playerId, hoodId, at, season),
+  };
 }
+
+// ── the per-Hood points cap ────────────────────────────────────────────────
+
+/**
+ * Park points this player has scored in this Hood in the current period, and what is
+ * left. The same shape as the Garage's weekly cap: an exact match on a stored key and a
+ * SUM, reverted claims giving their points back.
+ *
+ * `week` groups by week_key, so capacity comes back Monday everywhere in the app at once.
+ * `season` groups by season_id — a hard ceiling on what one Hood can ever be worth.
+ */
+export function parkCapacity(playerId, hoodId, at = nowIso(), season = activeSeason(at)) {
+  const period = config.PARK_CAP_PERIOD;
+  const cap = config.PARK_HOOD_CAP > 0 ? config.PARK_HOOD_CAP : null;
+  const week = weekKey(at);
+
+  let spent = 0;
+  if (playerId != null && hoodId != null) {
+    spent = period === 'season'
+      ? (season ? db.prepare(`
+          SELECT COALESCE(SUM(points_awarded), 0) AS pts FROM claims
+           WHERE player_id = ? AND hood_id = ? AND season_id = ? AND claim_kind = 'park'
+             AND status != 'reverted'`).get(playerId, hoodId, season.id).pts : 0)
+      : db.prepare(`
+          SELECT COALESCE(SUM(points_awarded), 0) AS pts FROM claims
+           WHERE player_id = ? AND hood_id = ? AND week_key = ? AND claim_kind = 'park'
+             AND status != 'reverted'`).get(playerId, hoodId, week).pts;
+  }
+
+  return {
+    period,
+    cap,
+    spent,
+    remaining: cap == null ? null : Math.max(0, cap - spent),
+    week_key: week,
+    resets_at: period === 'season' ? (season?.ends_at ?? null) : weekResetsAt(at),
+    resets_on: period === 'season' ? 'next season' : weekStartName(),
+  };
+}
+
+/**
+ * What a park pays given where the player stands. min(), not all-or-nothing: both numbers
+ * are env vars, and the first combination that does not divide evenly would otherwise
+ * overshoot the cap or silently drop a whole award.
+ */
+export const parkAward = (value, capacity) =>
+  (capacity.remaining == null ? value : Math.max(0, Math.min(value, capacity.remaining)));
 
 /**
  * Can this player collect this park right now? Pure, no writes — the park sheet calls
@@ -166,11 +223,16 @@ export function evaluateCollect({ parkId, playerId, at = nowIso() }) {
   if (!park) throw notFound('PARK_NOT_FOUND', 'No park with that id.');
 
   const season = activeSeason(at);
+  const capacity = parkCapacity(playerId, park.hood_id, at, season);
+  const award = parkAward(park.value, capacity);
   const base = {
     park_id: park.id,
     park_name: park.name,
     hood_id: park.hood_id,
-    points: park.value,
+    // What this collection would score now — the park's value, or less past the cap.
+    points: award,
+    park_value: park.value,
+    capacity: { ...capacity, next_award: award, xp_only: award === 0 && park.value > 0 },
     rarity: rarityOf(park.value).key,
     // The card's palette comes from the season, so the sheet needs it even when the
     // answer is "you already have this one".
@@ -202,10 +264,12 @@ export function evaluateCollect({ parkId, playerId, at = nowIso() }) {
  * hood_state, because nothing changed hands.
  */
 export const commitCollect = db.transaction((
-  // `rand` exists so a test can force an edition; production never passes it and gets
-  // crypto.randomInt. See lib/editions.js.
-  { parkId, playerId, photo, caption = null, rand = undefined },
+  // `rand` and `itemRand` exist so a test can force an edition or an item; production
+  // never passes them and gets crypto.randomInt. See lib/editions.js and lib/items.js.
+  { parkId, playerId, photo, caption = null, rand = undefined, itemRand = undefined },
 ) => {
+  // The clock is read once and handed to everything below, so a Clover cannot expire
+  // between the check that it is running and the roll it doubles.
   const at = nowIso();
   const evaluation = evaluateCollect({ parkId, playerId, at });
   if (!evaluation.ok) {
@@ -214,11 +278,14 @@ export const commitCollect = db.transaction((
 
   const park = getPark(parkId);
   const seasonId = evaluation.season_id;
+  // Re-derived inside the transaction: two collections racing at the Hood's ceiling
+  // cannot both be paid the last of it.
+  const points = evaluation.points;
+  const clover = !!activeClover(playerId, at);
 
   // Luck, rolled once, here, and frozen onto the row — a card's edition is as immutable
-  // as its points. Inside this transaction, so two collections cannot both mint the
-  // last hologram in a Hood.
-  const edition = rollEdition({ hoodId: park.hood_id, seasonId, ...(rand ? { rand } : {}) });
+  // as its points. Every card is at least Steel. The points cap does not touch it.
+  const edition = rollEdition({ clover, ...(rand ? { rand } : {}) });
 
   const earned = xpFor({
     kind: 'park', playerId, parkId: park.id, rarity: rarityOf(park.value).key, edition,
@@ -245,17 +312,26 @@ export const commitCollect = db.transaction((
   const row = db.prepare(`
     INSERT INTO claims (hood_id, player_id, season_id, photo_id, claim_kind, photo_type,
                         points_awarded, xp_awarded, status, flag_count, park_id,
-                        card_seed, edition, created_at)
-    VALUES (?, ?, ?, ?, 'park', 'park_sign', ?, ?, 'active', 0, ?, ?, ?, ?)`)
+                        card_seed, edition, week_key, created_at)
+    VALUES (?, ?, ?, ?, 'park', 'park_sign', ?, ?, 'active', 0, ?, ?, ?, ?, ?)`)
     .run(park.hood_id, playerId, seasonId, photoRow.lastInsertRowid,
-         park.value, earned.xp, park.id, cardSeed(playerId, park.id, seasonId),
-         edition, at);
+         points, earned.xp, park.id, cardSeed(playerId, park.id, seasonId),
+         edition, weekKey(at), at);
+  const claimId = Number(row.lastInsertRowid);
+
+  // No points, no items — and past the weekly item cap, fewer or none. Same transaction.
+  const items = grantItems({
+    claimId, playerId, seasonId, edition, points, at, clover,
+    ...(itemRand ? { rand: itemRand } : {}),
+  });
 
   return {
-    claim: getCardByClaim(Number(row.lastInsertRowid)),
+    claim: getCardByClaim(claimId),
     park,
     season_id: seasonId,
     xp: earned,
+    items,
+    capacity: parkCapacity(playerId, park.hood_id, at),
   };
 });
 

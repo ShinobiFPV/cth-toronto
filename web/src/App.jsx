@@ -12,6 +12,7 @@ import Profile from './screens/Profile.jsx';
 import Parkemans from './screens/Parkemans.jsx';
 import Binder from './screens/Binder.jsx';
 import Trades from './screens/Trades.jsx';
+import Items from './screens/Items.jsx';
 
 export default function App() {
   const { session, booting, unreadChat } = useGame();
@@ -43,6 +44,8 @@ export default function App() {
           <Route path="/binder" element={<Binder />} />
           <Route path="/binder/:playerId" element={<Binder />} />
           <Route path="/trades" element={<Trades />} />
+          {/* Not a sixth tab: reached from the binder and the profile. */}
+          <Route path="/items" element={<Items />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
@@ -77,7 +80,14 @@ function Header() {
 
   return (
     <header className="header">
-      <NavLink to="/me" className="brand" style={{ textDecoration: 'none', color: 'inherit' }}>
+      <NavLink to="/me" className="brand" title="Profile and settings"
+               style={{ textDecoration: 'none', color: 'inherit' }}>
+        {/* A tappable wordmark alone reads as a logo, not a button. */}
+        <svg className="brand-menu" viewBox="0 0 10 8" aria-hidden="true">
+          <rect y="0" width="10" height="1.4" />
+          <rect y="3.3" width="10" height="1.4" />
+          <rect y="6.6" width="10" height="1.4" />
+        </svg>
         Park-E-Mans <b>GO!</b>
       </NavLink>
 

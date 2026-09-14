@@ -7,6 +7,7 @@ import { leaderboard, feed } from '../lib/views.js';
 import { activeSeason, allSeasons, nextSeason } from '../lib/seasons.js';
 import { recentMessages, postMessage, onlineCount } from '../lib/hub.js';
 import { badRequest } from '../lib/errors.js';
+import { editionRates } from '../lib/editions.js';
 
 export const miscRoutes = Router();
 
@@ -42,6 +43,17 @@ miscRoutes.get('/seasons', requireAuth, (_req, res) => {
       steal_cooldown_hours: config.STEAL_COOLDOWN_HOURS,
       adjacent_conquer_cooldown_hours: config.ADJACENT_CONQUER_COOLDOWN_HOURS,
       flag_threshold: config.FLAG_THRESHOLD,
+      park_hood_cap: config.PARK_HOOD_CAP,
+      park_cap_period: config.PARK_CAP_PERIOD,
+      car_points: config.CAR_POINTS,
+      car_weekly_cap: config.CAR_WEEKLY_CAP,
+      edition_rates: editionRates(),
+      clover_edition_rates: editionRates({ clover: true }),
+      item_weekly_cap: config.ITEM_WEEKLY_CAP,
+      items_per_gold: config.ITEMS_PER_GOLD,
+      items_per_hologram: config.ITEMS_PER_HOLOGRAM,
+      clover_hours: config.CLOVER_HOURS,
+      fortify_cooldown_hours: config.FORTIFY_COOLDOWN_HOURS,
     },
   });
 });

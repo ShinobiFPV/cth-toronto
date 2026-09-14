@@ -51,7 +51,8 @@ const nextCar = () => vehicles.resolveIdentification({
   generation: null, trim: null, year_range: null, body_style: null, confidence: 0.9, plates: [],
 });
 
-const never = () => 1;
+// The last draw of the roll is always Steel, whatever the rate table says.
+const never = (n) => n - 1;
 const snap = (playerId, identification = nextCar()) =>
   garage.commitCar({ identification, playerId, hoodId: 13, photo: photo(), rand: never });
 
@@ -66,6 +67,8 @@ const seasonPoints = (seasonId, playerId) =>
 
 beforeEach(() => {
   db.exec('DELETE FROM trades; DELETE FROM card_holdings');
+  // Item grants join to claims by id, and ids are reused once the table is emptied.
+  db.exec('DELETE FROM item_uses; DELETE FROM item_armed; DELETE FROM item_grants');
   db.exec('DELETE FROM flags; DELETE FROM claims; DELETE FROM photos; DELETE FROM messages');
   db.exec('DELETE FROM vehicles; DELETE FROM players');
   seq += 1;

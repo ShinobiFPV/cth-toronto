@@ -64,6 +64,53 @@ export const PencilIcon = (p) => svg(<>
   <path d="M14 6l4 4" />
 </>, p);
 
+// ── Items ─────────────────────────────────────────────────────────────────
+// A bag: the inventory as a whole.
+export const BagIcon = (p) => svg(<>
+  <path d="M4 8h16l-1 13H5z" />
+  <path d="M9 8V4h6v4" />
+</>, p);
+
+// A shield cut from straight lines, point down.
+export const ShieldIcon = (p) => svg(<path d="M12 3l8 3v7l-8 8-8-8V6z" />, p);
+
+// A lens in a diamond frame: looking before you go.
+export const ReconIcon = (p) => svg(<>
+  <path d="M2 12l5-6h10l5 6-5 6H7z" />
+  <rect x="10" y="10" width="4" height="4" />
+</>, p);
+
+// A bar with a hooked end.
+export const CrowbarIcon = (p) => svg(<>
+  <path d="M19 5L5 19" />
+  <path d="M15 5h4v4" />
+</>, p);
+
+export const SprintIcon = (p) => svg(<path d="M13 2L5 13h6l-1 9 9-12h-6z" />, p);
+
+// An open-ended spanner, all corners.
+export const TuneUpIcon = (p) => svg(<>
+  <path d="M15 3h4l2 2v4l-3 3-2-2-9 9-3-3 9-9-2-2z" />
+</>, p);
+
+// Four square leaves and a stem.
+export const CloverIcon = (p) => svg(<>
+  <rect x="5" y="4" width="6" height="6" />
+  <rect x="13" y="4" width="6" height="6" />
+  <rect x="5" y="12" width="6" height="6" />
+  <rect x="13" y="12" width="6" height="6" />
+  <path d="M12 18v4" />
+</>, p);
+
+export const ITEM_ICON = {
+  fortify: ShieldIcon,
+  recon: ReconIcon,
+  crowbar: CrowbarIcon,
+  sprint: SprintIcon,
+  tuneup: TuneUpIcon,
+  clover: CloverIcon,
+};
+
 export const CloseIcon = (p) => svg(<path d="M5 5l14 14M19 5L5 19" />, p);
 export const BackIcon = (p) => svg(<path d="M15 4l-8 8 8 8" />, p);
 export const LockIcon = (p) => svg(<>

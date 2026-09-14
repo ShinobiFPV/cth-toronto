@@ -15,6 +15,21 @@ import { activeSeason } from './seasons.js';
 import { hoodLabel } from './hood-seed.js';
 import { xpFor } from './xp.js';
 import { cleanCaption } from './captions.js';
+import { humanUntil } from './time.js';
+import {
+  armedFortifyOn, fortifyCooldown, tuneupPending, heldGrant, spendGrant, itemLabel,
+} from './items.js';
+
+export { humanUntil };
+
+/**
+ * Items spent on the claim they open, and the one gate each lets you through. Everything
+ * else about the claim is still checked — a Crowbar opens a lock, not a counter rule.
+ */
+export const CLAIM_ITEMS = {
+  crowbar: { lock: true },
+  sprint: { adjacency: true },
+};
 
 /**
  * What `playerId` can do at `hoodId` right now.
@@ -22,8 +37,11 @@ import { cleanCaption } from './captions.js';
  * `declaredType` is optional: omit it to ask "what are my options?", pass it to ask
  * "will this exact photo be accepted?". The returned shape is identical either way,
  * so the map sheet and the upload handler agree by construction.
+ *
+ * `bypass` is what an item held for this claim lets through: `{ lock }` for a Crowbar,
+ * `{ adjacency }` for a Sprint. It never skips anything else.
  */
-export function evaluateClaim({ hoodId, playerId, declaredType = null, at = nowIso() }) {
+export function evaluateClaim({ hoodId, playerId, declaredType = null, at = nowIso(), bypass = {} }) {
   const hood = db.prepare('SELECT * FROM hoods WHERE id = ?').get(hoodId);
   if (!hood) throw notFound('HOOD_NOT_FOUND', `There is no Hood ${hoodId}.`);
   if (declaredType !== null && !PHOTO_TYPES.includes(declaredType)) {
@@ -67,26 +85,40 @@ export function evaluateClaim({ hoodId, playerId, declaredType = null, at = nowI
 
   // ── Validation order is the spec §6 table, top to bottom ────────────────
   // Time gates first: they are knowable before the photo is even taken, and a player
-  // who simply has to wait should not be told their photo type is wrong instead.
+  // who simply has to wait should not be told their photo type is wrong instead. Among
+  // the gates the order is fixed so a player always gets the one clear reason: the
+  // post-handover lock, then a Fortify's cooldown, then adjacency, then the reinforce gate.
+  // A Fortify itself fires last of all, in commitClaim, only once everything here passed.
 
-  if (kind === 'steal' && state.locked_until && state.locked_until > at) {
+  if (kind === 'steal' && state.locked_until && state.locked_until > at && !bypass.lock) {
     return deny('HOOD_LOCKED',
       `${label} just changed hands. Stealing is locked for another ${humanUntil(at, state.locked_until)}.`,
-      { available_at: state.locked_until });
+      { available_at: state.locked_until, bypassable_with: 'crowbar' });
+  }
+
+  // You walked into a Fortify here recently. This attacker, this Hood — nobody else's
+  // steals and none of your other ones. The copy reads like being caught, because the
+  // error is the only way an attacker ever learns a Fortify was there.
+  if (kind === 'steal') {
+    const caught = fortifyCooldown(playerId, hoodId, at);
+    if (caught) {
+      return deny('FORTIFY_COOLDOWN', fortifyMessage(label, at, caught.until),
+        { available_at: caught.until });
+    }
   }
 
   // The adjacent-conquer cooldown (spec §1.3). Conquering unclaimed ground closes that
   // Hood's neighbours to you for ADJACENT_CONQUER_COOLDOWN_HOURS, so one drone flight
   // cannot sweep up a whole contiguous block. Per-player: anybody else may still
   // conquer the neighbour, and your own steals and reinforces are unaffected.
-  if (kind === 'conquer' && config.ADJACENT_CONQUER_COOLDOWN_HOURS > 0) {
+  if (kind === 'conquer' && config.ADJACENT_CONQUER_COOLDOWN_HOURS > 0 && !bypass.adjacency) {
     const blocker = recentAdjacentConquer(hoodId, playerId, at);
     if (blocker) {
       const openAt = isoPlusHours(blocker.created_at, config.ADJACENT_CONQUER_COOLDOWN_HOURS);
       return deny('ADJACENT_COOLDOWN',
         `You conquered ${hoodLabel(blocker.hood_id, blocker.hood_name)} ${humanUntil(blocker.created_at, at)} ago, `
         + `and it borders this one. ${label} opens up to you in ${humanUntil(at, openAt)}.`,
-        { available_at: openAt, blocked_by_hood_id: blocker.hood_id });
+        { available_at: openAt, blocked_by_hood_id: blocker.hood_id, bypassable_with: 'sprint' });
     }
   }
 
@@ -94,10 +126,11 @@ export function evaluateClaim({ hoodId, playerId, declaredType = null, at = nowI
     const eligibleAt = state.last_claim_at
       ? isoPlusHours(state.last_claim_at, config.REINFORCE_GATE_HOURS)
       : at;
-    if (eligibleAt > at) {
+    // A Tune-Up spent against this exact last_claim_at opens the gate early.
+    if (eligibleAt > at && !tuneupPending(playerId, hoodId, state.last_claim_at)) {
       return deny('REINFORCE_TOO_SOON',
         `You can reinforce ${label} in ${humanUntil(at, eligibleAt)}.`,
-        { available_at: eligibleAt });
+        { available_at: eligibleAt, bypassable_with: 'tuneup' });
     }
     if (config.REINFORCE_SEASON_CAP > 0) {
       const season = activeSeason(at);
@@ -123,6 +156,17 @@ export function evaluateClaim({ hoodId, playerId, declaredType = null, at = nowI
   }
 
   return { ...base, ok: true, error: null, message: null };
+}
+
+/**
+ * What an attacker is told about a Fortify. It is the only reveal there is, so it should
+ * read like getting caught rather than like a form that failed validation.
+ */
+export function fortifyMessage(label, at, until, { justNow = false } = {}) {
+  return justNow
+    ? `${label} was fortified. Your steal bounced straight off it — the photo is spent, and `
+      + `${label} is shut to you for ${humanUntil(at, until)}.`
+    : `You walked into a Fortify on ${label}. It is shut to you for another ${humanUntil(at, until)}.`;
 }
 
 /**
@@ -162,7 +206,9 @@ function reinforcePointsThisSeason(playerId, seasonId) {
  * client ran minutes ago, while the player walked back to their car, may no longer
  * hold. The preflight is a courtesy; this is the ruling.
  */
-export const commitClaim = db.transaction(({ hoodId, playerId, declaredType, photo, caption = null }) => {
+export const commitClaim = db.transaction(({
+  hoodId, playerId, declaredType, photo, caption = null, useGrantId = null,
+}) => {
   const at = nowIso();
   const season = activeSeason(at);
   if (!season) {
@@ -170,13 +216,28 @@ export const commitClaim = db.transaction(({ hoodId, playerId, declaredType, pho
       'The game is between seasons — no claims can be made right now.');
   }
 
-  const evaluation = evaluateClaim({ hoodId, playerId, declaredType, at });
+  // A Crowbar or Sprint brought along for this claim. Checked now, spent only once the
+  // claim has landed — so a claim that fails validation spends nothing.
+  const item = useGrantId != null ? heldGrant(playerId, useGrantId, at) : null;
+  if (item && !CLAIM_ITEMS[item.item_type]) {
+    throw new GameError('ITEM_WRONG_TARGET',
+      `A ${itemLabel(item.item_type)} is not spent on a claim.`);
+  }
+  const bypass = item ? CLAIM_ITEMS[item.item_type] : {};
+
+  const evaluation = evaluateClaim({ hoodId, playerId, declaredType, at, bypass });
   if (!evaluation.ok) {
     throw new GameError(evaluation.error, evaluation.message, {
       available_at: evaluation.available_at,
       required_types: evaluation.required_types,
+      bypassable_with: evaluation.bypassable_with ?? null,
     });
   }
+
+  // Did the item actually open anything? With the bypass the claim passes, so if it
+  // fails without one, the bypassed gate was the reason. A lock that ran out while you
+  // were walking there costs you nothing; you keep the Crowbar.
+  const needed = !!item && !evaluateClaim({ hoodId, playerId, declaredType, at }).ok;
 
   const hood = db.prepare('SELECT * FROM hoods WHERE id = ?').get(hoodId);
   const prev = db.prepare('SELECT * FROM hood_state WHERE hood_id = ?').get(hoodId);
@@ -204,6 +265,35 @@ export const commitClaim = db.transaction(({ hoodId, playerId, declaredType, pho
       exif_json: photo.exif_json ?? null,
       created_at: at,
     });
+
+  // ── Fortify ─────────────────────────────────────────────────────────────
+  // Last of all, once the steal has passed every other check. It is not an error: it is
+  // something that happened, so it must commit — throwing here would roll back the very
+  // use row that records it. The Fortify is spent, the attacker's photo is kept (and
+  // earns nothing), hood_state is not touched, and no claim row is written: the ledger is
+  // for claims that happened. The cooldown it leaves is derived from this use row.
+  if (kind === 'steal') {
+    const armed = armedFortifyOn(hoodId, at);
+    if (armed) {
+      const useId = spendGrant({
+        grant: { id: armed.grant_id, item_type: 'fortify' },
+        playerId: armed.player_id,
+        targetHoodId: hoodId,
+        targetPlayerId: playerId,
+        context: { photo_id: Number(photoRow.lastInsertRowid), declared_type: declaredType, armed_at: armed.armed_at },
+        at,
+      });
+      db.prepare('DELETE FROM item_armed WHERE hood_id = ?').run(hoodId);
+      const until = isoPlusHours(at, config.FORTIFY_COOLDOWN_HOURS);
+      return {
+        blocked: true,
+        claim: null,
+        fortify: { use_id: useId, defender_id: armed.player_id, hood_id: hoodId, available_at: until },
+        message: fortifyMessage(hoodLabel(hood.id, hood.name), at, until, { justNow: true }),
+        evaluation, season, hood, prev, xp: null, item_used: null,
+      };
+    }
+  }
 
   // The Hood's previous claim is superseded, not reverted: it keeps its points.
   // Spec §1.3 — "A player who loses a Hood does not lose points."
@@ -261,7 +351,25 @@ export const commitClaim = db.transaction(({ hoodId, playerId, declaredType, pho
     db.prepare('UPDATE hoods SET ever_conquered = 1 WHERE id = ?').run(hoodId);
   }
 
-  return { claim: getClaim(claimId), evaluation, season, hood, prev, xp: earned };
+  // The claim has landed, so the item that opened it is spent — in this transaction, so
+  // the two commit or fail together.
+  let itemUsed = null;
+  if (needed) {
+    spendGrant({ grant: item, playerId, targetHoodId: hoodId, context: { claim_id: claimId }, at });
+    itemUsed = { grant_id: item.id, item_type: item.item_type, label: itemLabel(item.item_type) };
+  }
+
+  // A change of hands leaves nothing armed for anybody else. A live Fortify would have
+  // stopped a steal above, so anything left here is a stale row.
+  if (kind !== 'reinforce') {
+    db.prepare('DELETE FROM item_armed WHERE hood_id = ? AND player_id != ?').run(hoodId, playerId);
+  }
+
+  return {
+    blocked: false, claim: getClaim(claimId), evaluation, season, hood, prev, xp: earned,
+    item_used: itemUsed, item_kept: item && !needed
+      ? { grant_id: item.id, item_type: item.item_type, label: itemLabel(item.item_type) } : null,
+  };
 });
 
 /**
@@ -299,6 +407,11 @@ export const revertClaim = db.transaction((claimId, { reason = 'flagged' } = {})
       db.prepare("UPDATE claims SET status = 'active' WHERE id = ? AND status = 'superseded'")
         .run(claim.prev_claim_id);
     }
+
+    // A Fortify belongs to whoever held the Hood when it was armed. If the Hood goes back
+    // to somebody else, it is disarmed — the grant returns to its owner's inventory.
+    db.prepare('DELETE FROM item_armed WHERE hood_id = ? AND player_id IS NOT ?')
+      .run(claim.hood_id, claim.prev_owner_id);
 
     // A reverted first-ever conquer un-conquers the Hood, so seasonal escalation
     // resumes for it — otherwise one bogus claim freezes its value at 25 forever.
@@ -350,16 +463,3 @@ export function getClaim(id) {
 export const article = (type) => `${type === 'animal' ? 'an' : 'a'} ${type}`;
 
 const cap = (s) => s[0].toUpperCase() + s.slice(1);
-
-/** "14h", "3h 20m", "4m", "2d 6h" — used in every gate message and on the map sheet. */
-export function humanUntil(fromIso, toIso) {
-  const ms = new Date(toIso) - new Date(fromIso);
-  if (ms <= 0) return 'now';
-  const mins = Math.ceil(ms / 60_000);
-  if (mins < 60) return `${mins}m`;
-  const hours = Math.floor(mins / 60);
-  const rem = mins % 60;
-  if (hours < 24) return rem ? `${hours}h ${rem}m` : `${hours}h`;
-  const days = Math.floor(hours / 24);
-  return hours % 24 ? `${days}d ${hours % 24}h` : `${days}d`;
-}

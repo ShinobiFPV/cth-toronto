@@ -13,9 +13,13 @@ import { CAPTION_MAX } from './Caption.jsx';
 const HEIC = /\.(heic|heif)$/i;
 const isHeic = (f) => HEIC.test(f.name || '') || /image\/hei[cf]/i.test(f.type || '');
 
-export default function ClaimFlow({ hood, onClose, onDone }) {
+export default function ClaimFlow({ hood, onClose, onDone, onBlocked, useGrant = null }) {
   const viewer = hood.viewer ?? {};
   const allowed = viewer.required_types ?? SUBJECTS;
+  // A Crowbar or Sprint brought along gets you past the one gate it opens. The server
+  // re-checks everything and spends it only if the claim lands.
+  const bypassing = !!useGrant && viewer.bypassable_with === useGrant.item_type;
+  const canClaim = !!viewer.can_claim || bypassing;
 
   const [subject, setSubject] = useState(allowed.length === 1 ? allowed[0] : null);
   const [caption, setCaption] = useState('');
@@ -71,9 +75,15 @@ export default function ClaimFlow({ hood, onClose, onDone }) {
       form.append('photo', file, file.name);
       form.append('photo_type', subject);
       if (caption.trim()) form.append('caption', caption.trim());
+      if (useGrant) form.append('use_grant_id', String(useGrant.grant_id));
       const res = await uploadClaim(hood.id, form, setProgress);
       onDone?.(res.claim, res);
     } catch (err) {
+      // Walked into a Fortify: not a failed upload but something that happened.
+      if (err.code === 'FORTIFY_COOLDOWN' && err.fortified && onBlocked) {
+        onBlocked(err.message);
+        return;
+      }
       setError(err.message || 'That did not go through.');
       setBusy(false);
     }
@@ -99,10 +109,17 @@ export default function ClaimFlow({ hood, onClose, onDone }) {
       </div>
 
       <div className="sheet-body stack">
-        {!viewer.can_claim && (
+        {!canClaim && (
           <Banner kind="bad">
             {viewer.message}
             {viewer.available_at && ` (${until(viewer.available_at)} to go)`}
+          </Banner>
+        )}
+
+        {bypassing && (
+          <Banner kind="info">
+            Using a <b>{useGrant.label}</b> to get past this. It is spent only if the claim
+            lands — if anything else stops it, you keep it.
           </Banner>
         )}
 
@@ -216,7 +233,7 @@ export default function ClaimFlow({ hood, onClose, onDone }) {
         )}
 
         <button className="btn btn-primary btn-block"
-                disabled={!subject || !file || busy || !viewer.can_claim}
+                disabled={!subject || !file || busy || !canClaim}
                 onClick={submit}>
           {busy ? 'Sending…' : `${verb} (+${viewer.points})`}
         </button>

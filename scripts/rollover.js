@@ -11,13 +11,17 @@
 //   • every Hood never conquered by anyone gains +25 on top of its difficulty score
 //   • reinforce stays flat at 25, and a steal always pays difficulty x the steal
 //     multiplier — neither is affected by escalation
+//   • unspent items expire and armed Fortifies disarm (spec §1.8d). Items follow points:
+//     they exist to influence the season race, so none carry into the next one.
 //
-// Idempotency lives in seasons.escalation_applied: the flag is set in the same
-// transaction as the escalation, so a timer that fires twice cannot double-count.
+// Idempotency lives in two flags on the season, each set in the same transaction as the
+// work it guards: escalation_applied and items_expired. A timer that fires twice cannot
+// double-count an escalation or double-post an expiry.
 import { db, nowIso, recomputeValues } from '../server/db.js';
 import { config } from '../server/config.js';
 import { postMessage } from '../server/lib/hub.js';
 import { leaderboard } from '../server/lib/views.js';
+import { expireSeasonItems, expiryMessage } from '../server/lib/items.js';
 
 const args = process.argv.slice(2);
 const dryRun = args.includes('--dry-run');
@@ -25,10 +29,12 @@ const at = args.includes('--at') ? args[args.indexOf('--at') + 1] : nowIso();
 
 const log = (...a) => console.log('[rollover]', ...a);
 
-// Every season that has finished but not yet been rolled over. Normally zero or one;
+// Every season that has finished and still has work outstanding. Normally zero or one;
 // more only if the Pi was off for a season boundary, which this handles in order.
 const pending = db.prepare(`
-  SELECT * FROM seasons WHERE ends_at <= ? AND escalation_applied = 0 ORDER BY id`).all(at);
+  SELECT * FROM seasons
+   WHERE ends_at <= ? AND (escalation_applied = 0 OR items_expired = 0)
+   ORDER BY id`).all(at);
 
 if (pending.length === 0) {
   const current = db.prepare('SELECT * FROM seasons WHERE starts_at <= ? AND ends_at > ?')
@@ -38,6 +44,12 @@ if (pending.length === 0) {
 }
 
 for (const season of pending) {
+  log(`${season.name} ended ${season.ends_at}`);
+  if (!season.escalation_applied) escalate(season);
+  if (!season.items_expired) expireItems(season);
+}
+
+function escalate(season) {
   const next = db.prepare('SELECT * FROM seasons WHERE starts_at >= ? ORDER BY id LIMIT 1')
     .get(season.ends_at);
 
@@ -55,7 +67,6 @@ for (const season of pending) {
   const standings = leaderboard(season.id).filter((r) => r.claims > 0);
   const winner = standings[0] ?? null;
 
-  log(`${season.name} ended ${season.ends_at}`);
   log(`  winner: ${winner ? `${winner.player.display_name} — ${winner.points} points` : 'nobody scored'}`);
   log(`  never-conquered Hoods: ${untouched.length}`);
   log(next
@@ -65,7 +76,7 @@ for (const season of pending) {
 
   if (dryRun) {
     for (const h of escalations) log(`    Hood ${h.id} ${h.name}: ${h.unclaimed_value} → ${h.new_value}`);
-    continue;
+    return;
   }
 
   db.transaction(() => {
@@ -110,6 +121,35 @@ for (const season of pending) {
     },
   });
   log('  posted the rollover message to chat');
+}
+
+function expireItems(season) {
+  if (dryRun) {
+    const unspent = db.prepare(`
+      SELECT COUNT(*) AS n FROM item_grants g
+        JOIN claims c ON c.id = g.claim_id
+        LEFT JOIN item_uses u ON u.grant_id = g.id
+       WHERE g.season_id = ? AND c.status != 'reverted' AND u.id IS NULL`).get(season.id).n;
+    log(`  would expire ${unspent} unspent item${unspent === 1 ? '' : 's'}`);
+    return;
+  }
+
+  const result = expireSeasonItems(season.id);
+  if (!result) return;
+  const total = result.players.reduce((n, p) => n + p.total, 0);
+  log(`  expired ${total} unspent item${total === 1 ? '' : 's'}, disarmed ${result.disarmed} Fortif${result.disarmed === 1 ? 'y' : 'ies'}`);
+
+  // Posted per player, so everybody feels it — that is what teaches the group to spend in
+  // week 12 instead of hoarding into a reset. Nothing expired, nothing said.
+  const body = expiryMessage(result);
+  if (body) {
+    postMessage({
+      body,
+      kind: 'system',
+      meta: { event: 'items_expired', season_id: season.id, players: result.players },
+    });
+    log('  posted the item expiry to chat');
+  }
 }
 
 // The running server holds its own connection; it will pick up the new values on the

@@ -8,7 +8,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import { useGame } from '../lib/store.jsx';
-import { BackIcon, CloseIcon, SwapIcon } from '../components/icons.jsx';
+import { BackIcon, BagIcon, CloseIcon, SwapIcon } from '../components/icons.jsx';
 import { Banner, Spinner } from '../components/bits.jsx';
 import ParkCard from '../components/ParkCard.jsx';
 import TradeOffer from '../components/TradeOffer.jsx';
@@ -86,6 +86,13 @@ export default function Binder() {
           <BackIcon style={{ width: 14, height: 14 }} /> Back
         </button>
         <span className="grow" />
+        {/* The bag lives off Cards rather than on a sixth tab: items come out of cards. */}
+        <Link className="btn btn-sm btn-ghost" to="/items">
+          <BagIcon style={{ width: 14, height: 14 }} /> Items
+          {(session?.items?.held ?? 0) > 0 && (
+            <span className="chip chip-accent">{session.items.held}</span>
+          )}
+        </Link>
         <Link className="btn btn-sm btn-ghost" to="/trades">
           <SwapIcon style={{ width: 14, height: 14 }} /> Offers
           {(session?.trades_pending ?? 0) > 0 && (

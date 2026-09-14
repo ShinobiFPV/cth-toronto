@@ -114,11 +114,36 @@ changing one, read the test first — it says why.
   injectable `rand` purely so tests can force an outcome.
 - **Editions pay XP and never points.** Points are the season race; a race decided by
   dice is not a race. `test/editions.test.js` asserts the leaderboard cannot move.
-- **The hologram cap is one per Hood per season, global, and checked inside the
-  collection's transaction** so two collections cannot both mint the last one. A hit in
-  a Hood whose hologram has gone falls through to the next edition down rather than
-  being discarded — `EDITIONS` is ordered rarest-first for exactly that reason, and so
-  that an all-hits roll cannot be demoted to Steel.
+- **No edition is capped, and the roll is one draw against a table that sums to 100.**
+  Gold and Hologram percentages are config; Steel is the remainder, so every card is at
+  least Steel. `EDITIONS` stays ordered rarest-first and `rollEdition()` keeps a
+  `capped(key)` fall-through hook that nothing passes — a draw of 0 is a Hologram, and a
+  hit on a capped edition lands one tier down. One test drives it with a synthetic cap; keep
+  it, or the path rots before anybody wants a cap back.
+- **Park points are capped per player per Hood** (`PARK_HOOD_CAP`, by week or season) with
+  the car cap's machinery: `min()` against what is left, computed in `evaluateCollect()`,
+  re-run in `commitCollect()`, worth 0 past it and never an error. Park claims carry
+  `week_key` now for this.
+- **Items: grants minus uses, derived, never stored.** `item_grants` and `item_uses` are
+  append-only; `item_uses.grant_id UNIQUE` is what makes double-spending impossible.
+  `item_armed` is the only mutable item table and only stages a Fortify. A grant is
+  spendable only in its own season, only if its card was not reverted, and only by the
+  player who pulled it — **items never follow a traded card**. No points, no items; the
+  weekly item cap clamps with `min()`.
+- **Fortify fires last, inside `commitClaim()`, and does not throw.** It returns
+  `blocked: true` having written a use row, kept the photo and touched nothing else — no
+  claim row, no `hood_state`. Throwing would roll back the use row that records it. Its
+  1h cooldown is derived from that use row, the way adjacency is derived from the conquer;
+  do not add a cooldown table. **`viewer.fortified` is set only for the Hood's owner** and
+  the key is absent for everyone else — `test/items.test.js` greps the payload for it.
+- **Crowbar and Sprint are spent by the claim they open**, via `use_grant_id`, in the same
+  transaction, and only if the claim lands *and* the bypassed gate was actually shut.
+  `evaluateClaim()`'s `bypass` skips exactly one gate. Tune-Up records the `last_claim_at`
+  it was spent against and never writes `hood_state`. An active Clover is a `clover` use
+  whose `expires_at` is ahead; a collection reads the clock once and passes that instant to
+  the Clover check, the roll and the grant, and a pull inside the window never grants Clover.
+- **Gate order is lock → Fortify cooldown → adjacency → reinforce gate → subject counter.**
+  The items spec suggested the counter first; the time-gates-first rule was kept.
 - **A card's art is seeded, not random.** `card_seed` is hashed from
   (player, park, season) and stored on the claim, so a card renders identically every
   time. `ParkCard.jsx` reads the seed for the hatch, foil and corners, the season for
@@ -147,9 +172,9 @@ changing one, read the test first — it says why.
   is an exact match on it. Never compute a rolling window and never add a fixed offset —
   `test/carcap.test.js` pins both DST transitions. The week is independent of the season.
 - **`park_id IS NULL` no longer means territory.** Car claims have no park either. The Hood
-  discovery bonus now filters on `claim_kind IN ('conquer','steal','reinforce')`, and
-  `holosInHood()` filters to parks so a car hologram cannot use up a Hood's park hologram.
-  Any new query that means "territory claims" has to say so by kind.
+  discovery bonus now filters on `claim_kind IN ('conquer','steal','reinforce')`, and the
+  park cap filters on `claim_kind = 'park'`. Any new query that means "territory claims"
+  has to say so by kind.
 - **The dedupe key is make + model, trim and generation stripped.** `vehicleKey()` in
   `server/lib/vehicles.js` is the only place one is made. Too fine and the Case fills with
   Civics; too coarse and every Toyota is one card. Single letters are never stripped as
@@ -205,6 +230,12 @@ changing one, read the test first — it says why.
   `trade_resolved` frame addressed to this player, because a notification badge that
   only appears on reload is not a notification. Five labels fit down to 320px; check
   that before adding a sixth.
+- **Items live off the Cards tab and the profile** (`/items`), not on a sixth tab, and the
+  Hood sheet offers each item at the gate it opens. Screens holding an inventory refetch on
+  the store's `itemsTick`, bumped by an `items_changed` frame addressed to this player.
+- **Any suite that empties `claims` must empty the item tables first.** Grants join to
+  claims by id, SQLite reuses ids once a table is empty, and a random Gold in an unforced
+  collection leaves a grant behind that attaches itself to the next test's claim.
 - **The Garage lives inside the Cards tab** as a **Parks | Garage** control, carried in
   the URL as `?kind=car`, because the tab bar has no room for a sixth label. The shelf is
   the **Case**, the collectable is a **Not Wheels card** (`NotWheelsCard.jsx`), and a
@@ -233,7 +264,7 @@ changing one, read the test first — it says why.
 ## Testing
 
 ```bash
-npm test        # 312 tests, no server needed, touches nothing in data/
+npm test        # 357 tests, no server needed, touches nothing in data/
 ```
 
 - `test/game.test.js` — the rules, driving the game module directly. Time is simulated by
@@ -242,13 +273,17 @@ npm test        # 312 tests, no server needed, touches nothing in data/
   walks the whole thing over HTTP, including real JPEGs through the sharp pipeline.
 - `test/parks.test.js` — parks and cards. Seeds four parks by hand rather than importing
   1,513, so the suite never touches the network.
-- `test/editions.test.js` — Steel / Gold / Hologram: the roll, the per-Hood hologram cap,
-  and that none of it can move a single point.
+- `test/editions.test.js` — Steel / Gold / Hologram: the rate table and its exact
+  boundaries, a seeded sample against the configured rates, the synthetic-cap fall-through,
+  Clover, and that none of it can move a single point.
+- `test/items.test.js` — grants and the caps that withhold them, double-spending, Fortify
+  (including that its armed state never reaches anyone but the owner), Recon, Crowbar,
+  Sprint, Tune-Up, gate precedence, and season expiry.
 - `test/trades.test.js` — trading. The first suite in it exists only to assert that a
   trade changes no points, no XP and no standings; the rest covers the rules, stale
   offers and the inbox.
-- `test/garage.test.js` — the Garage: the dedupe key, what a car may not touch, the
-  season hologram and its fall-through, and that cars never inflate the parks numbers.
+- `test/garage.test.js` — the Garage: the dedupe key, what a car may not touch, uncapped
+  editions and their items, and that cars never inflate the parks numbers.
 - `test/carcap.test.js` — the weekly points cap and the week-key arithmetic, including
   both Toronto DST transitions and the ISO year boundary.
 - `test/xp.test.js` — the level curve (asserted to invert exactly across 200 levels), the

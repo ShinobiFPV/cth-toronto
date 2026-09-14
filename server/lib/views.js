@@ -13,6 +13,7 @@ import { levelOf, titleOf } from './xp.js';
 import { parkProgress } from './parks.js';
 import { progressFor } from './xp.js';
 import { withArticle } from './vehicles.js';
+import { armedFortifyOn, itemSummary } from './items.js';
 
 /** Every Hood with its holder and, if a viewer is given, what that viewer can do. */
 export function listHoods(viewerId = null, at = nowIso()) {
@@ -82,8 +83,18 @@ function shapeHood(r, viewerId, at) {
     // Unclaimed, but closed to this player because they just took a Hood next door.
     adjacent_blocked: ev.error === 'ADJACENT_COOLDOWN',
     blocked_by_hood_id: ev.blocked_by_hood_id ?? null,
+    // The item that would get you past the gate stopping you — the sheet offers it if
+    // you hold one. Crowbar for a lock, Sprint for adjacency, Tune-Up for the reinforce gate.
+    bypassable_with: ev.bypassable_with ?? null,
     action_label: actionLabel(ev),
   };
+
+  // Whether a Fortify is armed here goes to the Hood's owner and nobody else. The key is
+  // left off entirely for everybody else rather than set false: a serialiser that one day
+  // copies viewer wholesale must have nothing to leak.
+  if (r.owner_id === viewerId) {
+    hood.viewer.fortified = !!armedFortifyOn(r.id, at);
+  }
   return hood;
 }
 
@@ -96,6 +107,7 @@ function actionLabel(ev) {
   if (ev.error === 'HOOD_LOCKED') return `Locked · ${humanUntil(nowIso(), ev.available_at)}`;
   if (ev.error === 'REINFORCE_TOO_SOON') return `Reinforce in ${humanUntil(nowIso(), ev.available_at)}`;
   if (ev.error === 'ADJACENT_COOLDOWN') return `Next door · ${humanUntil(nowIso(), ev.available_at)}`;
+  if (ev.error === 'FORTIFY_COOLDOWN') return `Caught · ${humanUntil(nowIso(), ev.available_at)}`;
   return 'Unavailable';
 }
 
@@ -350,5 +362,8 @@ export function playerSummary(playerId, at = nowIso()) {
       .get(playerId).n,
     // Lifetime, across every season. The one number here that never resets.
     xp: progressFor(playerId),
+    // Items held this season, and when a running Clover runs out — the capture sheets
+    // count it down, because a Clover nobody noticed expiring is a wasted item.
+    items: itemSummary(playerId, at),
   };
 }

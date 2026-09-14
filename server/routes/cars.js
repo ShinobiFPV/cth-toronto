@@ -14,6 +14,7 @@ import { broadcast, postMessage } from '../lib/hub.js';
 import { withLevelUp, announceLevelUp } from '../lib/xp-announce.js';
 import { GameError, badRequest, notFound } from '../lib/errors.js';
 import { hoodLabel } from '../lib/hood-seed.js';
+import { itemClause, announceItemCap } from '../lib/item-announce.js';
 
 export const carRoutes = Router();
 
@@ -81,6 +82,7 @@ carRoutes.post('/cars/collect', requireAuth, upload.single('photo'), async (req,
       points: result.points, edition: result.repeat ? null : result.package.edition,
       repeat: result.repeat,
     });
+    if (result.items?.items.length) broadcast('items_changed', { player_id: req.player.id });
     announceLevelUp(req.player, levelUp);
 
     res.status(201).json({
@@ -88,6 +90,7 @@ carRoutes.post('/cars/collect', requireAuth, upload.single('photo'), async (req,
       package: result.package,
       points: result.points,
       xp: result.xp,
+      items: result.items ?? null,
       capacity: result.capacity,
       first_sighting: result.first_sighting,
       progress,
@@ -130,18 +133,20 @@ function announce(player, result) {
       hood_id: result.hood.id, points: result.points, suspect: pack.suspect },
   });
 
-  // A hologram reads like the event it is.
+  // A hologram reads like the event it is, and the items a special pull came with ride on
+  // its line — including, plainly, the ones the caps held back.
   if (pack.edition === 'hologram' || pack.edition === 'gold') {
-    const onlyOne = config.CAR_HOLOGRAM_CAP_SCOPE === 'player-season'
-      ? 'Their only one this season.'
-      : 'There is only one this season.';
     postMessage({
-      body: pack.edition === 'hologram'
-        ? `HOLOGRAM — ${player.display_name} pulled the Not Wheels hologram: ${withArticle(name)}. `
-          + `${onlyOne} (+${result.xp.xp} XP)`
-        : `Gold edition — ${player.display_name}'s ${name} came out gold (+${result.xp.xp} XP)`,
+      body: (pack.edition === 'hologram'
+        ? `HOLOGRAM — ${player.display_name} pulled a Not Wheels hologram: ${withArticle(name)}`
+        : `Gold edition — ${player.display_name}'s ${name} came out gold`)
+        + ` (+${result.xp.xp} XP)${itemClause(result.items)}`,
       kind: 'system',
-      meta: { event: 'edition', edition: pack.edition, claim_id: pack.claim_id, vehicle_id: result.vehicle.id },
+      meta: {
+        event: 'edition', edition: pack.edition, claim_id: pack.claim_id, vehicle_id: result.vehicle.id,
+        items: result.items?.items.map((i) => i.item_type) ?? [],
+      },
     });
   }
+  announceItemCap(player, result.items, result.capacity.resets_on);
 }

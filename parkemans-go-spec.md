@@ -240,6 +240,15 @@ and you **collect** that park: it pays points and prints you a collectable card.
   park; there is no owner, no stealing, no cooldown, and nothing to lose.
 - Park points go into the **same total** as territory. Somebody can top the table without
   holding a single Hood.
+- **Park points are capped per player per Hood** — `PARK_HOOD_CAP` (300) per **week** by
+  default, or per season with `CTH_PARK_CAP_PERIOD=season`. Past a Hood's ceiling a collection
+  still succeeds — card, edition, XP — worth **0 points and no item**. To keep earning, go to
+  a different Hood. Same machinery as the car cap: `spent = SUM(points_awarded)` over this
+  player's park claims in this Hood for the period, `award = min(park value, cap − spent)`,
+  computed in `evaluateCollect()` and re-run inside `commitCollect()`'s transaction. Not an
+  error: there is no `HOOD_CAP_REACHED` code, and the Hood sheet says "XP only" before the
+  shutter. A reverted collection gives its capacity back. Park claims carry `week_key` for
+  this; the ones collected before it existed were backfilled from `created_at`.
 - Collections ride in the same `claims` ledger with `claim_kind = 'park'`, which is what
   makes scoring, the feed, chat and **flagging** work on them unchanged. A collection
   reverted by flags cancels its points and frees the park to be collected again.
@@ -262,18 +271,29 @@ leave the house, and the same for everybody who collects it. A card's **edition*
 opposite — pure chance, rolled the moment the photo lands, and the reason it is worth
 photographing a park somebody else already has.
 
-| Edition | Chance | XP | Notes |
-|---|---|---|---|
-| Steel | 1 in 10 | +15 | brushed grey frame |
-| Gold | 1 in 40 | +40 | gold frame, stronger foil |
-| **Hologram** | 1 in 150 | **+100** | full spectrum, animated, **one per Hood per season** |
+| Edition | Chance | Under Clover | XP | Items | Notes |
+|---|---|---|---|---|---|
+| Steel | 86% (the remainder) | 72% | +15 | none | brushed grey frame |
+| Gold | 12% | 24% | +40 | 1 | gold frame, stronger foil |
+| **Hologram** | 2% | 4% | **+100** | 3 | full spectrum, animated |
+
+Every card is at least Steel. Special cards — Gold and Hologram — are deliberately common,
+about one collection in seven, and **no edition is capped anywhere**. What is scarce is the
+power they carry: items (§1.8d), which have a weekly cap of their own.
+
+The roll is **one draw mapped to ranges**, not three sequential one-in-N checks: a draw in
+`[0, 1,000,000)` against cumulative bounds laid out rarest first. Sequential checks make
+Clover's "double the specials" arithmetic hard to reason about and harder to test. Gold and
+Hologram percentages live in `server/config.js`; Steel is not configured, it is whatever
+remains, so the table can never sum to anything but 100. Under Clover the specials double
+and are clamped so they can never ask for more than the whole draw.
 
 Everything about the design follows from two rules:
 
 - **Editions pay XP, never points.** Points are the season race, and a race decided by
   dice is not a race. XP is lifetime and never resets (§1.9), so a lucky pull is a
   permanent little keepsake that leaves the table alone. A hologram is worth as much XP
-  as walking into a Hood for the first time; there are at most 25 of them in a season.
+  as walking into a Hood for the first time.
 - **The roll uses fresh randomness, not `card_seed`.** Deriving it from the seed would
   have been tidier, but the seed is `sha256('cth-parkemon:player:park:season')` and that
   salt is in a public repo — anybody could precompute which parks would hand them a Gold
@@ -281,13 +301,16 @@ Everything about the design follows from two rules:
   chance prize. So the edition is rolled with `crypto.randomInt` and frozen onto
   `claims.edition`, as immutable as `points_awarded`.
 
-The hologram cap is checked inside the collection's transaction, so two simultaneous
-collections cannot both mint a Hood's last one. It is **global rather than per player**:
-once Hood 13's hologram is out there, it is out there. That is the only scarce thing in a
-sub-game that otherwise has nothing to fight over, and nobody loses anything when
-somebody else pulls it — a Hood whose hologram has gone still yields Gold and Steel,
-because a hit falls through to the next edition down rather than being thrown away. A
-hologram reverted by flags frees its Hood again, like every other kind of claim.
+**There used to be a cap of one hologram per Hood per season. It is gone.** At 2% uncapped
+a keen player pulls roughly eight a season, so Holograms go from genuinely scarce to about
+one every ten days each — still special, no longer the thing you show people. If a prestige
+tier is wanted back, the lever is a fourth edition above Hologram rather than re-capping it.
+
+`EDITIONS` stays ordered rarest-first and `rollEdition()` keeps its fall-through path even
+though nothing exercises it now: it takes an optional `capped(key)` hook, and a hit on a
+capped edition lands on the next edition down, never below Steel. Putting a cap back is a
+config change rather than a rewrite, and one test drives the path with a synthetic cap so
+it does not rot before then.
 
 Editions travel with the card when it is traded (§1.8a): the edition belongs to the card,
 the XP stays with whoever pulled it.
@@ -404,7 +427,9 @@ No second scoring path, nothing scheduled, and `SUM(points_awarded)` is still th
 
 ### The week
 
-Weeks start **Monday 00:00 America/Toronto** (`CTH_CAR_WEEK_START`). A **week key**
+Weeks start **Monday 00:00 America/Toronto** (`CTH_WEEK_START`; the older
+`CTH_CAR_WEEK_START` still works). The same week is used by every weekly cap in the game —
+cars, the per-Hood park cap and items. A **week key**
 (`2026-W38`, ISO numbering) is computed at claim time with a real timezone conversion and
 stored on the claim, so the cap is an exact string match and a sum:
 
@@ -440,20 +465,20 @@ never a second card.
 
 ### Editions
 
-`rollEdition()` unchanged in odds and order, with fresh randomness and never `card_seed`.
-Every card is at least **Steel** — plain stock is what snapping a car is worth.
+The same `rollEdition()` as a park card — the same table, Clover included — with fresh
+randomness and never `card_seed`. Every card is at least **Steel** — plain stock is what
+snapping a car is worth.
 
-| Edition | Backing | XP |
-|---|---|---|
-| Steel | plain stock | 25 |
-| Gold | foil | 75 |
-| **Hologram** | holographic, animated | **250**, **one per season in the whole game** |
+| Edition | Backing | XP | Items |
+|---|---|---|---|
+| Steel | plain stock | 25 | none |
+| Gold | foil | 75 | 1 |
+| **Hologram** | holographic, animated | **250** | 3 |
 
-The hologram cap is checked inside `commitCar()`'s transaction with the same fall-through to
-Gold, and `CTH_CAR_HOLOGRAM_CAP_SCOPE=player-season` makes it one each. It is separate from
-the parks' per-Hood holograms: a car pulled in Hood 13 never uses up the Hood 13 park
-hologram. The roll ignores the points cap — a hologram on your 40th car of the week is still a
-hologram, which is what makes collecting past the cap worth doing.
+No edition is capped (there was once one car hologram per season; it went with the park
+cap). The roll ignores the points cap — a hologram on your 40th car of the week is still a
+hologram, which is what makes collecting past the cap worth doing — but a car worth 0 points
+grants no items: no points, no items.
 
 ### Identification
 
@@ -502,6 +527,138 @@ name, not a player-facing one.)
 The capture sheet shows **this week's capacity before the shutter** — `75 / 100 this week`, or
 **XP only — resets Monday** — and says "Identifying…" across the round trip. Cards and
 Cases are public, like binders, and trade through the same offers as park cards.
+
+---
+
+## 1.8d Items
+
+Gold and Hologram pulls grant consumable **items** that bend the cooldowns and, in
+Fortify's case, block a theft outright. **One item per Gold, three per Hologram.** Items
+span the whole game, so they are their own module (`server/lib/items.js`) rather than part
+of parks or the Garage.
+
+### Where they come from, and where they stop
+
+- **No points, no items.** A collection worth 0 — past the car cap, past a Hood's park cap —
+  grants nothing, whatever edition it rolled.
+- **A weekly item cap**, `ITEM_WEEKLY_CAP` (4), independent of any points cap. The park cap
+  is per Hood, so a player who travels can keep earning in all 25; the item cap is the
+  direct ceiling. Past it a Gold still mints a Gold with Gold XP and Gold treatment — only the
+  grant is withheld, clamped with `min()` like every other cap (a Hologram with one slot left
+  grants one), and chat says so plainly. Hitting the cap is announced once, the first time it
+  withholds something that week. Card rate and item rate are now independent knobs.
+- **Items follow the puller, never the card.** A grant carries the player who pulled it,
+  permanently. A trade moves the card and nothing else — no points, no XP, no items — or
+  two players could shuttle one Gold back and forth laundering them.
+- A grant off a card later **reverted by flags** is void, and gives its weekly slot back.
+- The item type is a weighted draw with fresh `crypto.randomInt`, never `card_seed`, or a
+  player could read their next item off a card they already hold.
+
+| Item | Effect | Spent | Weight |
+|---|---|---|---|
+| **Fortify** | Armed on a Hood you hold. The first steal attempt bounces off, and that attacker is shut out of that Hood for 1h | by the steal it stops | 10 |
+| **Recon** | Reveals whether somebody else's Hood is fortified, before you travel | on use | 20 |
+| **Crowbar** | Steal through the 12h post-handover lock on one Hood | by the steal it opens | 15 |
+| **Sprint** | Conquer past your own 6h adjacency cooldown | by the conquer it opens | 20 |
+| **Tune-Up** | Open the 72h reinforce gate on a Hood you hold, now | on use; the reinforce consumes its effect | 15 |
+| **Clover** | Double the Gold and Hologram rates for 6h | on use | 20 |
+
+Fortify is rarest because it is the only item that denies somebody else points; Clover is
+commonest because it touches nobody. Deliberately not on the list: anything revealing
+another player's inventory, anything that steals items, and anything faking a Hood's
+subject to bait a wasted trip.
+
+### Fortify
+
+Pre-armed and **hidden**. The owner arms it on a Hood in advance; arming and disarming are
+free, and only consumption spends it. One armed Fortify per Hood (`HOOD_ALREADY_ARMED`).
+**Nobody but the owner ever sees it** — `/api/hoods` carries `viewer.fortified` for the
+Hood's owner and omits the key entirely for everyone else. It persists until it fires, the
+owner disarms it, the Hood goes back to somebody else by reversal, or the season ends.
+
+Resolution happens last, inside `commitClaim()`, once a steal has passed every other check:
+the Fortify is spent (an `item_uses` row naming the attacker), the attacker's photo is kept
+and earns nothing, `hood_state` is untouched, and **no claim row is written** — the ledger is
+for claims that happened, and the audit trail is the use row. It is not thrown as an error,
+because a throw would roll back the very row that records it. The route answers 409
+`FORTIFY_COOLDOWN` with `fortified: true`, and chat names the attacker, the defender and the
+Hood but never the subject the attacker brought. The copy reads like getting caught: the
+error is the only way an attacker learns a Fortify was there.
+
+The **1h cooldown** is that attacker against that Hood only — not their other steals, not
+other attackers. It is derived from the Fortify's own use row, exactly as the adjacency
+cooldown is derived from the conquer that caused it: two per-player cooldowns of one shape,
+and no third mechanism to shadow either.
+
+### Crowbar and Sprint
+
+Spent **as part of the claim they enable** — `use_grant_id` on `POST /api/hoods/:id/claim`
+— so item and claim commit in one transaction. `evaluateClaim()` takes a `bypass` of
+`{ lock }` or `{ adjacency }`, and nothing else is skipped. An item is spent only if the claim
+lands *and* it actually opened something: a claim that fails validation costs nothing, and a
+lock that ran out on the walk over leaves you your Crowbar. A crowbarred steal can still hit a
+Fortify, which keeps the Crowbar, because the claim never landed. The Hood sheet offers each
+item at the gate it opens (`viewer.bypassable_with`).
+
+### Tune-Up
+
+Spent against the Hood's current `last_claim_at`, which it records. The reinforce gate is open
+while a Tune-Up exists for exactly that `last_claim_at`; the reinforce it enables moves
+`last_claim_at` on, which is what uses it up. A reversal that rewinds `last_claim_at` brings it
+back, correctly, since the reinforce it paid for was thrown out. It never writes `hood_state`.
+
+### Clover
+
+Doubles the special rates (§1.8b) for 6 hours. **An active Clover is derived, not stored:** a
+`clover` use whose `expires_at` is still ahead. The collection reads the clock once and hands
+the same instant to the Clover check, the roll and the grant, so a roll cannot straddle the
+expiry. Rules:
+
+- **Pulls inside a Clover window never grant Clover.** Roll from the other five instead.
+  Without it the loop is self-sustaining.
+- **No stacking.** A second Clover while one runs is `CLOVER_ACTIVE`, and is not spent.
+
+Its real payoff is XP rather than items — a Gold pays ~3× Steel and a Hologram ~10× on a car —
+so six doubled hours before a long walk are a genuine XP window, and before bed they are
+nothing. The capture sheets count it down.
+
+### Validation order
+
+`evaluateClaim()` checks the time gates in a fixed order so a player gets one clear reason:
+**post-handover lock → Fortify cooldown → adjacency → reinforce gate**, then the subject
+counter, and a Fortify itself fires last of all in `commitClaim()`. (The items spec suggested
+the counter first; the existing rule that a player who merely has to wait should not be told
+their subject is wrong was kept.)
+
+### Seasons
+
+**Unspent items expire at rollover and armed Fortifies disarm.** No carry. Expiry is derived:
+a grant is only spendable in the season it was granted in. The rollover disarms and posts a
+chat message listing what expired per player, guarded by `seasons.items_expired` the way
+escalation is guarded by `escalation_applied`, so a double run posts nothing twice.
+
+### Data
+
+Two append-only tables and one staging table. Inventory is grants minus uses, derived, never
+stored; `grant_id UNIQUE` on `item_uses` makes spending a grant twice impossible at the schema
+level.
+
+```sql
+item_grants(id, claim_id, player_id, season_id, week_key, item_type, created_at)
+item_uses(id, grant_id UNIQUE, player_id, item_type, target_hood_id, target_player_id,
+          expires_at,            -- Clover only, frozen when popped
+          context_json, created_at)
+item_armed(hood_id PRIMARY KEY, grant_id UNIQUE, player_id, armed_at)   -- Fortify only
+```
+
+| Code | Condition |
+|---|---|
+| `ITEM_NOT_HELD` | not yours, voided by flags, or from a season that has ended |
+| `ITEM_ALREADY_USED` | spent already, or armed somewhere (disarm first) |
+| `ITEM_WRONG_TARGET` | the wrong item for that action, or the wrong Hood for that item |
+| `HOOD_ALREADY_ARMED` | that Hood already has a Fortify on it |
+| `FORTIFY_COOLDOWN` | a steal on a Hood whose Fortify caught you in the last hour — or the one that just did |
+| `CLOVER_ACTIVE` | a Clover is already running |
 
 ---
 
@@ -690,7 +847,8 @@ hoods(
 
 hood_neighbours(hood_id, neighbour_id)   -- both directions; drives the adjacency cooldown
 
-seasons(id, name, starts_at, ends_at, escalation_applied)
+seasons(id, name, starts_at, ends_at, escalation_applied,
+        items_expired)             -- §1.8d: the rollover's second idempotency flag
 
 photos(
   id, player_id, photo_type,     -- landmark | person | animal (the declared subject)
@@ -742,7 +900,13 @@ claims(... vehicle_id,           -- §1.8c, on claim_kind = 'car' | 'sighting'
   vehicle_year, vehicle_trim, vehicle_generation,
   identify_json,                 --   what the identifier said, for flaggers
   identify_confidence,
-  week_key)                      --   '2026-W38' in Toronto; the weekly cap sums on it
+  week_key)                      --   '2026-W38' in Toronto; set on park claims too, where
+                                 --   the per-Hood park cap sums on it
+
+item_grants(id, claim_id, player_id, season_id, week_key, item_type, created_at)   -- §1.8d
+item_uses(id, grant_id UNIQUE, player_id, item_type, target_hood_id, target_player_id,
+          expires_at, context_json, created_at)
+item_armed(hood_id PK, grant_id UNIQUE, player_id, armed_at)   -- the one mutable item table
 
 messages(id, player_id, body, kind, meta_json, created_at)   -- kind: user | system
 
@@ -772,7 +936,8 @@ GET    /api/me
 
 GET    /api/hoods                  25 Hoods + owner, photo type, value, lock + reinforce state
 GET    /api/hoods/:id              detail + claim history + current photo
-POST   /api/hoods/:id/claim        multipart: photo, declared_type, caption (optional)
+POST   /api/hoods/:id/claim        multipart: photo, declared_type, caption (optional),
+                                   use_grant_id (optional: a Crowbar or Sprint, §1.8d)
 GET    /api/hoods/:id/history
 
 GET    /api/players                every player + the colour palette
@@ -795,6 +960,12 @@ GET    /api/cars                   the catalogue: every vehicle pulled, and who 
 GET    /api/cars/:vehicleId        every sighting of one vehicle
 POST   /api/cars/collect           multipart: photo, hood_id, caption (optional)
 
+GET    /api/items                  your inventory, what is armed, Clover time left, the weekly cap
+POST   /api/items/arm              grant_id, hood_id — Fortify only
+POST   /api/items/disarm           hood_id
+POST   /api/items/use              grant_id, target_hood_id — Recon, Tune-Up, Clover
+GET    /api/items/history          grants and uses, for arguments
+
 GET    /api/trades                 offers you are part of, incoming and outgoing
 POST   /api/trades                 to_player_id, offer_claim_id, want_claim_id?, message?
 POST   /api/trades/:id/accept      recipient only; re-checks both holdings (§1.8a)
@@ -816,9 +987,10 @@ can reject before wasting the upload:
 
 | Code | Condition |
 |---|---|
-| `HOOD_LOCKED` | Steal attempted inside the 12h cooldown |
-| `ADJACENT_COOLDOWN` | Conquer attempted on a Hood bordering one you conquered inside the cooldown — returns the eligible timestamp and the Hood responsible |
-| `REINFORCE_TOO_SOON` | Own Hood, less than 72h since `last_claim_at` — return the eligible timestamp |
+| `HOOD_LOCKED` | Steal attempted inside the 12h cooldown — `bypassable_with: crowbar` |
+| `FORTIFY_COOLDOWN` | Steal on a Hood whose Fortify caught you in the last hour (§1.8d) |
+| `ADJACENT_COOLDOWN` | Conquer attempted on a Hood bordering one you conquered inside the cooldown — returns the eligible timestamp and the Hood responsible — `bypassable_with: sprint` |
+| `REINFORCE_TOO_SOON` | Own Hood, less than 72h since `last_claim_at` — return the eligible timestamp — `bypassable_with: tuneup` |
 | `WEAK_TYPE` | Declared subject does not beat the current holder's (applies to steal *and* reinforce) |
 | `SAME_TYPE` | Declared subject equals the current holder's |
 
@@ -944,7 +1116,9 @@ against WCAG AA. The colour maths itself is unit-tested in `test/theme.test.js`.
 - Season rollover as a `node scripts/rollover.js` run by a systemd timer daily at 00:05
   Toronto time; it checks whether the active season has ended, and if so flips the season,
   applies the +25 escalation to `ever_conquered = 0` Hoods, and posts a system message to
-  chat. Make it idempotent via `escalation_applied`.
+  chat. Make it idempotent via `escalation_applied`. It also expires the ended season's
+  items and disarms its Fortifies, posting what expired per player, idempotent via
+  `items_expired` (§1.8d).
 
 ---
 
@@ -1002,9 +1176,21 @@ see how people actually behave.
   nothing mechanical hangs off it — deliberately, because a level that granted an in-game
   advantage would compound and the early joiners would never be caught. If it ever should
   do something, cosmetic is the safe direction: a card frame, a map colour, a chat flourish.
+- **Items (§1.8d)** — built on these defaults, every one a lever in `server/config.js`:
+  - *Weekly item cap* — **4** is a guess. It is the one number that decides whether Fortify
+    is an event or a tax, and the first thing worth revisiting after a month of play.
+  - *Park cap period* — **weekly** per Hood (`CTH_PARK_HOOD_CAP=300`), because the brief was
+    "keep earning if they travel", which is pacing. If the real irritant turns out to be that
+    living in a park-dense Hood is a standing advantage — Hood 25's parks total about 6,000
+    points, Hood 13's about 560 — only `CTH_PARK_CAP_PERIOD=season` fixes that; a weekly cap
+    hands the dense Hood back every Monday. Most Hoods may never hit either, because the
+    once-per-season park rule runs out first; that is fine.
+  - *Grant weights* — Fortify rarest (10), Clover commonest (20).
+  - *Clover* — 6h and 2×. The pair is what makes it a session-planner or a shrug.
+  - *Every park card now rolls at least Steel*, so every collection earns the +15 Steel XP that
+    only one in ten used to. Worth watching whether that shifts the XP table.
+  Settled: no edition caps, items expire at rollover, Clover cannot grant Clover.
 - **The Garage (§1.8c)** — built on these defaults, every one a lever in `server/config.js`:
-  - *Hologram scope* — one car hologram per season in the whole game. At six players that
-    may be too scarce to ever see; `CTH_CAR_HOLOGRAM_CAP_SCOPE=player-season` is one each.
   - *Dedupe granularity* — make + model, trim and generation stripped. If the Case fills
     with things players consider different cars (a Mustang and a Shelby), the fix is in
     `server/lib/vehicles.js`, and it re-keys nothing already collected.

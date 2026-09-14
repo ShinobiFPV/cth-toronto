@@ -13,6 +13,8 @@ import { CameraIcon, CloseIcon } from './icons.jsx';
 import { Banner, Spinner } from './bits.jsx';
 import { CAPTION_MAX } from './Caption.jsx';
 import NotWheelsCard from './NotWheelsCard.jsx';
+import CloverClock from './CloverClock.jsx';
+import { itemList, withheldText } from '../lib/items.js';
 
 const HEIC = /\.(heic|heif)$/i;
 const isHeic = (f) => HEIC.test(f.name || '') || /image\/hei[cf]/i.test(f.type || '');
@@ -39,7 +41,7 @@ function CapacityLine({ capacity }) {
 }
 
 export default function CarCollect({ onClose, onDone }) {
-  const { hoods, refreshMe } = useGame();
+  const { hoods, refreshMe, itemsChanged } = useGame();
   const [capacity, setCapacity] = useState(null);
   const [hoodId, setHoodId] = useState(readHood);
   const [file, setFile] = useState(null);
@@ -106,6 +108,7 @@ export default function CarCollect({ onClose, onDone }) {
       setCapacity(res.capacity);
       setPhase('done');
       refreshMe().catch(() => {});
+      if (res.items?.items?.length) itemsChanged();
       onDone?.(res);
     } catch (err) {
       setError({ code: err.code, message: err.message || 'That did not go through.' });
@@ -144,12 +147,22 @@ export default function CarCollect({ onClose, onDone }) {
                     : `Past this week's cap, so XP only — +${result.xp.xp} XP. Points come back ${result.capacity.resets_on}.`}
                 {result.first_sighting && ' The first one anybody has put in the Garage.'}
               </div>
+              {result.items?.items?.length > 0 && (
+                <div className="tiny" style={{ textAlign: 'center', color: 'var(--accent-text)' }}>
+                  It came with: {itemList(result.items.items)}
+                </div>
+              )}
+              {withheldText(result.items) && (
+                <div className="tiny dim" style={{ textAlign: 'center' }}>{withheldText(result.items)}</div>
+              )}
               {result.level_up && (
                 <Banner kind="ok">Level {result.level_up.to} — {result.level_up.title}</Banner>
               )}
             </>
           ) : (
             <>
+              <CloverClock />
+
               <div className="tiny dim">
                 Any car on the street. Get the whole thing in — side-on or three-quarters is
                 what the identifier reads best. One card per car per season; plates are

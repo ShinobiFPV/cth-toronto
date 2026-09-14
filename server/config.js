@@ -90,14 +90,44 @@ export const config = {
 
   // Special editions (spec §1.8b). A card's *rarity* comes from the park's value and is
   // knowable before you set out; its *edition* is luck, rolled when the photo lands.
-  // One in N, so a bigger number is rarer.
-  EDITION_STEEL_ONE_IN: num('CTH_EDITION_STEEL_ONE_IN', 10),
-  EDITION_GOLD_ONE_IN: num('CTH_EDITION_GOLD_ONE_IN', 40),
-  EDITION_HOLO_ONE_IN: num('CTH_EDITION_HOLO_ONE_IN', 150),
-  // ...and on top of that, a Hood yields at most this many holograms per season. With
-  // 25 Hoods that caps the whole group at 25 a season, and makes each one *the* Hood 13
-  // hologram rather than one of several.
-  HOLO_PER_HOOD_PER_SEASON: num('CTH_HOLO_PER_HOOD_PER_SEASON', 1),
+  // Percentages of one draw. Steel is not configured: it is whatever remains, so the
+  // table can never sum to anything but 100. About one pull in seven is special, and no
+  // edition is capped anywhere — scarcity of *power* lives in the item cap below instead.
+  EDITION_HOLOGRAM_PCT: num('CTH_EDITION_HOLOGRAM_PCT', 2),
+  EDITION_GOLD_PCT: num('CTH_EDITION_GOLD_PCT', 12),
+
+  // ── Parks (spec §1.8) ──────────────────────────────────────────────────
+  // Park points per player per Hood, per period. Past it a collection still prints its
+  // card, rolls its edition and pays XP, worth 0 points and no item. 0 = uncapped.
+  // 'week' paces a park-dense Hood; 'season' removes the advantage of living in one.
+  PARK_HOOD_CAP: num('CTH_PARK_HOOD_CAP', 300),
+  PARK_CAP_PERIOD: process.env.CTH_PARK_CAP_PERIOD === 'season' ? 'season' : 'week',
+
+  // ── Items (spec §1.8d) ─────────────────────────────────────────────────
+  // Gold and Hologram pulls grant consumables. The weekly cap is the number that decides
+  // whether Fortify is an event or a tax — the one lever here worth revisiting first.
+  ITEM_WEEKLY_CAP: num('CTH_ITEM_WEEKLY_CAP', 4),
+  ITEMS_PER_GOLD: num('CTH_ITEMS_PER_GOLD', 1),
+  ITEMS_PER_HOLOGRAM: num('CTH_ITEMS_PER_HOLOGRAM', 3),
+  // Relative weights for which item a grant is. Fortify is the only item that denies
+  // somebody else points, so it is rarest; Clover touches nobody, so it is commonest.
+  ITEM_WEIGHTS: {
+    fortify: num('CTH_ITEM_WEIGHT_FORTIFY', 10),
+    recon: num('CTH_ITEM_WEIGHT_RECON', 20),
+    crowbar: num('CTH_ITEM_WEIGHT_CROWBAR', 15),
+    sprint: num('CTH_ITEM_WEIGHT_SPRINT', 20),
+    tuneup: num('CTH_ITEM_WEIGHT_TUNEUP', 15),
+    clover: num('CTH_ITEM_WEIGHT_CLOVER', 20),
+  },
+  CLOVER_HOURS: num('CTH_CLOVER_HOURS', 6),
+  CLOVER_MULTIPLIER: num('CTH_CLOVER_MULTIPLIER', 2),
+  // A steal that walks into a Fortify locks that attacker out of that Hood for this long.
+  FORTIFY_COOLDOWN_HOURS: num('CTH_FORTIFY_COOLDOWN_HOURS', 1),
+
+  // The week every weekly cap counts in — cars, parks, items. MO | TU | … | SU, in
+  // CTH_TZ. Monday means Sunday night is the scramble. CTH_CAR_WEEK_START is the name it
+  // had when only the Garage had a week, and still works.
+  WEEK_START: (process.env.CTH_WEEK_START || process.env.CTH_CAR_WEEK_START || 'MO').toUpperCase(),
 
   // ── The Garage (spec §1.8c) ────────────────────────────────────────────
   // Photograph a car, the Pi asks Claude what it is, and prints a Not Wheels package.
@@ -107,18 +137,11 @@ export const config = {
   // Per player, per calendar week. Past it a car still mints, rolls and pays XP; it is
   // worth 0 points, which is a success rather than an error.
   CAR_WEEKLY_CAP: num('CTH_CAR_WEEKLY_CAP', 100),
-  // MO | TU | WE | TH | FR | SA | SU, in CTH_TZ. Monday means Sunday night is the scramble.
-  CAR_WEEK_START: (process.env.CTH_CAR_WEEK_START || 'MO').toUpperCase(),
   // XP by edition. Every package is at least Steel — plain stock is what going outside
   // and snapping a car is worth, and it is set to feel like a park collection's worth.
   CAR_XP_STEEL: num('CTH_CAR_XP_STEEL', 25),
   CAR_XP_GOLD: num('CTH_CAR_XP_GOLD', 75),
   CAR_XP_HOLOGRAM: num('CTH_CAR_XP_HOLOGRAM', 250),
-  // 'season' = one car hologram in the whole game per season; 'player-season' = one
-  // each. Scarce is the point, but six players may find one a season too few.
-  CAR_HOLOGRAM_CAP_SCOPE: process.env.CTH_CAR_HOLOGRAM_CAP_SCOPE === 'player-season'
-    ? 'player-season' : 'season',
-  CAR_HOLOS_PER_SCOPE: num('CTH_CAR_HOLOS_PER_SCOPE', 1),
   // XP for photographing a car you already have this season, at most once per vehicle
   // per week. 0 = a repeat is ALREADY_COLLECTED and mints nothing at all.
   CAR_REPEAT_XP: num('CTH_CAR_REPEAT_XP', 0),

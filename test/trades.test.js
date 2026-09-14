@@ -15,11 +15,12 @@ const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'cth-trades-'));
 process.env.CTH_DB = path.join(tmp, 'test.sqlite');
 process.env.CTH_JWT_SECRET = 'test-secret';
 
-let db, nowIso, parks, trades, leaderboard, revertClaim, xpOf, garage, vehicles;
+let db, nowIso, parks, trades, leaderboard, revertClaim, xpOf, garage, vehicles, items;
 
 before(async () => {
   ({ db, nowIso } = await import('../server/db.js'));
   parks = await import('../server/lib/parks.js');
+  items = await import('../server/lib/items.js');
   garage = await import('../server/lib/garage.js');
   vehicles = await import('../server/lib/vehicles.js');
   trades = await import('../server/lib/trades.js');
@@ -66,6 +67,8 @@ beforeEach(() => {
   db.exec('DELETE FROM trades; DELETE FROM card_holdings');
   db.exec(`UPDATE hood_state SET owner_id = NULL, active_claim_id = NULL, photo_type = NULL,
            last_claim_at = NULL, locked_until = NULL`);
+  // Item grants join to claims by id, and ids are reused once the table is emptied.
+  db.exec('DELETE FROM item_uses; DELETE FROM item_armed; DELETE FROM item_grants');
   db.exec('DELETE FROM flags; DELETE FROM claims; DELETE FROM photos; DELETE FROM messages');
   db.exec('DELETE FROM vehicles; DELETE FROM parks; DELETE FROM players');
   parks.forgetSetSize();
@@ -129,11 +132,28 @@ describe('a trade moves the card, never the score', () => {
     assert.equal(rank(now, alice), rank(was, alice));
     assert.equal(rank(now, bob), rank(was, bob));
   });
+
+  test('and neither do items: trading a Hologram moves none of the three it granted', () => {
+    // A draw of 0 is a Hologram — three items, all of them alice's, permanently.
+    const pulled = parks.commitCollect({ parkId: 6004, playerId: alice, photo: photo(), rand: () => 0 });
+    assert.equal(pulled.items.items.length, 3);
+    const was = { alice: items.inventoryOf(alice).held, bob: items.inventoryOf(bob).held };
+
+    const { id } = trades.offerTrade({ fromId: alice, toId: bob, offerClaimId: pulled.claim.claim_id });
+    trades.acceptTrade({ tradeId: id, playerId: bob });
+
+    assert.equal(items.inventoryOf(alice).held, was.alice, 'the puller keeps what the pull granted');
+    assert.equal(items.inventoryOf(bob).held, was.bob, 'the new holder gets a card and nothing else');
+    assert.deepEqual(
+      db.prepare('SELECT DISTINCT player_id FROM item_grants WHERE claim_id = ?').all(pulled.claim.claim_id),
+      [{ player_id: alice }]);
+    assert.equal(items.itemCapacity(bob).granted, 0, 'and it spends none of his weekly cap');
+  });
 });
 
 // ── across collection types ───────────────────────────────────────────────
 describe('a Not Wheels package trades like a card', () => {
-  const snap = (playerId, make, model, rand = () => 1) => garage.commitCar({
+  const snap = (playerId, make, model, rand = (n) => n - 1) => garage.commitCar({
     identification: vehicles.resolveIdentification({
       is_vehicle: true, in_situ: true, make, model, generation: null, trim: null,
       year_range: null, body_style: null, confidence: 0.9, plates: [],

@@ -5,11 +5,15 @@ import { uploadPark } from '../lib/api.js';
 import { CameraIcon, CloseIcon } from './icons.jsx';
 import { Banner } from './bits.jsx';
 import { CAPTION_MAX } from './Caption.jsx';
+import CloverClock from './CloverClock.jsx';
 
 const HEIC = /\.(heic|heif)$/i;
 const isHeic = (f) => HEIC.test(f.name || '') || /image\/hei[cf]/i.test(f.type || '');
 
-export default function ParkCollect({ park, onClose, onDone }) {
+export default function ParkCollect({ park, viewer = null, onClose, onDone }) {
+  // What this one scores now: the park's value, or less once the Hood's cap is reached.
+  const award = viewer?.points ?? park.value;
+  const xpOnly = !!viewer?.capacity?.xp_only;
   const [file, setFile] = useState(null);
   const [caption, setCaption] = useState('');
   const [preview, setPreview] = useState(null);
@@ -72,7 +76,7 @@ export default function ParkCollect({ park, onClose, onDone }) {
         <div className="grow">
           <h1>Collect {park.name}</h1>
           <div className="tiny dim">
-            {park.rarity_label} · +{park.value} · {park.hood_label}
+            {park.rarity_label} · {xpOnly ? 'XP only in this Hood' : `+${award}`} · {park.hood_label}
           </div>
         </div>
         <button className="btn btn-sm btn-ghost" onClick={onClose} aria-label="Close" disabled={busy}>
@@ -81,10 +85,20 @@ export default function ParkCollect({ park, onClose, onDone }) {
       </div>
 
       <div className="sheet-body stack">
+        <CloverClock />
+
         <div className="tiny dim">
           Photograph the park sign — the one with <b>{park.name}</b> on it. That name in the
           frame is the whole proof, so get close enough to read it.
         </div>
+
+        {xpOnly && (
+          <Banner kind="info">
+            You have taken this Hood’s park points for now, so this one is XP only — the card,
+            the edition and the XP, no points and no item. Points
+            here come back {viewer.capacity.period === 'season' ? 'next season' : viewer.capacity.resets_on}.
+          </Banner>
+        )}
 
         {preview ? (
           <>
@@ -152,7 +166,7 @@ export default function ParkCollect({ park, onClose, onDone }) {
         )}
 
         <button className="btn btn-primary btn-block" disabled={!file || busy} onClick={submit}>
-          {busy ? 'Sending…' : `Collect (+${park.value})`}
+          {busy ? 'Sending…' : `Collect (${xpOnly ? 'XP only' : `+${award}`})`}
         </button>
       </div>
     </>

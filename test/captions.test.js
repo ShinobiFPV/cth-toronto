@@ -51,6 +51,8 @@ const captionOf = (claimId) => db.prepare(`
 beforeEach(() => {
   db.exec(`UPDATE hood_state SET owner_id = NULL, active_claim_id = NULL, photo_type = NULL,
            last_claim_at = NULL, locked_until = NULL`);
+  // Item grants join to claims by id, and ids are reused once the table is emptied.
+  db.exec('DELETE FROM item_uses; DELETE FROM item_armed; DELETE FROM item_grants');
   db.exec('DELETE FROM flags; DELETE FROM claims; DELETE FROM photos; DELETE FROM messages');
   db.exec('DELETE FROM parks; DELETE FROM players');
 
@@ -124,7 +126,7 @@ describe('captioning an upload', () => {
     const plain = conquer(13, alice);
     db.exec(`UPDATE hood_state SET owner_id = NULL, active_claim_id = NULL, photo_type = NULL,
              last_claim_at = NULL, locked_until = NULL WHERE hood_id = 13`);
-    db.exec('DELETE FROM claims; DELETE FROM photos');
+    db.exec('DELETE FROM item_grants; DELETE FROM claims; DELETE FROM photos');
     const captioned = conquer(13, alice, 'a very long and witty remark');
 
     assert.equal(captioned.claim.points, plain.claim.points);

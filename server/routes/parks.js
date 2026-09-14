@@ -15,6 +15,8 @@ import { withLevelUp, announceLevelUp } from '../lib/xp-announce.js';
 import { notFound } from '../lib/errors.js';
 import { hoodLabel } from '../lib/hood-seed.js';
 import { packagesOf, garageSummary, getPackageByClaim } from '../lib/garage.js';
+import { itemClause, announceItemCap } from '../lib/item-announce.js';
+import { weekStartName } from '../lib/week.js';
 
 export const parkRoutes = Router();
 
@@ -76,41 +78,47 @@ parkRoutes.post('/parks/:id/collect', requireAuth, upload.single('photo'), async
     photo = await processUpload(req.file);
     const { result, levelUp, progress } = withLevelUp(req.player.id,
       () => commitCollect({ parkId, playerId: req.player.id, photo, caption: req.body?.caption }));
-    const { claim, park, xp } = result;
+    const { claim, park, xp, items, capacity } = result;
 
+    // A collection past the Hood's cap is a success, and says so as one.
     const where = hoodLabel(park.hood_id, park.hood_name);
+    const worth = claim.points > 0
+      ? `+${claim.points}`
+      : `XP only — ${where} is capped for them until ${capacity.resets_on}`;
     postMessage({
       body: `${req.player.display_name} collected ${park.name} in `
-        + `${where} (+${claim.points}, ${claim.rarity_label})`,
+        + `${where} (${worth}, ${claim.rarity_label})`,
       kind: 'system',
       meta: { event: 'park', claim_id: claim.claim_id, park_id: park.id, hood_id: park.hood_id },
     });
 
-    // A special edition gets its own line rather than a parenthesis on the last one.
-    // There are at most 25 holograms in a season and it would be a shame to bury one.
-    if (claim.edition) {
+    // Gold and Hologram get their own line rather than a parenthesis on the last one, and
+    // the items they came with ride on it. Every card is at least Steel now, so Steel says
+    // nothing — a second line on every collection would bury the ones worth reading.
+    if (claim.edition === 'gold' || claim.edition === 'hologram') {
       postMessage({
-        body: claim.edition === 'hologram'
-          ? `${claim.edition_label.toUpperCase()} — ${req.player.display_name} pulled the `
-            + `${where} hologram out of ${park.name}. There is only one this season. `
-            + `(+${xp.edition_xp} XP)`
-          : `${claim.edition_label} edition — ${req.player.display_name}'s ${park.name} `
-            + `came out ${claim.edition} (+${xp.edition_xp} XP)`,
+        body: (claim.edition === 'hologram'
+          ? `HOLOGRAM — ${req.player.display_name} pulled a hologram out of ${park.name} in ${where}`
+          : `Gold edition — ${req.player.display_name}'s ${park.name} came out gold`)
+          + ` (+${xp.edition_xp} XP)${itemClause(items)}`,
         kind: 'system',
         meta: {
           event: 'edition', edition: claim.edition,
           claim_id: claim.claim_id, park_id: park.id, hood_id: park.hood_id,
+          items: items.items.map((i) => i.item_type),
         },
       });
     }
+    announceItemCap(req.player, items, weekStartName());
 
     broadcast('park_collected', {
       park_id: park.id, hood_id: park.hood_id, player_id: req.player.id,
       points: claim.points, edition: claim.edition ?? null,
     });
+    if (items.items.length) broadcast('items_changed', { player_id: req.player.id });
     announceLevelUp(req.player, levelUp);
 
-    res.status(201).json({ card: claim, xp, progress, level_up: levelUp });
+    res.status(201).json({ card: claim, xp, progress, level_up: levelUp, items, capacity });
   } catch (err) {
     await discardUpload(photo);
     next(err);

@@ -6,6 +6,7 @@ import Database from 'better-sqlite3';
 import { config, ROOT } from './config.js';
 import { HOOD_SEED, NEIGHBOUR_SEED, DIFFICULTY_SEED } from './lib/hood-seed.js';
 import { SEASON_SEED } from './lib/season-seed.js';
+import { weekKey } from './lib/week.js';
 
 fs.mkdirSync(path.dirname(config.dbPath), { recursive: true });
 
@@ -57,6 +58,11 @@ const migrations = db.transaction(() => {
   addColumn('claims', 'identify_confidence', 'REAL');
   addColumn('claims', 'week_key', 'TEXT');
 
+  // Item expiry at rollover, guarded like escalation_applied so a double run cannot
+  // double-post. Separate from it because seasons rolled before items existed have
+  // escalated but not expired — and have nothing to expire.
+  addColumn('seasons', 'items_expired', 'INTEGER NOT NULL DEFAULT 0');
+
   // XP and levels.
   const addedXp = addColumn('claims', 'xp_awarded', 'INTEGER NOT NULL DEFAULT 0');
 
@@ -92,6 +98,20 @@ const migrations = db.transaction(() => {
 });
 migrations();
 
+// Park claims carry a week_key now, because the per-Hood points cap can count by week.
+// Backfilled from created_at through the real timezone conversion, so a collection made
+// earlier this week before the deploy still counts against this week. Idempotent: it only
+// touches park rows that have no key, and every new park claim is written with one.
+{
+  const missing = db.prepare(
+    "SELECT id, created_at FROM claims WHERE claim_kind = 'park' AND week_key IS NULL").all();
+  if (missing.length) {
+    const set = db.prepare('UPDATE claims SET week_key = ? WHERE id = ?');
+    db.transaction(() => { for (const r of missing) set.run(weekKey(r.created_at), r.id); })();
+    console.log(`[cth] migrated: week_key backfilled onto ${missing.length} park claims`);
+  }
+}
+
 /**
  * Indexes that reference migrated columns. These have to run after migrations(), which
  * is why they are not in schema.sql: that file executes first, and on a database created
@@ -100,10 +120,13 @@ migrations();
 db.exec(`
   CREATE INDEX IF NOT EXISTS idx_claims_park ON claims(park_id, player_id, season_id);
 
-  -- The hologram cap is checked on every park collection, so it gets an index. Partial,
-  -- because it only ever asks about one edition.
-  CREATE INDEX IF NOT EXISTS idx_claims_holo ON claims(hood_id, season_id)
-    WHERE edition = 'hologram' AND status != 'reverted';
+  -- The per-Hood park hologram cap is gone, and so is the index it was checked on.
+  DROP INDEX IF EXISTS idx_claims_holo;
+
+  -- The per-Hood park points cap sums one of these on every collection, depending on
+  -- whether it counts by week or by season.
+  CREATE INDEX IF NOT EXISTS idx_claims_hood_week ON claims(player_id, hood_id, week_key);
+  CREATE INDEX IF NOT EXISTS idx_claims_hood_season ON claims(player_id, hood_id, season_id);
 
   -- One collection per player per park per season. Partial so it governs only park rows,
   -- and excludes reverted ones so a claim the group threw out frees the park up again.

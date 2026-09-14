@@ -32,8 +32,10 @@ const photo = () => {
 };
 const claim = (hoodId, playerId, type) =>
   commitClaim({ hoodId, playerId, declaredType: type, photo: photo() });
+// Always Steel. A park card rolls its edition, and at one in seven a random Gold would add
+// its XP to whichever side of a comparison it landed on.
 const collect = (parkId, playerId) =>
-  parks.commitCollect({ parkId, playerId, photo: photo() });
+  parks.commitCollect({ parkId, playerId, photo: photo(), rand: (n) => n - 1 });
 
 const rewind = (hoodId, hours) => {
   const shift = (iso) => (iso ? new Date(Date.parse(iso) - hours * 3600_000).toISOString() : iso);
@@ -52,6 +54,8 @@ const makePlayer = (handle) => Number(db.prepare(`
 beforeEach(() => {
   db.exec(`UPDATE hood_state SET owner_id = NULL, active_claim_id = NULL, photo_type = NULL,
            last_claim_at = NULL, locked_until = NULL`);
+  // Item grants join to claims by id, and ids are reused once the table is emptied.
+  db.exec('DELETE FROM item_uses; DELETE FROM item_armed; DELETE FROM item_grants');
   db.exec('DELETE FROM flags; DELETE FROM claims; DELETE FROM photos; DELETE FROM messages');
   db.exec('DELETE FROM parks; DELETE FROM players');
   db.exec('UPDATE hoods SET ever_conquered = 0, escalations = 0, unclaimed_value = difficulty');

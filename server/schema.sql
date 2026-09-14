@@ -211,6 +211,51 @@ CREATE TABLE IF NOT EXISTS messages (
 );
 CREATE INDEX IF NOT EXISTS idx_messages_created ON messages(id DESC);
 
+-- ── Items ──────────────────────────────────────────────────────────────────
+-- Gold and Hologram pulls grant consumables. Consuming is mutation and the ledger is
+-- append-only, so this is the scoring trick again: two append-only tables, and
+-- inventory is grants minus uses, derived, never stored.
+--
+-- No REFERENCES on purpose, as in the spec: every read joins through claims and
+-- seasons, so a grant whose claim was thrown out (or deleted by hand) simply stops
+-- counting rather than blocking the delete.
+CREATE TABLE IF NOT EXISTS item_grants (
+  id         INTEGER PRIMARY KEY,
+  claim_id   INTEGER NOT NULL,   -- the pull that produced it
+  player_id  INTEGER NOT NULL,   -- whoever pulled it, permanently; trades never move it
+  season_id  INTEGER NOT NULL,   -- items expire when this season ends
+  week_key   TEXT NOT NULL,      -- the weekly item cap counts on it
+  item_type  TEXT NOT NULL,      -- fortify | recon | crowbar | sprint | tuneup | clover
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_item_grants_week ON item_grants(player_id, week_key);
+CREATE INDEX IF NOT EXISTS idx_item_grants_season ON item_grants(player_id, season_id);
+
+-- One row per spent item. grant_id UNIQUE is what makes spending a grant twice
+-- impossible at the schema level rather than in application logic.
+CREATE TABLE IF NOT EXISTS item_uses (
+  id               INTEGER PRIMARY KEY,
+  grant_id         INTEGER NOT NULL UNIQUE,
+  player_id        INTEGER NOT NULL,   -- who spent it (a Fortify is spent by its defender)
+  item_type        TEXT NOT NULL,
+  target_hood_id   INTEGER,
+  target_player_id INTEGER,            -- the thwarted attacker, for a Fortify
+  expires_at       TEXT,               -- Clover only: frozen when it was popped
+  context_json     TEXT,               -- what happened, for arguments
+  created_at       TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_item_uses_player ON item_uses(player_id, item_type, created_at);
+CREATE INDEX IF NOT EXISTS idx_item_uses_target ON item_uses(target_player_id, target_hood_id, created_at);
+
+-- The only mutable item table, Fortify only. Arming is not an event worth keeping —
+-- consuming is, and that lands in item_uses. One armed Fortify per Hood.
+CREATE TABLE IF NOT EXISTS item_armed (
+  hood_id   INTEGER PRIMARY KEY,
+  grant_id  INTEGER NOT NULL UNIQUE,
+  player_id INTEGER NOT NULL,
+  armed_at  TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS flags (
   id         INTEGER PRIMARY KEY,
   claim_id   INTEGER NOT NULL REFERENCES claims(id),

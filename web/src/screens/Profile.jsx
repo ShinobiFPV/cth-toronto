@@ -123,6 +123,13 @@ export default function Profile() {
           : <span className="tiny dim">trade cards, not points</span>}
       </Link>
 
+      <Link className="btn btn-block" to="/items" style={{ justifyContent: 'space-between' }}>
+        <span>Items</span>
+        {(session?.items?.held ?? 0) > 0
+          ? <span className="chip chip-accent">{session.items.held} in your bag</span>
+          : <span className="tiny dim">from Gold and Hologram pulls</span>}
+      </Link>
+
       <div>
         <h2 style={{ marginBottom: '0.5rem' }}>Your Hoods</h2>
         {!mine.length && <div className="empty">None yet. The map is right there.</div>}
@@ -186,6 +193,25 @@ export default function Profile() {
                     Photograph one and you collect that park for a card, worth 5 to 100 by
                     how far out it is. Each park once a season, nobody competes over them,
                     and the points go straight into your total.</li>
+                {rules.park_hood_cap > 0 && (
+                  <li>Park points stop at {rules.park_hood_cap} per Hood
+                      per {rules.park_cap_period === 'season' ? 'season' : 'week'}. Past that a
+                      park still prints its card and pays its XP — go to another Hood to
+                      keep scoring.</li>
+                )}
+                {rules.edition_rates && (
+                  <li><b>Every card rolls an edition:</b> Hologram {rules.edition_rates.hologram}%,
+                      Gold {rules.edition_rates.gold}%, Steel the rest. Editions pay XP, never
+                      points.</li>
+                )}
+                <li><b>Items:</b> a Gold grants {rules.items_per_gold}, a Hologram
+                    {' '}{rules.items_per_hologram} — only if the card scored points, and
+                    {rules.item_weekly_cap > 0 ? ` at most ${rules.item_weekly_cap} a week` : ' with no weekly limit'}.
+                    Fortify blocks one steal on your Hood and shuts that thief out
+                    for {rules.fortify_cooldown_hours}h; nobody but you can see it. Recon checks
+                    for one. Crowbar breaks a lock, Sprint skips the next-door cooldown,
+                    Tune-Up opens a reinforce gate, Clover doubles your Gold and Hologram
+                    odds for {rules.clover_hours}h. Items expire at the end of the season.</li>
                 <li>Honour system: recent photo, taken inside the Hood, actually showing
                     what you declared. Nobody checks. Everybody can flag.</li>
               </ul>

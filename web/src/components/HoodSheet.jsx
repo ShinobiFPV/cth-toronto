@@ -2,19 +2,27 @@
 // subject you need, and one action button — Conquer / Steal / Reinforce, or a countdown.
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { api } from '../lib/api.js';
 import { useGame } from '../lib/store.jsx';
 import { article, until, ago, GATE_CODES, difficultyBand } from '../lib/game.js';
-import { CloseIcon, LockIcon } from './icons.jsx';
+import { ITEM_LABEL, BYPASS_BLURB } from '../lib/items.js';
+import { CloseIcon, LockIcon, ShieldIcon, ReconIcon, ITEM_ICON } from './icons.jsx';
 import { Subject, PlayerName, FlagButton, Banner, Lightbox } from './bits.jsx';
 import ClaimFlow from './ClaimFlow.jsx';
 import Caption from './Caption.jsx';
 
 export default function HoodSheet({ hoodId, onClose }) {
-  const { hoodById, player, refreshHoods } = useGame();
+  const { hoodById, player, refreshHoods, refreshMe, itemsTick, itemsChanged } = useGame();
   const hood = hoodById(hoodId);
   const [claiming, setClaiming] = useState(false);
   const [zoomed, setZoomed] = useState(null);
   const [landed, setLanded] = useState(null);
+  // Your bag, so the sheet can offer the item that gets you past whatever is stopping you.
+  const [inventory, setInventory] = useState(null);
+  // A Crowbar or Sprint brought along to the claim.
+  const [grant, setGrant] = useState(null);
+  const [itemNote, setItemNote] = useState(null);
+  const [itemBusy, setItemBusy] = useState(false);
 
   useEffect(() => {
     const onKey = (e) => e.key === 'Escape' && !claiming && onClose();
@@ -22,21 +30,71 @@ export default function HoodSheet({ hoodId, onClose }) {
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose, claiming]);
 
+  useEffect(() => {
+    let cancelled = false;
+    api.items().then((r) => !cancelled && setInventory(r)).catch(() => {});
+    return () => { cancelled = true; };
+  }, [hoodId, itemsTick]);
+
   if (!hood) return null;
   const v = hood.viewer ?? {};
+  const held = (type) => inventory?.items.filter((i) => i.item_type === type) ?? [];
 
   const done = async (claim, meta) => {
-    setLanded({ ...claim, xp: meta?.xp, level_up: meta?.level_up });
+    setLanded({ ...claim, xp: meta?.xp, level_up: meta?.level_up, item_used: meta?.item_used });
     setClaiming(false);
+    setGrant(null);
+    if (meta?.item_used) itemsChanged();
     await refreshHoods().catch(() => {});
   };
+
+  // The steal walked into a Fortify. It happened — the photo is spent — so the sheet says
+  // so and closes the capture flow rather than leaving a retry button under it.
+  const blocked = async (message) => {
+    setClaiming(false);
+    setGrant(null);
+    setItemNote({ kind: 'bad', text: message });
+    await refreshHoods().catch(() => {});
+  };
+
+  const itemAct = async (run, say) => {
+    setItemBusy(true);
+    setItemNote(null);
+    try {
+      const res = await run();
+      setInventory(res.inventory);
+      setItemNote({ kind: 'ok', text: say(res) });
+      itemsChanged();
+      refreshMe().catch(() => {});
+      await refreshHoods().catch(() => {});
+    } catch (err) {
+      setItemNote({ kind: 'bad', text: err.message });
+    } finally {
+      setItemBusy(false);
+    }
+  };
+
+  const bypass = (type) => {
+    const [first] = held(type);
+    if (!first) return;
+    if (type === 'tuneup') {
+      itemAct(() => api.useItem(first.grant_id, hood.id),
+        () => `${hood.label} is tuned up. Reinforce away.`);
+    } else {
+      setGrant(first);
+      setClaiming(true);
+    }
+  };
+
+  const BypassIcon = v.bypassable_with ? ITEM_ICON[v.bypassable_with] : null;
 
   return (
     <>
       <div className="scrim" onClick={() => !claiming && onClose()} />
       <div className="bottom-sheet" role="dialog" aria-modal="true" aria-label={hood.label}>
         {claiming ? (
-          <ClaimFlow hood={hood} onClose={() => setClaiming(false)} onDone={done} />
+          <ClaimFlow hood={hood} useGrant={grant} onDone={done} onBlocked={blocked}
+                     onClose={() => { setClaiming(false); setGrant(null); }} />
         ) : (
           <>
             {hood.display_url && (
@@ -65,6 +123,7 @@ export default function HoodSheet({ hoodId, onClose }) {
                   {landed.xp && <><b>+{landed.xp.xp} XP</b>
                     {landed.xp.discovery > 0 && ' — somewhere new'}. </>}
                   {landed.level_up && <><b>Level {landed.level_up.to}, {landed.level_up.title}!</b> </>}
+                  {landed.item_used && <>Your {landed.item_used.label} is spent. </>}
                   {landed.claim_kind !== 'reinforce'
                     && `Locked from stealing for ${until(hood.locked_until) ?? 'a while'}.`}
                 </Banner>
@@ -105,7 +164,60 @@ export default function HoodSheet({ hoodId, onClose }) {
               )}
 
               {!v.can_claim && v.message && (
-                <Banner kind={GATE_CODES.has(v.error) ? 'info' : 'bad'}>{v.message}</Banner>
+                <Banner kind={v.error === 'FORTIFY_COOLDOWN' ? 'bad' : GATE_CODES.has(v.error) ? 'info' : 'bad'}>
+                  {v.message}
+                </Banner>
+              )}
+
+              {itemNote && <Banner kind={itemNote.kind}>{itemNote.text}</Banner>}
+
+              {/* The item that opens this gate, offered at the gate — nobody should have to
+                  remember they own a Crowbar and go and find it. */}
+              {!v.can_claim && v.bypassable_with && held(v.bypassable_with).length > 0 && (
+                <div className="cluster">
+                  <span className="tiny grow">{BYPASS_BLURB[v.bypassable_with]}</span>
+                  <button className="btn btn-sm" disabled={itemBusy} onClick={() => bypass(v.bypassable_with)}>
+                    {BypassIcon && <BypassIcon style={{ width: 14, height: 14 }} />}
+                    {' '}Use a {ITEM_LABEL[v.bypassable_with]} ({held(v.bypassable_with).length})
+                  </button>
+                </div>
+              )}
+
+              {/* A Fortify is yours to see and nobody else's — the server only sends
+                  `fortified` to the Hood's owner. */}
+              {v.is_mine && v.fortified && (
+                <div className="cluster">
+                  <span className="chip chip-ok"><ShieldIcon style={{ width: 12, height: 12 }} /> Fortified</span>
+                  <span className="tiny dim grow">Only you can see this.</span>
+                  <button className="btn btn-sm btn-ghost" disabled={itemBusy}
+                          onClick={() => itemAct(() => api.disarmItem(hood.id),
+                            () => 'Fortify taken off. It is back in your bag.')}>
+                    Disarm
+                  </button>
+                </div>
+              )}
+              {v.is_mine && v.fortified === false && held('fortify').length > 0 && (
+                <div className="cluster">
+                  <span className="tiny dim grow">The first steal attempt will bounce off.</span>
+                  <button className="btn btn-sm" disabled={itemBusy}
+                          onClick={() => itemAct(() => api.armItem(held('fortify')[0].grant_id, hood.id),
+                            () => `Fortify armed on ${hood.label}. Nobody else can see it.`)}>
+                    <ShieldIcon style={{ width: 14, height: 14 }} /> Arm a Fortify ({held('fortify').length})
+                  </button>
+                </div>
+              )}
+
+              {hood.owner && !v.is_mine && held('recon').length > 0 && (
+                <div className="cluster">
+                  <span className="tiny dim grow">Is it fortified? Find out before you go.</span>
+                  <button className="btn btn-sm btn-ghost" disabled={itemBusy}
+                          onClick={() => itemAct(() => api.useItem(held('recon')[0].grant_id, hood.id),
+                            (r) => (r.result.fortified
+                              ? `${hood.label} is fortified. The first steal bounces off it.`
+                              : `No Fortify on ${hood.label} right now.`))}>
+                    <ReconIcon style={{ width: 14, height: 14 }} /> Recon ({held('recon').length})
+                  </button>
+                </div>
               )}
 
               <div className="cluster" style={{ justifyContent: 'space-between' }}>
@@ -150,6 +262,8 @@ export default function HoodSheet({ hoodId, onClose }) {
                 {hood.parks?.total > 0 && (
                   <span className="btn-sub">
                     {hood.parks.collected}/{hood.parks.total}
+                    {/* Past this Hood's park points cap: said before anybody sets off. */}
+                    {hood.parks.capacity?.remaining === 0 && ' · XP only'}
                   </span>
                 )}
               </Link>

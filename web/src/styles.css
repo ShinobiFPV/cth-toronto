@@ -253,13 +253,25 @@ button, input, select, textarea { font: inherit; color: inherit; }
      phone would push them off a 320px one. The mark is ~8.2em wide in Inter Tight
      Bold; this gives it the same width the old brush mark had — ~17px at 320, ~26px at
      390, 28px from about 410 — and that width was measured against the whole row,
-     badge included. Sizing against the stats alone once widened every screen. */
-  font-size: clamp(1.09rem, 11.86vw - 1.28rem, 1.75rem);
+     badge included. Sizing against the stats alone once widened every screen.
+     The menu icon in front adds ~1.15em, so the size is scaled by 8.2/9.35 to keep
+     icon plus mark inside that same measured width. */
+  font-size: clamp(0.96rem, 10.4vw - 1.12rem, 1.53rem);
   line-height: 1;
   letter-spacing: -0.01em;
   white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
 }
-.header .brand b { color: var(--accent); font-weight: inherit; }
+.header .brand b { color: var(--accent); font-weight: inherit; margin-left: 0.25em; }
+/* Three square bars in the text colour — no radii, per the house rules. */
+.header .brand .brand-menu {
+  width: 0.8em;
+  height: 0.64em;
+  margin-right: 0.35em;
+  flex: none;
+  fill: currentColor;
+}
 
 /* Chrome is black whatever the theme, so its contents do not follow --text. */
 .header, .tabbar, .composer { color: var(--on-chrome); }
