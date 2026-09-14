@@ -186,6 +186,11 @@ changing one, read the test first — it says why.
   a swapped sound's old file for weeks; do not add `audio/*.m4a` to the precache or serve the
   bare path as immutable. `server/lib/audio.js` is the one place a slot resolves: override in
   `CTH_AUDIO_DIR`, else the repo default, else silent. The seventeen slot keys are fixed.
+- **The unlock must run synchronously inside the gesture, and `pointerdown` is not enough.**
+  iOS only lets audio start from `touchend` / `click` / `keydown`; `initAudio()` listens for
+  all of them until the context is running, and re-arms on return from the background. The
+  map's once-per-load Welcome back card calls `unlockAndPlay()` as the first line of its
+  click handler — put an `await` before it and the gesture is spent.
 - **Sound starts on the first tap and not before**, music defaults off and effects on, and the
   preferences are read at import of `web/src/lib/audio.js`, ahead of `createRoot`. A failed or
   unknown clip is silent, never an error.

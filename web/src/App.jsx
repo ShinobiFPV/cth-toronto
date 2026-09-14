@@ -47,7 +47,7 @@ export default function App() {
           <Route path="/trades" element={<Trades />} />
           {/* Not a sixth tab: reached from the binder and the profile. */}
           <Route path="/items" element={<Items />} />
-          {/* Nor this: reached from the map's Blitz button and the profile. */}
+          {/* Nor this: reached from the map's Blitz Hunt button and the profile. */}
           <Route path="/hunts" element={<Hunts />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

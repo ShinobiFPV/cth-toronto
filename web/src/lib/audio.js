@@ -47,25 +47,65 @@ function context() {
   return ctx;
 }
 
+/**
+ * Must be called synchronously inside a gesture handler: everything up to the first await
+ * is what the browser counts as "inside the tap". iOS also wants a sound actually started
+ * in that moment, so a one-sample silent buffer is played — the standard WebKit unlock.
+ */
 async function unlock() {
   const c = context();
   if (!c) return;
-  if (c.state === 'suspended') { try { await c.resume(); } catch { /* try again next tap */ } }
+  if (c.state !== 'running') {
+    try {
+      const blip = c.createBufferSource();
+      blip.buffer = c.createBuffer(1, 1, 22050);
+      blip.connect(c.destination);
+      blip.start(0);
+    } catch { /* the resume below may still do it */ }
+    try { await c.resume(); } catch { /* try again next tap */ }
+  }
   await loadManifest();
   preloadEffects();
   syncMusic();
 }
 
+// iOS Safari does not treat pointerdown as a gesture that may start audio — only touchend,
+// click and keydown — which is why the first tap used to unlock nothing and only the
+// profile's preview button (a click) worked. The listeners stay armed until the context is
+// actually running, and are re-armed when a backgrounded app comes back suspended.
+const GESTURES = ['touchend', 'click', 'keydown', 'pointerdown'];
+let armed = false;
+
+function arm() {
+  if (armed || typeof window === 'undefined') return;
+  armed = true;
+  const attempt = () => {
+    unlock().then(() => {
+      if (ctx?.state === 'running') {
+        for (const g of GESTURES) window.removeEventListener(g, attempt, true);
+        armed = false;
+      }
+    });
+  };
+  for (const g of GESTURES) window.addEventListener(g, attempt, true);
+}
+
 /** Arm the first-gesture unlock. Called once, from main.jsx. */
 export function initAudio() {
   if (typeof window === 'undefined') return;
-  const once = () => {
-    window.removeEventListener('pointerdown', once, true);
-    window.removeEventListener('keydown', once, true);
-    unlock();
-  };
-  window.addEventListener('pointerdown', once, true);
-  window.addEventListener('keydown', once, true);
+  arm();
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && ctx && ctx.state !== 'running') arm();
+  });
+}
+
+/**
+ * Unlock from inside a tap and then play a sound — the map's Welcome back card. Call it
+ * straight from the click handler, not after an await, or the gesture is spent.
+ */
+export async function unlockAndPlay(slot) {
+  await unlock();
+  await playSound(slot);
 }
 
 export function loadManifest({ force = false } = {}) {

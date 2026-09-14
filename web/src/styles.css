@@ -686,9 +686,37 @@ button, input, select, textarea { font: inherit; color: inherit; }
 }
 .find-row-tags { display: flex; align-items: center; gap: 0.35rem; flex: none; }
 
-/* The map's Blitz button: map furniture like locate, but labelled — an icon alone would
-   be the same guessing game the header logo was. */
-.map-locate-btn.map-blitz-btn { width: auto; padding: 0 0.65rem; gap: 0.35rem; font-weight: 700; }
+/* Welcome back: the first tap of a session, which is also what switches sound on. The whole
+   map is the target, so a tap anywhere closes it. */
+.map-welcome {
+  position: absolute;
+  inset: 0;
+  z-index: 700;
+  display: grid;
+  place-items: center;
+  padding-inline: 1rem;
+  cursor: pointer;
+}
+.map-welcome-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  max-width: 20rem;
+  padding: 1.2rem 1.4rem;
+  background: var(--surface);
+  color: var(--text);
+  border: 2px solid var(--border);
+  box-shadow: 6px 6px 0 var(--accent-deep);
+  text-align: center;
+}
+.map-welcome-card h2 {
+  margin: 0;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: clamp(1.35rem, 6vw, 1.8rem);
+  line-height: 1.1;
+}
 
 /* ── Scavenger Blitz ───────────────────────────────────────────────────── */
 

@@ -20,7 +20,11 @@ import FindPark from '../components/FindPark.jsx';
 import { CarIcon, CloseIcon, HuntIcon, LocateIcon, PinIcon } from '../components/icons.jsx';
 import { watchFix, secureContext, locationSupported } from '../lib/location.js';
 import { formatDistance, directionsUrl, locateFailure } from '../lib/nearby.js';
-import { setMusicWanted } from '../lib/audio.js';
+import { setMusicWanted, unlockAndPlay } from '../lib/audio.js';
+
+// The Welcome back card shows once per app load. Module scope, so leaving the map and coming
+// back does not ask again; a fresh load — a new session — does.
+let welcomed = false;
 
 // Basemap. The default is plain OpenStreetMap raster, darkened in CSS — keyless, which
 // matters because CARTO's dark_all endpoint now stamps "API KEY REQUIRED" across every
@@ -78,6 +82,14 @@ export default function MapScreen() {
   // The car card capture sheet, straight from the map: a car is something you see while
   // you are out, and the map is the screen people have open when they are.
   const [snapping, setSnapping] = useState(false);
+  // Its tap is the gesture that switches sound on, so the game is audible from the start.
+  const [welcome, setWelcome] = useState(!welcomed);
+  const closeWelcome = () => {
+    // First, before anything async: the browser only lets audio start inside the tap.
+    unlockAndPlay('level_up');
+    welcomed = true;
+    setWelcome(false);
+  };
   const [geoError, setGeoError] = useState(null);
   const [selected, setSelected] = useState(null);
   const [parks, setParks] = useState(null);
@@ -544,8 +556,22 @@ export default function MapScreen() {
 
       {/* The map's whole interaction, said out loud for anybody opening it for the first
           time. Taps go straight through it to the Hoods, and it steps aside for a sheet. */}
-      {!geoError && !selected && !snapping && !finding && !focus && (
+      {!geoError && !selected && !snapping && !finding && !focus && !welcome && (
         <div className="map-start" aria-hidden="true">Tap a Hood to Start!</div>
+      )}
+
+      {/* Welcome back. A tap anywhere closes it, and that tap is what unlocks sound — iOS
+          will not start audio until a real gesture, so without it the first sounds of a
+          session were silent. */}
+      {welcome && (
+        <div className="map-welcome" role="dialog" aria-modal="true" aria-label="Welcome back"
+             onClick={closeWelcome}>
+          <div className="map-welcome-card">
+            <h2>Welcome back{player?.display_name ? `, ${player.display_name}` : ''}!</h2>
+            <div className="tiny dim">The city’s still out there.</div>
+            <button className="btn btn-primary" autoFocus>Let’s go</button>
+          </div>
+        </div>
       )}
 
       {/* The park Find a Park pointed at: a card over the map rather than a sheet, because
@@ -578,17 +604,12 @@ export default function MapScreen() {
       )}
 
       {/* The map's actions, bottom right above Leaflet's attribution strip: the small locate
-          control, then Find a park and Snap a car. Hidden while a sheet is up, so there is
+          control, then Find a park, Snap a car and Blitz Hunt. Hidden while a sheet is up, so there is
           never a second primary action competing with Conquer. */}
       {!selected && !snapping && !finding && (
         <div className="map-fabs">
           {locateNote && <div className="map-locate-note tiny">{locateNote}</div>}
           <div className="map-locate">
-            {/* Scavenger Blitz. Small and in the furniture row, not a third primary FAB. */}
-            <button className="btn btn-sm map-locate-btn map-blitz-btn" title="Scavenger Blitz"
-                    onClick={() => navigate('/hunts')}>
-              <HuntIcon style={{ width: 18, height: 18 }} /> Blitz
-            </button>
             {tracking && (
               <button className="btn btn-sm map-locate-btn" aria-label="Hide my location"
                       title="Hide my location"
@@ -609,6 +630,9 @@ export default function MapScreen() {
           </button>
           <button className="btn btn-primary" onClick={() => setSnapping(true)}>
             <CarIcon style={{ width: 18, height: 18 }} /> Snap a car
+          </button>
+          <button className="btn btn-primary" onClick={() => navigate('/hunts')}>
+            <HuntIcon style={{ width: 18, height: 18 }} /> Blitz Hunt
           </button>
         </div>
       )}

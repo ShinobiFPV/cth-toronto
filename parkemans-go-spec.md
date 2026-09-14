@@ -794,9 +794,13 @@ Both run through a `GainNode` per channel, so the toggles are volume changes.
 
 ### The unlock
 
-An `AudioContext` starts suspended and resumes only inside a real gesture, so the context is
-resumed on **the first tap anywhere** in a session. Music cannot autoplay; a silent first moment
-is correct. On an iPhone the **silent switch mutes Web Audio entirely** — the first thing to
+An `AudioContext` starts suspended and resumes only inside a real gesture. **iOS Safari does
+not count `pointerdown`** — only `touchend`, `click` and `keydown` — so the unlock listens for
+all of them, plays a one-sample silent buffer inside the gesture (the WebKit unlock), and stays
+armed until the context is actually running. It re-arms when a backgrounded app comes back
+suspended. Every app load opens the map with a **Welcome back** card; closing it is the tap
+that unlocks sound, and it plays the level-up sting so the player hears that sound is on.
+Music cannot autoplay; a silent moment before that tap is correct. On an iPhone the **silent switch mutes Web Audio entirely** — the first thing to
 check when somebody reports broken sounds, and said on the options screen.
 
 ### Two toggles
@@ -885,7 +889,7 @@ A hunt is five things to find. Two kinds:
   uncommon, from `server/data/hunt-vehicles.json` (versioned). Worth three times the XP.
 
 Three hunts at a time, no time limit, and they survive season rollover. Reached from the
-map's small **Blitz** button and the profile; the screen is `/hunts`.
+map's **Blitz Hunt** button, under Snap a car, and the profile; the screen is `/hunts`.
 
 ### Generation
 

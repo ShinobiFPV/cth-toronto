@@ -294,7 +294,7 @@ phone picks up the new sound straight away instead of playing the old one out of
 
 ## Scavenger Blitz
 
-Tap **Blitz** on the map and you get five things to find.
+Tap **Blitz Hunt** on the map and you get five things to find.
 
 - **Park hunt** — pick a park (the nearest ones come up first, worked out on your phone) and
   find five things in it: a couple of things that park really has, like its playground or
