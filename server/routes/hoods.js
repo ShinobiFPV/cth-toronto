@@ -93,6 +93,10 @@ hoodRoutes.post('/:id/claim', requireAuth, upload.single('photo'), async (req, r
         meta: { event: 'fortify', hood_id: hoodId, defender_id: result.fortify.defender_id, attacker_id: req.player.id },
       });
       broadcast('items_changed', { player_id: result.fortify.defender_id });
+      // So the defender's phone can play the sound for it. Carries no subject.
+      broadcast('fortify_triggered', {
+        hood_id: hoodId, defender_id: result.fortify.defender_id, attacker_id: req.player.id,
+      });
       broadcast('hood_changed', { hood_id: hoodId });
       return res.status(409).json({
         error: 'FORTIFY_COOLDOWN',

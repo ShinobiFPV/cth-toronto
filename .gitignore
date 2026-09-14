@@ -12,3 +12,4 @@ web/dist/
 *.tmp.json
 *.tmp.mjs
 *.tmp.py
+build/

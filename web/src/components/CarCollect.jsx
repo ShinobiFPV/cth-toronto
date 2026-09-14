@@ -14,6 +14,7 @@ import { Banner, Spinner } from './bits.jsx';
 import { CAPTION_MAX } from './Caption.jsx';
 import NotWheelsCard from './NotWheelsCard.jsx';
 import CloverClock from './CloverClock.jsx';
+import { playSound, playCollection } from '../lib/audio.js';
 import { itemList, withheldText } from '../lib/items.js';
 
 const HEIC = /\.(heic|heif)$/i;
@@ -113,8 +114,10 @@ export default function CarCollect({ onClose, onDone }) {
       setPhase('done');
       refreshMe().catch(() => {});
       if (res.items?.items?.length) itemsChanged();
+      playCollection('collect_car', { edition: res.repeat ? null : res.card?.edition, items: res.items });
       onDone?.(res);
     } catch (err) {
+      playSound('blocked');
       setError({ code: err.code, message: err.message || 'That did not go through.' });
       setPhase('pick');
       api.carCapacity().then((r) => setCapacity(r.capacity)).catch(() => {});

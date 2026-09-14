@@ -4,6 +4,7 @@
 // the map is never more than a round-trip stale for anybody looking at it.
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from './api.js';
+import { playSound, audioChanged } from './audio.js';
 
 const Ctx = createContext(null);
 
@@ -98,12 +99,27 @@ export function GameProvider({ children }) {
         } else if (type === 'chat_message') {
           setMessages((prev) => (prev.some((m) => m.id === payload.id) ? prev : [...prev, payload]));
           if (!chatOpenRef.current) setUnreadChat((n) => n + 1);
+          // Somebody else talking gets the quiet blip; your own messages and system lines do
+          // not, apart from the season turning over.
+          if (payload.kind === 'user' && payload.player_id !== session?.player?.id && !chatOpenRef.current) {
+            playSound('chat');
+          } else if (payload.kind === 'system' && payload.meta?.event === 'season_rollover') {
+            playSound('rollover');
+          }
         } else if (type === 'hood_changed' || type === 'claim_reverted') {
           refreshHoods().catch(() => {});
           refreshMe().catch(() => {});
         } else if (type === 'claim_created') {
           refreshHoods().catch(() => {});
           refreshMe().catch(() => {});
+          // Your Hood taken, wherever you are in the app. It should sting.
+          if (payload?.beaten?.id && payload.beaten.id === session?.player?.id) playSound('lost');
+        } else if (type === 'fortify_triggered') {
+          if (payload?.defender_id === session?.player?.id) playSound('fortify_hit');
+        } else if (type === 'level_up') {
+          if (payload?.player_id === session?.player?.id) playSound('level_up');
+        } else if (type === 'audio_changed') {
+          audioChanged();
         } else if (type === 'trade_offered' || type === 'trade_resolved') {
           // The badge counts offers waiting on you, so it has to move when one arrives
           // rather than on the next reload. Both parties care: one gains a pending
@@ -113,6 +129,7 @@ export function GameProvider({ children }) {
           const me = session?.player?.id;
           if (me && (payload?.to?.id === me || payload?.from?.id === me)) {
             refreshMe().catch(() => {});
+            if (type === 'trade_resolved' && payload.status === 'accepted') playSound('trade');
           }
         } else if (type === 'items_changed') {
           // Addressed to one player. Everybody else ignores it — which is also why arming

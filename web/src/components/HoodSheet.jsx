@@ -10,6 +10,7 @@ import { CloseIcon, LockIcon, ShieldIcon, ReconIcon, ITEM_ICON } from './icons.j
 import { Subject, PlayerName, FlagButton, Banner, Lightbox } from './bits.jsx';
 import ClaimFlow from './ClaimFlow.jsx';
 import Caption from './Caption.jsx';
+import { playSound } from '../lib/audio.js';
 
 export default function HoodSheet({ hoodId, onClose }) {
   const { hoodById, player, refreshHoods, refreshMe, itemsTick, itemsChanged } = useGame();
@@ -41,6 +42,8 @@ export default function HoodSheet({ hoodId, onClose }) {
   const held = (type) => inventory?.items.filter((i) => i.item_type === type) ?? [];
 
   const done = async (claim, meta) => {
+    // conquer, steal and reinforce are slot names as well as claim kinds.
+    playSound(claim.claim_kind);
     setLanded({ ...claim, xp: meta?.xp, level_up: meta?.level_up, item_used: meta?.item_used });
     setClaiming(false);
     setGrant(null);
@@ -51,6 +54,7 @@ export default function HoodSheet({ hoodId, onClose }) {
   // The steal walked into a Fortify. It happened — the photo is spent — so the sheet says
   // so and closes the capture flow rather than leaving a retry button under it.
   const blocked = async (message) => {
+    playSound('fortify_blocked');
     setClaiming(false);
     setGrant(null);
     setItemNote({ kind: 'bad', text: message });

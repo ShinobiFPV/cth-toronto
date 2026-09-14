@@ -7,6 +7,8 @@ import { article, until, SUBJECTS, SUBJECT_BLURB, BEATS } from '../lib/game.js';
 import { Subject, Banner, PlayerName } from '../components/bits.jsx';
 import { BackIcon } from '../components/icons.jsx';
 import Appearance from '../components/Appearance.jsx';
+import SoundSettings from '../components/SoundSettings.jsx';
+import AudioAdmin from '../components/AudioAdmin.jsx';
 import { BUILD } from '../lib/build.js';
 
 export default function Profile() {
@@ -221,6 +223,10 @@ export default function Profile() {
       </div>
 
       <Appearance />
+
+      <SoundSettings />
+
+      {player?.is_admin && <AudioAdmin />}
 
       {player?.is_admin && (
         <div>

@@ -689,6 +689,191 @@ item_armed(hood_id PRIMARY KEY, grant_id UNIQUE, player_id, armed_at)   -- Forti
 
 ---
 
+## 1.8e Location — Find a Park
+
+An optional device location, used for two things: a **Find a park** list, and a dot on the
+map. Neither is ever used to verify anything.
+
+### Location never leaves the device
+
+The nearest-park search runs **entirely on the phone**. The browser gets a fix, the client
+already holds every park's position in `parks.index.json`, and haversine over 1,513 points is
+sub-millisecond work. No endpoint takes a position, no request carries one, and nothing about
+where anybody is ends up in a server log.
+
+That matters more than it looks in a six-player game where one player runs the server: "the
+app knows where I am" and "the admin's Pi has a record of where I was on Tuesday" are very
+different things, and the second is easy to create by accident. It is also simply better — no
+round trip on bad LTE, and it works offline.
+
+It is enforced, not just intended. `server/lib/privacy.js` refuses, with `COORDINATES_REFUSED`,
+any API request whose query or JSON body carries a key that looks like a coordinate (`lat`,
+`lng`, `latitude`, `coords`, `accuracy`, …, at any depth) — so a "convenient" endpoint added
+later fails loudly rather than quietly starting to collect positions.
+
+(Photo EXIF, read for the shot-data panel in §1.7, is a separate and older matter: it rides
+inside the image file. It is the obvious next place to look if this guarantee is ever
+extended.)
+
+### The park index
+
+`web/public/parks.index.json`, one entry per park — `{"i":412,"n":"Trinity Bellwoods Park",
+"h":9,"la":43.6469,"ln":-79.4131}` — about 100 kB, precached by the service worker. Generated
+from the parks table by `scripts/build-park-index.js`, which `import-parks.js` runs after every
+import, so it cannot drift from the game. Committed, like the Hood geometry.
+
+### Asking, and failing
+
+- **Never on load.** A prompt on cold start is dismissed on reflex, and once a browser has a
+  denial recorded the app cannot ask again. The prompt is only triggered by tapping **Find a
+  park** or the locate button — gestures where the reason is obvious.
+- **HTTPS only.** Geolocation needs a secure context: `cth.shintech.online` is fine, the LAN
+  address is not, and there it fails without saying so.
+- **Every failure has a way forward.** Denied, timed out, unavailable, insecure or unsupported
+  each get a short explanation — denial says where the setting lives — and a **Hood picker**
+  that leads to the same parks by hand. Never an empty state.
+
+### Find a park
+
+One fix: `getCurrentPosition()` with `enableHighAccuracy: true, timeout: 10000, maximumAge:
+30000` — at street level, GPS versus tower trilateration is the right park or the next one over.
+
+The nearest **five** (`CTH_NEARBY_PARK_COUNT`), nearest first. Two rules make it worth opening
+in October:
+
+- **Uncollected by default.** Filtered to parks this player has not collected this season, with
+  a toggle to show all. By midseason everything near home is in the binder.
+- **Say which ones will score.** Each row shows its Hood and, where the per-Hood park cap is
+  spent, a quiet **XP only** — the same `min()` the server's `parkAward()` uses, and
+  `test/nearby.test.js` asserts the two agree for every row. That is what turns the cap from a
+  confusing silence into a visible reason to travel.
+
+Each row: name, distance, Hood, collected state, scoring state, and **Directions**, which hands
+off to the phone's maps app (Apple Maps, a `geo:` URI, or Google Maps) — no routing is built.
+Tapping a row flies the map there and shows a card with **Open park**. A fix worse than
+`CTH_NEARBY_ACCURACY_WARN_M` (200 m) says so rather than returning five parks that may be wrong.
+
+### The dot
+
+`watchPosition()`, only while the map is up, in front, and the dot is switched on — it drains a
+battery the way one fix does not. Stopped on leaving the map, on hiding the tab, and on turning
+it off. Drawn as a marker plus an **accuracy circle**, because downtown GPS is routinely
+±20–50 m and a precise dot would be a lie. It **never recentres on its own** — a map that
+chases every update fights the player's panning — only when the locate button is tapped. The
+dot is neutral (`--you`), never a hue a player or the accent could be wearing. **It shows you
+only.** Live location is the one thing in this game that is not public, and there is no setting
+to change that, so there is nothing to misconfigure.
+
+### Placement
+
+**Find a park** is a floating button beside **Snap a car**, bottom right — two primary buttons,
+the limit before it would need a speed-dial. The locate button is small map furniture above
+them, not a third primary action. None of it is on the Hood sheet.
+
+### This is not verification
+
+Location is a convenience. **Nothing gates a collection on proximity**, and nothing should:
+the game is honour-based and enforced by flagging. "You must be within 100 m to collect" is a
+very natural-looking next commit that would quietly replace the social system the whole game
+rests on. There is a comment saying so in the code, for whoever is about to write it.
+
+---
+
+## 1.8f Sound
+
+Sound effects and a map loop, with an admin board for swapping the files.
+
+### Two systems
+
+- **Effects** — short, overlapping, latency-sensitive. Decoded once into `AudioBuffer`s after the
+  first tap and fired through `AudioBufferSourceNode`s. `new Audio()` lags and overlaps badly.
+- **Music** — one 38-second loop through Web Audio with `loop = true`, the only way a loop has
+  no seam.
+
+Both run through a `GainNode` per channel, so the toggles are volume changes.
+
+### The unlock
+
+An `AudioContext` starts suspended and resumes only inside a real gesture, so the context is
+resumed on **the first tap anywhere** in a session. Music cannot autoplay; a silent first moment
+is correct. On an iPhone the **silent switch mutes Web Audio entirely** — the first thing to
+check when somebody reports broken sounds, and said on the options screen.
+
+### Two toggles
+
+**Music** and **Sound effects**, separately: people want the Hologram sting while listening to
+their own music. **Music defaults off, effects on.** Both persist per device and are read before
+the first frame (`web/src/lib/audio.js` loads them at import, ahead of `createRoot`), so nothing
+plays at the wrong level. Music plays while the map is on screen.
+
+### The slots
+
+Fixed, so the admin board is a stable list:
+
+| Key | Fires on |
+|---|---|
+| `conquer` / `steal` / `reinforce` | the claim landing |
+| `lost` | **your** Hood being taken, wherever you are in the app |
+| `collect_park` / `collect_car` | a card printed |
+| `edition_gold` / `edition_holo` | a Gold or Hologram pull, just after the card sound |
+| `item_grant` | an item landing in your bag |
+| `fortify_hit` | your Fortify stopping a steal (a `fortify_triggered` frame) |
+| `fortify_blocked` | your steal bouncing off one |
+| `trade` | a trade you are part of going through |
+| `level_up` | a level threshold crossed |
+| `chat` | a message from somebody else, quiet |
+| `blocked` | a cooldown or a refused action |
+| `rollover` | the season changing |
+| `music_main` | the map loop |
+
+`edition_holo` and `fortify_hit` carry the weight; everything else is short and quiet.
+
+### The defaults
+
+Synthesised by `scripts/make-sounds.js` from arithmetic — so the set is our own work, released
+**CC0**, with the licence recorded per file in `defaults.json`. The repo is public; anything
+CC-BY would drag an attribution obligation into it. AAC in `.m4a`, mono 96k for cues, stereo
+128k for the loop, no leading silence, levels set per cue. The script writes WAVs and encodes
+them if ffmpeg is present; otherwise it prints the commands (the Pi has ffmpeg).
+
+### Admin swaps
+
+**Pi-authoritative files plus a manifest, repo defaults as the fallback.**
+
+- Defaults ship in the repo at `web/public/audio/` (served from `web/dist/audio/`).
+- Overrides live in `CTH_AUDIO_DIR` — `/srv/cth/audio` on the Pi, beside the media, keeping the
+  `cth` infrastructure name — which deploy never touches.
+- `audio-manifest.json` there is the source of truth. A slot with no override resolves to the
+  default; a slot with neither is silent; an unknown slot resolves to nothing.
+
+The admin board, on the profile screen for `players.is_admin`: every slot with its source
+(default or custom), **Preview** on each, **Replace** (uploaded, then transcoded on the Pi with
+ffmpeg — loudness-normalised, leading silence trimmed from cues — so a 40 MB WAV never reaches a
+phone), **Reset to default**, a **gain** slider, and a **licence** note. Uploads are capped at
+`CTH_AUDIO_MAX_UPLOAD_MB` and the decoded duration is checked server-side: `CTH_AUDIO_MAX_DURATION_S`
+for cues, `CTH_AUDIO_MAX_MUSIC_DURATION_S` for music.
+
+| Code | Condition |
+|---|---|
+| `AUDIO_UNKNOWN_SLOT` | not one of the seventeen |
+| `AUDIO_TOO_BIG` | over the upload cap |
+| `AUDIO_TOO_LONG` | longer than the slot allows |
+| `AUDIO_UNREADABLE` / `AUDIO_MISSING` | not audio, or no file |
+| `AUDIO_TRANSCODER_MISSING` | ffmpeg is not installed on the server |
+
+### The thing that would actually break
+
+**The service worker caches audio.** Swap a file on the Pi and every phone keeps the old one,
+possibly for weeks. So every URL names its bytes — `/audio/edition_holo.m4a?v=a1c3f9`, the
+first eight hex of the file's sha256 — and a changed file is a URL no cache has seen. Audio is
+never precached; it is cached at runtime, cache-first, which is safe only because the URLs are
+versioned. `/audio/:slot.m4a` is `immutable` only when `?v=` matches the current hash and
+`no-cache` otherwise. The manifest is fetched network-first with the last good copy as the
+fallback, and its top-level `version` changes whenever any URL or gain would, so a client can
+tell it needs to re-resolve without diffing. An admin change also broadcasts `audio_changed`.
+
+---
+
 ## 1.9 XP and levels
 
 Season points answer *who is winning right now*. XP answers *how long have you been doing
@@ -993,6 +1178,15 @@ POST   /api/items/disarm           hood_id
 POST   /api/items/use              grant_id, target_hood_id — Recon, Tune-Up, Clover
 GET    /api/items/history          grants and uses, for arguments
 
+GET    /api/audio/manifest         every sound slot's hashed URL and gain, plus a version (§1.8f)
+GET    /audio/:slot.m4a?v=hash     a sound, override or default; immutable under its own hash
+GET    /api/admin/audio            admin only: every slot, its source, gain, licence, limits
+POST   /api/admin/audio/:slot      admin only: multipart file (+ licence); transcoded on the Pi
+PATCH  /api/admin/audio/:slot      admin only: gain, licence
+DELETE /api/admin/audio/:slot      admin only: back to the repo default
+
+(No endpoint takes a location. Any API request carrying a coordinate is COORDINATES_REFUSED — §1.8e.)
+
 GET    /api/trades                 offers you are part of, incoming and outgoing
 POST   /api/trades                 to_player_id, offer_claim_id, want_claim_id?, message?
 POST   /api/trades/:id/accept      recipient only; re-checks both holdings (§1.8a)
@@ -1204,6 +1398,15 @@ see how people actually behave.
   nothing mechanical hangs off it — deliberately, because a level that granted an in-game
   advantage would compound and the early joiners would never be caught. If it ever should
   do something, cosmetic is the safe direction: a card frame, a map colour, a chat flourish.
+- **Location and sound (§1.8e, §1.8f)**:
+  - *Two sound toggles, not one* — built as two, music defaulting off.
+  - *Seasonal music* — one loop per season would be a nice touch. The manifest does not need to
+    change for it; it is a question of whether anybody wants to make four loops.
+  - *Does the dot show other players?* — **No, settled.** Everything else in the game is public;
+    live location is the one thing that must not be, and there is no setting for it.
+  - *Photo EXIF GPS* — the shot-data panel still reads a photo's GPS from its EXIF for disputes.
+    It predates the location feature and sits inside the image rather than in a request, but it
+    is the obvious next thing to decide if "location never reaches the server" is to be total.
 - **Items (§1.8d)** — built on these defaults, every one a lever in `server/config.js`:
   - *Weekly item cap* — **4** is a guess. It is the one number that decides whether Fortify
     is an event or a tax, and the first thing worth revisiting after a month of play.

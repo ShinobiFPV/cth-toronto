@@ -15,6 +15,7 @@ import { Banner, Spinner } from '../components/bits.jsx';
 import ParkCard from '../components/ParkCard.jsx';
 import ParkCollect from '../components/ParkCollect.jsx';
 import { itemList, withheldText } from '../lib/items.js';
+import { playCollection } from '../lib/audio.js';
 
 const TILES = import.meta.env.VITE_MAP_TILES
   || 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
@@ -77,6 +78,7 @@ export default function Parkemans() {
   const pct = progress.total ? Math.round((progress.collected / progress.total) * 100) : 0;
 
   const collected = async (card, meta) => {
+    playCollection('collect_park', { edition: card.edition, items: meta?.items });
     setSelected(null);
     await Promise.all([load().catch(() => {}), refreshMe().catch(() => {})]);
     if (meta?.items?.items?.length) itemsChanged();

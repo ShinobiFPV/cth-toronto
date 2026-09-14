@@ -9,6 +9,7 @@ import { SUBJECTS, SUBJECT_BLURB, KIND_VERB, article, until } from '../lib/game.
 import { SUBJECT_ICON, CameraIcon, CloseIcon } from './icons.jsx';
 import { Banner } from './bits.jsx';
 import { CAPTION_MAX } from './Caption.jsx';
+import { playSound } from '../lib/audio.js';
 
 const HEIC = /\.(heic|heif)$/i;
 const isHeic = (f) => HEIC.test(f.name || '') || /image\/hei[cf]/i.test(f.type || '');
@@ -84,6 +85,7 @@ export default function ClaimFlow({ hood, onClose, onDone, onBlocked, useGrant =
         onBlocked(err.message);
         return;
       }
+      playSound('blocked');
       setError(err.message || 'That did not go through.');
       setBusy(false);
     }

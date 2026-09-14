@@ -1,0 +1,107 @@
+{
+  "licence": "CC0 — synthesised for Park-E-Mans GO! by scripts/make-sounds.js",
+  "slots": {
+    "conquer": {
+      "file": "conquer.m4a",
+      "gain": 1,
+      "duration_s": 0.34,
+      "licence": "CC0 — synthesised for Park-E-Mans GO! by scripts/make-sounds.js"
+    },
+    "steal": {
+      "file": "steal.m4a",
+      "gain": 1,
+      "duration_s": 0.38,
+      "licence": "CC0 — synthesised for Park-E-Mans GO! by scripts/make-sounds.js"
+    },
+    "lost": {
+      "file": "lost.m4a",
+      "gain": 1,
+      "duration_s": 0.85,
+      "licence": "CC0 — synthesised for Park-E-Mans GO! by scripts/make-sounds.js"
+    },
+    "reinforce": {
+      "file": "reinforce.m4a",
+      "gain": 1,
+      "duration_s": 0.26,
+      "licence": "CC0 — synthesised for Park-E-Mans GO! by scripts/make-sounds.js"
+    },
+    "collect_park": {
+      "file": "collect_park.m4a",
+      "gain": 1,
+      "duration_s": 0.62,
+      "licence": "CC0 — synthesised for Park-E-Mans GO! by scripts/make-sounds.js"
+    },
+    "collect_car": {
+      "file": "collect_car.m4a",
+      "gain": 1,
+      "duration_s": 0.32,
+      "licence": "CC0 — synthesised for Park-E-Mans GO! by scripts/make-sounds.js"
+    },
+    "edition_gold": {
+      "file": "edition_gold.m4a",
+      "gain": 1,
+      "duration_s": 1,
+      "licence": "CC0 — synthesised for Park-E-Mans GO! by scripts/make-sounds.js"
+    },
+    "edition_holo": {
+      "file": "edition_holo.m4a",
+      "gain": 1,
+      "duration_s": 1.7,
+      "licence": "CC0 — synthesised for Park-E-Mans GO! by scripts/make-sounds.js"
+    },
+    "item_grant": {
+      "file": "item_grant.m4a",
+      "gain": 1,
+      "duration_s": 0.3,
+      "licence": "CC0 — synthesised for Park-E-Mans GO! by scripts/make-sounds.js"
+    },
+    "fortify_hit": {
+      "file": "fortify_hit.m4a",
+      "gain": 1,
+      "duration_s": 1.1,
+      "licence": "CC0 — synthesised for Park-E-Mans GO! by scripts/make-sounds.js"
+    },
+    "fortify_blocked": {
+      "file": "fortify_blocked.m4a",
+      "gain": 1,
+      "duration_s": 0.55,
+      "licence": "CC0 — synthesised for Park-E-Mans GO! by scripts/make-sounds.js"
+    },
+    "trade": {
+      "file": "trade.m4a",
+      "gain": 1,
+      "duration_s": 0.46,
+      "licence": "CC0 — synthesised for Park-E-Mans GO! by scripts/make-sounds.js"
+    },
+    "level_up": {
+      "file": "level_up.m4a",
+      "gain": 1,
+      "duration_s": 1,
+      "licence": "CC0 — synthesised for Park-E-Mans GO! by scripts/make-sounds.js"
+    },
+    "chat": {
+      "file": "chat.m4a",
+      "gain": 0.6,
+      "duration_s": 0.08,
+      "licence": "CC0 — synthesised for Park-E-Mans GO! by scripts/make-sounds.js"
+    },
+    "blocked": {
+      "file": "blocked.m4a",
+      "gain": 0.8,
+      "duration_s": 0.2,
+      "licence": "CC0 — synthesised for Park-E-Mans GO! by scripts/make-sounds.js"
+    },
+    "rollover": {
+      "file": "rollover.m4a",
+      "gain": 1,
+      "duration_s": 1.7,
+      "licence": "CC0 — synthesised for Park-E-Mans GO! by scripts/make-sounds.js"
+    },
+    "music_main": {
+      "file": "music_main.m4a",
+      "gain": 0.55,
+      "duration_s": 38.4,
+      "licence": "CC0 — synthesised for Park-E-Mans GO! by scripts/make-sounds.js"
+    }
+  }
+}

@@ -85,6 +85,10 @@
   --label-dim:     #6B7480;                /* one that is closed to you */
   --label-shadow:  0 0 4px #000, 0 0 8px #000;
   --pin-ring:      #05070A;
+  /* The dot for where you are. Deliberately no hue: every hue on the map belongs to a
+     player or to the accent, and your position must not read as anybody's territory. */
+  --you:           #FFFFFF;
+  --you-ring:      #05070A;
 
   /* Rarity. Semantic rather than decorative, so it gets tokens of its own —
      legendary is deliberately the accent, whatever the accent happens to be. */
@@ -156,6 +160,8 @@
      soft ones: it reads as a knockout rather than a glow. */
   --label-shadow: 0 0 2px #FFF, 0 0 3px #FFF, 0 0 6px #FFF;
   --pin-ring:     #FFFFFF;
+  --you:          #16181C;
+  --you-ring:     #FFFFFF;
 
   --r-common:   #6B7480;
   --r-uncommon: #0C7A34;
@@ -606,9 +612,84 @@ button, input, select, textarea { font: inherit; color: inherit; }
   bottom: 0.7rem;
   z-index: 500;
 }
-/* The main map's Snap a car button. Lifted to the legend's height: the bottom-right
-   corner belongs to Leaflet's attribution strip. */
-.map-fab-snap { bottom: 2.4rem; }
+/* The main map's actions, bottom right, lifted to the legend's height because the corner
+   itself belongs to Leaflet's attribution strip: the small locate control on top, then
+   Find a park and Snap a car. Two primary buttons is the limit here — a third would need
+   stacking behind a speed-dial. */
+.map-fabs {
+  position: absolute;
+  right: 0.7rem;
+  bottom: 2.4rem;
+  z-index: 500;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.55rem;
+}
+.map-locate { display: flex; gap: 0.35rem; }
+/* Map furniture, not a primary action: dressed like Leaflet's own zoom buttons. */
+.map-locate-btn {
+  width: var(--tap);
+  height: var(--tap);
+  min-height: var(--tap);
+  padding: 0;
+  background: var(--chrome);
+  color: var(--on-chrome);
+  border-color: var(--border);
+}
+.map-locate-btn.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.map-locate-note {
+  max-width: 60vw;
+  padding: 0.35rem 0.5rem;
+  background: var(--overlay);
+  border: 2px solid var(--border);
+  color: var(--text);
+  text-align: right;
+}
+
+/* The park Find a park pointed at. A card over the map rather than a sheet: the map has
+   just flown there, and covering it would defeat the point. Top centre, where the
+   "Tap a Hood" sticker stands aside for it. */
+.map-focus {
+  position: absolute;
+  top: 0.7rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 700;
+  width: min(22rem, calc(100% - 5.5rem));
+  padding: 0.6rem 0.7rem;
+  background: var(--surface);
+  color: var(--text);
+  border: 2px solid var(--border);
+  box-shadow: 4px 4px 0 var(--accent-deep);
+}
+
+/* Find a park's rows: the park and how far, which flies the map there; then its tags. */
+.find-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.6rem;
+  border-bottom: 1px solid var(--rule);
+}
+.find-row:last-child { border-bottom: 0; }
+.find-row-main {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  background: none;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.find-row-tags { display: flex; align-items: center; gap: 0.35rem; flex: none; }
+
+/* The admin sound board. */
+.sound-slot { gap: 0.45rem; border-bottom: 1px solid var(--rule); }
+.sound-slot:last-child { border-bottom: 0; }
+.gain-slider { display: block; width: 100%; margin-top: 0.2rem; accent-color: var(--accent); }
 
 /* ── Sheets ──────────────────────────────────────────────────────────────
    Every pop-up drops down from the top. The class is still .bottom-sheet because

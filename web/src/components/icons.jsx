@@ -111,6 +111,21 @@ export const ITEM_ICON = {
   clover: CloverIcon,
 };
 
+// ── Location and sound ────────────────────────────────────────────────────
+// Crosshairs on a square: where am I.
+export const LocateIcon = (p) => svg(<>
+  <rect x="7" y="7" width="10" height="10" />
+  <path d="M12 2v5M12 17v5M2 12h5M17 12h5" />
+</>, p);
+
+// A pin, square-shouldered.
+export const PinIcon = (p) => svg(<>
+  <path d="M5 3h14v11l-7 7-7-7z" />
+  <rect x="10" y="7" width="4" height="4" />
+</>, p);
+
+export const PlayIcon = (p) => svg(<path d="M7 4l12 8-12 8z" />, p);
+
 export const CloseIcon = (p) => svg(<path d="M5 5l14 14M19 5L5 19" />, p);
 export const BackIcon = (p) => svg(<path d="M15 4l-8 8 8 8" />, p);
 export const LockIcon = (p) => svg(<>

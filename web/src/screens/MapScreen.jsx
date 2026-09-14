@@ -13,9 +13,14 @@ import { useGame } from '../lib/store.jsx';
 import { hoodColour } from '../lib/game.js';
 import { cssVar, textSafe } from '../lib/theme.js';
 import { useTheme } from '../lib/theme-context.jsx';
+import { useNavigate } from 'react-router-dom';
 import HoodSheet from '../components/HoodSheet.jsx';
 import CarCollect from '../components/CarCollect.jsx';
-import { CarIcon } from '../components/icons.jsx';
+import FindPark from '../components/FindPark.jsx';
+import { CarIcon, CloseIcon, LocateIcon, PinIcon } from '../components/icons.jsx';
+import { watchFix, secureContext, locationSupported } from '../lib/location.js';
+import { formatDistance, directionsUrl, locateFailure } from '../lib/nearby.js';
+import { setMusicWanted } from '../lib/audio.js';
 
 // Basemap. The default is plain OpenStreetMap raster, darkened in CSS — keyless, which
 // matters because CARTO's dark_all endpoint now stamps "API KEY REQUIRED" across every
@@ -77,6 +82,17 @@ export default function MapScreen() {
   const [selected, setSelected] = useState(null);
   const [parks, setParks] = useState(null);
   const [showParks, setShowParks] = useState(true);
+  // Find a Park, and the park it pointed at. Both worked out on this phone — see
+  // components/FindPark.jsx for why nothing about where you are goes to the server.
+  const [finding, setFinding] = useState(false);
+  const [focus, setFocus] = useState(null);
+  // The dot. Off until tapped: watching the position drains a battery in a way one fix
+  // does not, and asking on load would get the permission dismissed for good.
+  const [tracking, setTracking] = useState(false);
+  const [locateNote, setLocateNote] = useState(null);
+  const lastFixRef = useRef(null);
+  const recenterRef = useRef(false);
+  const navigate = useNavigate();
 
   const mapEl = useRef(null);
   const mapRef = useRef(null);
@@ -384,6 +400,97 @@ export default function MapScreen() {
     // resolved and the accent are in here because the dot colours are read out of CSS.
   }, [parks, showParks, resolved, appearance.accent]);
 
+  // ── the map loop plays while the map is up ──────────────────────────────
+  useEffect(() => {
+    setMusicWanted(true);
+    return () => setMusicWanted(false);
+  }, []);
+
+  // ── the dot on the map ──────────────────────────────────────────────────
+  // Watching only while the dot is on and this screen is up and in front: leaving the map
+  // unmounts it, and hiding the tab stops the watch until it comes back. A marker plus an
+  // accuracy circle, because phone GPS downtown is routinely ±20–50m and a precise dot
+  // would be a lie. It never recentres on its own — a map that chases every update fights
+  // the player's panning — only when the locate button is tapped.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !tracking) return undefined;
+    const group = L.layerGroup().addTo(map);
+    let ring = null;
+    let dot = null;
+    let stop = null;
+
+    const draw = (fix) => {
+      const at = [fix.lat, fix.lng];
+      const colour = cssVar('--you', '#FFFFFF');
+      if (!ring) {
+        ring = L.circle(at, {
+          radius: fix.accuracy, color: colour, weight: 1, opacity: 0.55,
+          fillColor: colour, fillOpacity: 0.12, interactive: false,
+        }).addTo(group);
+        dot = L.circleMarker(at, {
+          radius: 6, color: cssVar('--you-ring', '#05070A'), weight: 2,
+          fillColor: colour, fillOpacity: 1, interactive: false,
+        }).addTo(group);
+      } else {
+        ring.setLatLng(at).setRadius(fix.accuracy);
+        dot.setLatLng(at);
+      }
+    };
+
+    const start = () => {
+      if (stop) return;
+      stop = watchFix((fix) => {
+        lastFixRef.current = fix;
+        setLocateNote(null);
+        draw(fix);
+        if (recenterRef.current) {
+          recenterRef.current = false;
+          map.flyTo([fix.lat, fix.lng], Math.max(map.getZoom(), 15));
+        }
+      }, (err) => {
+        const why = locateFailure(err, { secure: secureContext(), supported: locationSupported() });
+        setLocateNote(why.title);
+        // A slow fix is worth waiting for; a refusal or a missing sensor is not.
+        if (why.code !== 'timeout') setTracking(false);
+      });
+    };
+    const halt = () => { stop?.(); stop = null; };
+    const onVisible = () => (document.visibilityState === 'visible' ? start() : halt());
+
+    start();
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      halt();
+      document.removeEventListener('visibilitychange', onVisible);
+      group.remove();
+    };
+  }, [tracking]);
+
+  /** First tap turns the dot on and centres on the first fix; later taps centre again. */
+  const locateMe = () => {
+    setLocateNote(null);
+    if (!tracking) {
+      recenterRef.current = true;
+      setTracking(true);
+      return;
+    }
+    const fix = lastFixRef.current;
+    if (fix) mapRef.current?.flyTo([fix.lat, fix.lng], Math.max(mapRef.current.getZoom(), 15));
+    else recenterRef.current = true;
+  };
+
+  // ── the park Find a Park pointed at ─────────────────────────────────────
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !focus) return undefined;
+    const ring = L.circleMarker([focus.lat, focus.lng], {
+      radius: 12, color: cssVar('--accent', '#FFB020'), weight: 3, fillOpacity: 0, interactive: false,
+    }).addTo(map);
+    map.flyTo([focus.lat, focus.lng], Math.max(map.getZoom(), 16));
+    return () => ring.remove();
+  }, [focus]);
+
   const mine = hoods.filter((h) => h.owner?.id === player?.id);
   const richest = hoods.filter((h) => !h.owner)
     .sort((a, b) => b.unclaimed_value - a.unclaimed_value)[0];
@@ -437,16 +544,73 @@ export default function MapScreen() {
 
       {/* The map's whole interaction, said out loud for anybody opening it for the first
           time. Taps go straight through it to the Hoods, and it steps aside for a sheet. */}
-      {!geoError && !selected && !snapping && (
+      {!geoError && !selected && !snapping && !finding && !focus && (
         <div className="map-start" aria-hidden="true">Tap a Hood to Start!</div>
       )}
 
-      {/* Hidden while a Hood sheet is up, so there is never a second primary action
-          competing with Conquer. */}
-      {!selected && !snapping && (
-        <button className="btn btn-primary map-fab map-fab-snap" onClick={() => setSnapping(true)}>
-          <CarIcon style={{ width: 18, height: 18 }} /> Snap a car
-        </button>
+      {/* The park Find a Park pointed at: a card over the map rather than a sheet, because
+          the map has just flown there and covering it would defeat the point. */}
+      {focus && !selected && (
+        <div className="map-focus" role="dialog" aria-label={focus.name}>
+          <div className="cluster" style={{ alignItems: 'flex-start', flexWrap: 'nowrap' }}>
+            <div className="grow" style={{ minWidth: 0 }}>
+              <b className="truncate" style={{ display: 'block' }}>{focus.name}</b>
+              <div className="tiny dim">
+                {formatDistance(focus.distance_m)} away ·{' '}
+                {hoods.find((h) => h.id === focus.hood_id)?.label ?? `Hood ${focus.hood_id}`}
+                {focus.collected ? ' · in your binder' : focus.xp_only ? ' · XP only' : ''}
+              </div>
+            </div>
+            <button className="btn btn-sm btn-ghost" onClick={() => setFocus(null)} aria-label="Close">
+              <CloseIcon style={{ width: 14, height: 14 }} />
+            </button>
+          </div>
+          <div className="cluster" style={{ marginTop: '0.5rem' }}>
+            <button className="btn btn-sm btn-primary"
+                    onClick={() => navigate(`/hood/${focus.hood_id}/parks?park=${focus.id}`)}>
+              Open park
+            </button>
+            <a className="btn btn-sm" href={directionsUrl(focus)} target="_blank" rel="noreferrer">
+              Directions
+            </a>
+          </div>
+        </div>
+      )}
+
+      {/* The map's actions, bottom right above Leaflet's attribution strip: the small locate
+          control, then Find a park and Snap a car. Hidden while a sheet is up, so there is
+          never a second primary action competing with Conquer. */}
+      {!selected && !snapping && !finding && (
+        <div className="map-fabs">
+          {locateNote && <div className="map-locate-note tiny">{locateNote}</div>}
+          <div className="map-locate">
+            {tracking && (
+              <button className="btn btn-sm map-locate-btn" aria-label="Hide my location"
+                      title="Hide my location"
+                      onClick={() => { setTracking(false); setLocateNote(null); }}>
+                <CloseIcon style={{ width: 16, height: 16 }} />
+              </button>
+            )}
+            <button className={`btn btn-sm map-locate-btn ${tracking ? 'on' : ''}`}
+                    aria-pressed={tracking}
+                    aria-label={tracking ? 'Centre on my location' : 'Show my location'}
+                    title={tracking ? 'Centre on my location' : 'Show my location'}
+                    onClick={locateMe}>
+              <LocateIcon style={{ width: 18, height: 18 }} />
+            </button>
+          </div>
+          <button className="btn btn-primary" onClick={() => { setFocus(null); setFinding(true); }}>
+            <PinIcon style={{ width: 18, height: 18 }} /> Find a park
+          </button>
+          <button className="btn btn-primary" onClick={() => setSnapping(true)}>
+            <CarIcon style={{ width: 18, height: 18 }} /> Snap a car
+          </button>
+        </div>
+      )}
+
+      {finding && (
+        <FindPark parks={parks} onClose={() => setFinding(false)}
+                  onFocus={(row) => { setFinding(false); setFocus(row); }} />
       )}
 
       {selected && (

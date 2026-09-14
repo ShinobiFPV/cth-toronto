@@ -29,7 +29,9 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg', 'hoods.min.geojson', 'fonts/*.woff2'],
+      // parks.index.json is precached so Find a Park works offline, standing outside on
+      // bad LTE. Its revision is its content hash, so a re-import reaches every phone.
+      includeAssets: ['favicon.svg', 'hoods.min.geojson', 'fonts/*.woff2', 'parks.index.json'],
       manifest: {
         name: 'Park-E-Mans GO!',
         short_name: 'Park-E-Mans',
@@ -53,8 +55,25 @@ export default defineConfig({
         // already a lazy chunk; keeping it out of the precache means nobody pays for
         // it on first load. It still gets cached the first time it is actually used.
         globIgnores: ['**/heic2any-*.js'],
-        navigateFallbackDenylist: [/^\/api/, /^\/media/, /^\/ws/],
+        navigateFallbackDenylist: [/^\/api/, /^\/media/, /^\/ws/, /^\/audio/],
         runtimeCaching: [
+          // Sound. Never precached: every URL carries its file's hash (?v=), so a sound
+          // the admin swaps is a URL this cache has never seen, and cache-first is safe.
+          // Precaching the bare paths is exactly how phones kept playing the old file.
+          {
+            urlPattern: /\/audio\/[a-z_]+\.m4a\?v=/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'audio',
+              expiration: { maxEntries: 60, maxAgeSeconds: 60 * 60 * 24 * 60 },
+            },
+          },
+          // The manifest that names those URLs: network first, the last good copy offline.
+          {
+            urlPattern: /\/api\/audio\/manifest$/,
+            handler: 'NetworkFirst',
+            options: { cacheName: 'audio-manifest', networkTimeoutSeconds: 4 },
+          },
           {
             urlPattern: /\/hoods\.min\.geojson$/,
             handler: 'StaleWhileRevalidate',

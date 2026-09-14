@@ -7,6 +7,7 @@ import { applyAppearance, loadAppearance } from './lib/theme.js';
 import App from './App.jsx';
 import { BUILD } from './lib/build.js';
 import { trackViewport } from './lib/viewport.js';
+import { initAudio } from './lib/audio.js';
 import './styles.css';
 
 // Before the first render, so nobody sees a dark app repaint itself light.
@@ -19,6 +20,10 @@ console.info(`[cth] build ${BUILD}`);
 // Measure how much of the bottom of the screen the browser has taken, before anything
 // is laid out against it.
 trackViewport();
+
+// Sound preferences were read when lib/audio.js loaded, before this line; this only arms
+// the unlock for the first tap. Nothing can play before then, and nothing should.
+initAudio();
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

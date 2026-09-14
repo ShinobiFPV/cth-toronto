@@ -117,6 +117,11 @@ export const api = {
   useItem: (grantId, targetHoodId = null) =>
     request('/items/use', { method: 'POST', body: { grant_id: grantId, target_hood_id: targetHoodId } }),
 
+  // The admin sound board. Players only ever read /audio/manifest, from lib/audio.js.
+  adminAudio: () => request('/admin/audio'),
+  setAudioMeta: (slot, body) => request(`/admin/audio/${slot}`, { method: 'PATCH', body }),
+  resetAudio: (slot) => request(`/admin/audio/${slot}`, { method: 'DELETE' }),
+
   // chat
   chat: (before) => request(`/chat${before ? `?before=${before}` : ''}`),
   say: (body) => request('/chat', { method: 'POST', body: { body } }),
@@ -135,6 +140,9 @@ export const uploadPark = (parkId, formData, onProgress) =>
 
 export const uploadCar = (formData, onProgress) =>
   upload('/api/cars/collect', formData, onProgress);
+
+export const uploadAudio = (slot, formData, onProgress) =>
+  upload(`/api/admin/audio/${slot}`, formData, onProgress);
 
 function upload(url, formData, onProgress) {
   return new Promise((resolve, reject) => {

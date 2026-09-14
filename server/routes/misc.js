@@ -54,6 +54,8 @@ miscRoutes.get('/seasons', requireAuth, (_req, res) => {
       items_per_hologram: config.ITEMS_PER_HOLOGRAM,
       clover_hours: config.CLOVER_HOURS,
       fortify_cooldown_hours: config.FORTIFY_COOLDOWN_HOURS,
+      nearby_park_count: config.NEARBY_PARK_COUNT,
+      nearby_accuracy_warn_m: config.NEARBY_ACCURACY_WARN_M,
     },
   });
 });

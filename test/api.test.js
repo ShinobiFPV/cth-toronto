@@ -792,6 +792,54 @@ describe('the API end to end', () => {
     assert.equal(data.error, 'PLAYER_NOT_FOUND');
   });
 
+  // ── Location and sound over HTTP ──
+  test('a request carrying a location is refused before any route sees it', async () => {
+    const chat = await alice('/chat', { method: 'POST', body: { body: 'here', lat: 43.65, lng: -79.38 } });
+    assert.equal(chat.status, 400);
+    assert.equal(chat.data.error, 'COORDINATES_REFUSED');
+
+    const query = await alice('/hoods?latitude=43.65');
+    assert.equal(query.data.error, 'COORDINATES_REFUSED');
+
+    const nested = await alice('/items/use', { method: 'POST', body: { grant_id: 1, where: { coords: [1, 2] } } });
+    assert.equal(nested.data.error, 'COORDINATES_REFUSED');
+
+    assert.equal((await alice('/hoods')).status, 200, 'and everything else is untouched');
+  });
+
+  test('any player reads the sound manifest, and its files are served under their hash', async () => {
+    const { status, data } = await bob('/audio/manifest');
+    assert.equal(status, 200);
+    assert.equal(Object.keys(data.slots).length, 17);
+    assert.equal(typeof data.version, 'string');
+
+    const holo = data.slots.edition_holo;
+    if (holo.url) {
+      const res = await fetch(`${BASE}${holo.url}`);
+      assert.equal(res.status, 200);
+      assert.equal(res.headers.get('content-type'), 'audio/mp4');
+      assert.match(res.headers.get('cache-control'), /immutable/);
+    }
+  });
+
+  test('only the admin can reach the sound board', async () => {
+    for (const [method, path] of [
+      ['GET', '/admin/audio'], ['PATCH', '/admin/audio/chat'], ['DELETE', '/admin/audio/chat'], ['POST', '/admin/audio/chat'],
+    ]) {
+      const res = await bob(path, { method, body: method === 'PATCH' ? { gain: 0.1 } : undefined });
+      assert.equal(res.status, 403, `${method} ${path}`);
+      assert.equal(res.data.error, 'NOT_ADMIN');
+    }
+
+    const board = await alice('/admin/audio');
+    assert.equal(board.status, 200);
+    assert.equal(board.data.slots.length, 17);
+
+    const unknown = await alice('/admin/audio/kazoo', { method: 'PATCH', body: { gain: 1 } });
+    assert.equal(unknown.status, 404);
+    assert.equal(unknown.data.error, 'AUDIO_UNKNOWN_SLOT');
+  });
+
   // ── Items over HTTP ──
   // The rules are in test/items.test.js. These only prove the routes are wired, the
   // errors carry stable codes, and the summary the header reads is on /me.

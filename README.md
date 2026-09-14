@@ -253,6 +253,43 @@ to you.
 
 ---
 
+## Find a park
+
+Tap **Find a park** on the map and you get the five nearest parks you **haven't collected
+yet**, how far away each is, and which Hood it's in — with a quiet **XP only** on any park in
+a Hood where you've already used up this week's park points, so you know when it's worth
+walking one Hood further. Tap one and the map flies there; **Directions** hands you to your
+phone's maps app.
+
+The locate button above it puts a dot on the map where you are — with a circle for how sure
+the phone is, because GPS downtown is a rough guess — and leaves the map alone while you pan.
+
+**Your location never leaves your phone.** The park list is worked out on the device from a
+file the app already has. The server doesn't just not ask — it refuses any request that tries
+to send it a location. Nobody, including whoever runs the Pi, can see where you've been, and
+the dot only ever shows you.
+
+And it's not a check: you still collect a park by photographing its sign, wherever you're
+standing. Location is a convenience, never a referee.
+
+---
+
+## Sound
+
+Conquers, steals, pulls and level-ups all make a noise, and a **Hologram** makes the best one.
+Your Hood getting stolen stings wherever you are in the app, and walking into somebody's
+**Fortify** sounds exactly like what it is.
+
+**Sound effects** and **Music** are separate switches on your profile: effects on, music off
+until you want the loop on the map. Sound starts after your first tap. If an iPhone is silent,
+check the switch on the side — it mutes web audio completely.
+
+Every default sound was synthesised from scratch for this app and is CC0. The admin can swap
+any of them from the profile screen — preview, replace, set the volume, reset — and every
+phone picks up the new sound straight away instead of playing the old one out of its cache.
+
+---
+
 ## XP, which never resets
 
 Points are about **value**. XP is about **turning up**.
@@ -402,7 +439,7 @@ Car cards need an Anthropic API key in `.env` as `CTH_ANTHROPIC_API_KEY`. Withou
 everything else works and every car comes back "the identifier is not answering".
 
 ```bash
-npm test                 # 366 tests, no server needed, touches nothing in data/, never calls Claude
+npm test                 # 406 tests, no server needed, touches nothing in data/, never calls Claude
 ```
 
 | Command | Does what |
@@ -411,6 +448,8 @@ npm test                 # 366 tests, no server needed, touches nothing in data/
 | `npm run import-parks` | Fetches every park, files each under the Hood it sits in, scores it 5–100 |
 | `npm run rollover` | Checks whether the season has ended; escalates untouched Hoods and expires items. Idempotent. `--dry-run` to peek |
 | `npm run invite [n]` | More invite codes |
+| `node scripts/build-park-index.js` | Rewrites `parks.index.json` for Find a park. `import-parks` does this for you |
+| `node scripts/make-sounds.js` | Re-synthesises the default sounds; encodes them if ffmpeg is installed |
 | `npm run dev` + `npm run dev:web` | API on 8096, Vite on 5173 |
 
 ## What it's made of
@@ -436,6 +475,9 @@ server/lib/collectables.js  every kind of card, behind one registry — the bind
 server/lib/cars.js       car cards: the weekly cap, dedupe
 server/lib/editions.js   the edition roll: one draw, a table that sums to 100
 server/lib/items.js      items: grants minus uses, Fortify, Clover, season expiry
+server/lib/audio.js      sound slots: repo defaults, admin overrides, hashed URLs
+server/lib/privacy.js    refuses any request that carries a location
+web/src/lib/nearby.js    Find a park — worked out entirely on the phone
 server/lib/identify.js   the one Claude call — what car is this?
 server/lib/vehicles.js   what counts as the same car
 server/lib/week.js       Toronto calendar weeks, DST included

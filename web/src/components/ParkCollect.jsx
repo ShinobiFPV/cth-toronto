@@ -6,6 +6,7 @@ import { CameraIcon, CloseIcon } from './icons.jsx';
 import { Banner } from './bits.jsx';
 import { CAPTION_MAX } from './Caption.jsx';
 import CloverClock from './CloverClock.jsx';
+import { playSound } from '../lib/audio.js';
 
 const HEIC = /\.(heic|heif)$/i;
 const isHeic = (f) => HEIC.test(f.name || '') || /image\/hei[cf]/i.test(f.type || '');
@@ -65,6 +66,7 @@ export default function ParkCollect({ park, viewer = null, onClose, onDone }) {
       const res = await uploadPark(park.id, form, setProgress);
       onDone?.(res.card, res);
     } catch (err) {
+      playSound('blocked');
       setError(err.message || 'That did not go through.');
       setBusy(false);
     }

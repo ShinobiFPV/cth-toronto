@@ -168,6 +168,28 @@ export const config = {
   heicServerFallback: bool('CTH_HEIC_SERVER_FALLBACK', true),
   readExif: bool('CTH_READ_EXIF', true),
 
+  // ── Location ───────────────────────────────────────────────────────────
+  // Find a Park runs entirely on the phone; these only tune what it shows. The server
+  // never receives a coordinate — see lib/privacy.js.
+  NEARBY_PARK_COUNT: num('CTH_NEARBY_PARK_COUNT', 5),
+  // A fix vaguer than this gets a warning rather than a silently wrong list.
+  NEARBY_ACCURACY_WARN_M: num('CTH_NEARBY_ACCURACY_WARN_M', 200),
+
+  // ── Audio ──────────────────────────────────────────────────────────────
+  // Sounds the admin has swapped in live here, beside the media, where deploy never
+  // writes: /srv/cth/audio on the Pi. A slot with no override plays the repo default.
+  AUDIO_DIR: process.env.CTH_AUDIO_DIR
+    || path.join(path.dirname(process.env.CTH_MEDIA || path.join(ROOT, 'data', 'media')), 'audio'),
+  // Where the repo defaults are read from. Empty means web/dist/audio once built, else
+  // web/public/audio. Tests point it somewhere of their own.
+  AUDIO_DEFAULTS_DIR: process.env.CTH_AUDIO_DEFAULTS_DIR || '',
+  AUDIO_MAX_UPLOAD_MB: num('CTH_AUDIO_MAX_UPLOAD_MB', 20),
+  // A cue is short; a 10-minute file in the chat slot would be a memorable afternoon.
+  AUDIO_MAX_DURATION_S: num('CTH_AUDIO_MAX_DURATION_S', 8),
+  AUDIO_MAX_MUSIC_DURATION_S: num('CTH_AUDIO_MAX_MUSIC_DURATION_S', 180),
+  FFMPEG: process.env.CTH_FFMPEG || 'ffmpeg',
+  FFPROBE: process.env.CTH_FFPROBE || 'ffprobe',
+
   timezone: process.env.CTH_TZ || 'America/Toronto',
 };
 

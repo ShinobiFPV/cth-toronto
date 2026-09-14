@@ -144,6 +144,29 @@ changing one, read the test first — it says why.
   the Clover check, the roll and the grant, and a pull inside the window never grants Clover.
 - **Gate order is lock → Fortify cooldown → adjacency → reinforce gate → subject counter.**
   The items spec suggested the counter first; the time-gates-first rule was kept.
+- **A location never reaches the server.** Find a Park and the map dot are computed on the
+  phone from `web/public/parks.index.json` (`web/src/lib/nearby.js`, `lib/location.js`).
+  `server/lib/privacy.js` refuses any API request whose query or JSON body carries a
+  coordinate-like key, with `COORDINATES_REFUSED`. **Never add an endpoint that takes a
+  position**, and never make `location.js` or `nearby.js` import `api.js` or call `fetch` —
+  `test/nearby.test.js` scans for both.
+- **Location is not verification.** Nothing may gate a collection on proximity. The game is
+  honour-based and enforced by flagging; a geofence would quietly replace that.
+- **The location permission is only asked for by a tap** — Find a Park (`getFix`, one fix) or
+  the locate button (`watchFix`, only while the dot is on and the map is in front, stopped on
+  unmount and on a hidden tab). Never on load: a reflexive denial cannot be asked again. The
+  dot never recentres by itself, and it only ever shows yourself.
+- **Find a Park's "XP only" is `parkAward()`'s `min()` on the client** (`awardFor`), fed by
+  `hood.parks.capacity.remaining`. `test/nearby.test.js` asserts every row agrees with
+  `evaluateCollect()`; if they ever disagree, fix the client, not the test.
+- **Every sound URL carries its file's hash** — `/audio/<slot>.m4a?v=<sha8>` — and audio is never
+  precached, only runtime-cached cache-first. That is the whole defence against a phone playing
+  a swapped sound's old file for weeks; do not add `audio/*.m4a` to the precache or serve the
+  bare path as immutable. `server/lib/audio.js` is the one place a slot resolves: override in
+  `CTH_AUDIO_DIR`, else the repo default, else silent. The seventeen slot keys are fixed.
+- **Sound starts on the first tap and not before**, music defaults off and effects on, and the
+  preferences are read at import of `web/src/lib/audio.js`, ahead of `createRoot`. A failed or
+  unknown clip is silent, never an error.
 - **A card's art is seeded, not random.** `card_seed` is hashed from
   (player, park, season) and stored on the claim, so a card renders identically every
   time. `ParkCard.jsx` reads the seed for the hatch, foil and corners, the season for
@@ -275,7 +298,7 @@ changing one, read the test first — it says why.
 ## Testing
 
 ```bash
-npm test        # 366 tests, no server needed, touches nothing in data/
+npm test        # 406 tests, no server needed, touches nothing in data/
 ```
 
 - `test/game.test.js` — the rules, driving the game module directly. Time is simulated by
@@ -298,6 +321,13 @@ npm test        # 366 tests, no server needed, touches nothing in data/
 - `test/collectables.test.js` — parks and cars as two kinds of one card: one binder, one
   lookup, the shared card fields, summed totals, and trades and the feed treating every
   kind alike.
+- `test/nearby.test.js` — Find a Park: haversine against known Toronto distances, ordering,
+  the season-scoped uncollected filter, "XP only" agreeing with `evaluateCollect()` row by
+  row, every location failure falling back to the Hood picker, and the privacy guarantee —
+  the coordinate middleware, no route reading a coordinate, no location code on the network.
+- `test/audio.test.js` — sound slots: override over default over silent, a changed file
+  being a changed URL and version, upload size and duration limits, and the client's
+  preferences, mixer levels and silent failure. The transcoder is stubbed; no ffmpeg needed.
 - `test/carcap.test.js` — the weekly points cap and the week-key arithmetic, including
   both Toronto DST transitions and the ISO year boundary.
 - `test/xp.test.js` — the level curve (asserted to invert exactly across 200 levels), the
@@ -314,6 +344,15 @@ There is no linter and no CI. Validate frontend changes by running the app
   table that already exists, so a new column needs an entry in the migrations block at the
   top of `server/db.js`. Keep those append-only and idempotent: they run on deploy against
   a live database with real claims in it.
+- **Location only works over HTTPS.** Geolocation needs a secure context: through the tunnel
+  it works, on `http://192.168.1.203:8096` it silently does nothing (localhost is exempt).
+  If Find a Park "does nothing" on the LAN, that is why.
+- **Sound swaps need ffmpeg on the Pi** (it is installed at `/usr/bin/ffmpeg`); without it an
+  upload is `AUDIO_TRANSCODER_MISSING`. Overrides live in `CTH_AUDIO_DIR`, `/srv/cth/audio`,
+  which deploy never touches. The repo defaults are made by `node scripts/make-sounds.js`
+  (synthesised, CC0) and committed; `web/public/parks.index.json` is made by
+  `scripts/build-park-index.js`, which `import-parks` runs. If nothing plays on an iPhone, ask
+  about the silent switch first.
 - **Car cards need an Anthropic API key on the Pi** — `CTH_ANTHROPIC_API_KEY` in
   `/home/shinobi/cth/.env`. Without it every car collection is `IDENTIFY_UNAVAILABLE` and
   nothing is written, which is safe but looks broken. Every collection is one billed vision

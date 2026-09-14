@@ -189,6 +189,11 @@ async function main() {
   const closest = parks.reduce((a, b) => (b.value < a.value ? b : a));
   console.log(`[parks] most valuable: ${richest.name} (Hood ${richest.hood_id}) = ${richest.value}`);
   console.log(`[parks] least valuable: ${closest.name} (Hood ${closest.hood_id}) = ${closest.value}`);
+
+  // Find a Park searches a static index on the phone. Rebuilt from what was just written,
+  // so it can never describe a different set of parks than the game has.
+  const { buildParkIndex } = await import('./build-park-index.js');
+  console.log(`[parks] ${buildParkIndex(db)} parks written to web/public/parks.index.json`);
 }
 
 main().then(() => process.exit(0)).catch((err) => {
