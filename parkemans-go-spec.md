@@ -409,11 +409,12 @@ CREATE UNIQUE INDEX idx_park_once_per_season
 
 ---
 
-## 1.8c The Garage
+## 1.8c Car cards
 
 Photograph cars on the street. The server identifies the vehicle with a Claude vision call
-and prints a **Not Wheels** card, which lives in your **Case** — the other half of the
-Cards tab, beside the binder.
+and prints a card — its face is the **Not Wheels** design — which goes in the same **binder**
+as your park cards. There is one binder, holding every kind of card (see *One binder, every
+kind of card* below).
 
 - **Points** — a flat **5** per car, capped at **100 per player per week** (20 scoring cars).
 - **XP** — by edition, flat and rising, **never capped**.
@@ -521,12 +522,38 @@ in a plain window, and a spec strip with make, model, year, Hood and date. Seede
 (player, vehicle, season) like a park card; every colour a token. It began as a blister
 pack — hang tab, punched slot, a plastic bubble over the photo — and the packaging was
 removed because underneath it was already a card. No flame, no red and yellow, no
-reproduction of anybody's trade dress. (The API still calls it a `package`; that's a wire
-name, not a player-facing one.)
+reproduction of anybody's trade dress.
 
 The capture sheet shows **this week's capacity before the shutter** — `75 / 100 this week`, or
-**XP only — resets Monday** — and says "Identifying…" across the round trip. Cards and
-Cases are public, like binders, and trade through the same offers as park cards.
+**XP only — resets Monday** — and says "Identifying…" across the round trip. It opens from the
+map or from your own binder.
+
+### One binder, every kind of card
+
+Players collect **cards for their binder**, and a park card and a car card are two kinds of
+that one thing. They were once separate — a binder for parks, a "Garage" with a "Case" for
+cars — and that split is gone from the game, the copy and the API.
+
+Every kind of card obeys the same rules: it is a row in `claims` whose `claim_kind` names the
+kind, it never touches `hood_state`, its holder is `COALESCE(card_holdings.holder_id,
+claims.player_id)`, it rolls an edition, pays XP, grants items only if it scored, and trades
+without moving its points. Every card's shape carries `kind`, `claim_id`, `name`, `edition`,
+`player`, `holder`, `traded` and `season`, whatever else it adds.
+
+Because of that, everything that *reads* cards goes through one registry and never branches
+on a kind:
+
+- **Server** — `server/lib/collectables.js`. `GET /api/cards` returns every kind of card a
+  player holds, newest first (`?kind=` narrows it), with a summary whose totals span every
+  kind and whose `kinds` carry each kind's own detail (a park's set size, a car's weekly cap).
+  `GET /api/cards/:claimId` resolves any kind. A trade side is the card itself. Every
+  card-printing claim in the feed carries `card: { kind }`.
+- **Client** — `web/src/lib/collectables.js`: each kind's face, icon, list tag, summary rows
+  and optional collect flow. The binder, the card lightbox, the feed and trades render from it.
+
+**Adding a kind of card** is its own module (collect flow, card shape, summary), a
+`claim_kind`, and one entry in each registry. The binder, trading, the feed and the lightbox
+do not change.
 
 ---
 
@@ -535,7 +562,7 @@ Cases are public, like binders, and trade through the same offers as park cards.
 Gold and Hologram pulls grant consumable **items** that bend the cooldowns and, in
 Fortify's case, block a theft outright. **One item per Gold, three per Hologram.** Items
 span the whole game, so they are their own module (`server/lib/items.js`) rather than part
-of parks or the Garage.
+of parks or cars.
 
 ### Where they come from, and where they stop
 
@@ -890,7 +917,7 @@ hood_state(
   locked_until                   -- drives the 12h steal cooldown
 )
 
-vehicles(                        -- §1.8c: the Garage's catalogue, one row per make + model
+vehicles(                        -- §1.8c: every car anybody has a card of, one row per make + model
   id, vehicle_key,               --   'honda|civic', trim and generation stripped
   make, model, body_style,
   first_seen_claim_id, created_at
@@ -952,7 +979,7 @@ GET    /api/hoods/:id/parks        every park in a Hood + your collection state
 GET    /api/parks/:id             one park + whether you can collect it
 GET    /api/parks/:id/check       dry run
 POST   /api/parks/:id/collect     multipart: photo of the sign, caption (optional)
-GET    /api/cards?season=&player=&kind= a binder, or with kind=car a Case — yours by default
+GET    /api/cards?season=&player=&kind= a binder: every kind of card, or one — yours by default
 GET    /api/cards/:claimId        one park card or car card, whoever collected it (the feed opens these)
 
 GET    /api/cars/capacity          this week's points so far, the cap, when it resets
@@ -1021,8 +1048,9 @@ displays "needs an animal photo" or "reinforce available in 14h" up front.
 6. **Hood detail** — full claim history with every photo ever posted there. This becomes a
    genuinely nice artifact by the end of the year.
 7. **Cards** — the binder, reachable from the tab bar because the collection is what the
-   app is named after. Anybody's binder (§1.8), and the way into offers (§1.8a). A
-   **Parks | Garage** control switches it to the Case (§1.8c), because the tab bar is full.
+   app is named after: every kind of card in one grid, with an **All cards / Parks / Cars**
+   filter (§1.8c). Anybody's binder (§1.8), the way into offers (§1.8a), and on your own, a
+   **Snap a car** button.
 8. **Offers** — incoming and outgoing trades.
 
 The map also carries **every park in the city as a dot** once you zoom past the whole-city
@@ -1190,13 +1218,13 @@ see how people actually behave.
   - *Every park card now rolls at least Steel*, so every collection earns the +15 Steel XP that
     only one in ten used to. Worth watching whether that shifts the XP table.
   Settled: no edition caps, items expire at rollover, Clover cannot grant Clover.
-- **The Garage (§1.8c)** — built on these defaults, every one a lever in `server/config.js`:
-  - *Dedupe granularity* — make + model, trim and generation stripped. If the Case fills
+- **Car cards (§1.8c)** — built on these defaults, every one a lever in `server/config.js`:
+  - *Dedupe granularity* — make + model, trim and generation stripped. If binders fill
     with things players consider different cars (a Mustang and a Shelby), the fix is in
     `server/lib/vehicles.js`, and it re-keys nothing already collected.
   - *Repeat sightings* — silent `ALREADY_COLLECTED` by default; `CTH_CAR_REPEAT_XP` is the
     trickle, once per vehicle per week.
-  - *Case across seasons* — matches the binder: this season by default, all time a toggle.
+  - *Across seasons* — car cards follow the binder: this season by default, all time a toggle.
   - *Licence plates* — **blurred** in everything the app serves, from the identifier's boxes.
     Approximate boxes mean the occasional plate may survive at an odd angle; the original is
     never altered. Revisit if flaggers find that happening.

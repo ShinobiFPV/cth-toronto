@@ -46,8 +46,8 @@ export const KIND_VERB = {
   sighting: 'Spotted',
 };
 
-/** What a card is called, whichever shelf it lives on. */
-export const cardName = (card) => card?.vehicle?.name ?? card?.park?.name ?? 'a card';
+/** What a card is called, whatever kind it is. Every card carries `name`. */
+export const cardName = (card) => card?.name ?? card?.vehicle?.name ?? card?.park?.name ?? 'a card';
 
 /** Human countdown, matching the server's phrasing so the two never disagree. */
 export function until(iso, from = Date.now()) {

@@ -10,7 +10,7 @@ export class ApiError extends Error {
     this.code = body?.error ?? 'UNKNOWN';
     this.availableAt = body?.available_at ?? null;
     this.requiredTypes = body?.required_types ?? null;
-    // The Garage: what the identifier half-thought it saw, and the card you already have.
+    // Car cards: what the identifier half-thought it saw, and the card you already have.
     this.guess = body?.guess ?? null;
     this.claimId = body?.claim_id ?? null;
     // Items: the gate an item would get you past, a steal that walked into a Fortify, and
@@ -82,20 +82,20 @@ export const api = {
   parksInHood: (hoodId) => request(`/hoods/${hoodId}/parks`),
   park: (id) => request(`/parks/${id}`),
   parkCheck: (id) => request(`/parks/${id}/check`),
-  // Omit playerId for your own binder; pass one to read somebody else's. kind 'car' is
-  // the Case — Not Wheels cards rather than park cards.
-  cards: (season, playerId, kind = 'park') => {
+  // A binder: every kind of card at once. Omit playerId for your own; pass one to read
+  // somebody else's. `kind` narrows it to one kind of card ('park', 'car', …).
+  cards: (season, playerId, kind = null) => {
     const q = new URLSearchParams();
     if (season) q.set('season', season);
     if (playerId) q.set('player', playerId);
-    if (kind === 'car') q.set('kind', 'car');
+    if (kind) q.set('kind', kind);
     const qs = q.toString();
     return request(`/cards${qs ? `?${qs}` : ''}`);
   },
   // A park card or a car card — the server works out which from the claim.
   card: (claimId) => request(`/cards/${claimId}`),
 
-  // The Garage
+  // Car cards
   carCapacity: () => request('/cars/capacity'),
   cars: () => request('/cars'),
   car: (vehicleId) => request(`/cars/${vehicleId}`),

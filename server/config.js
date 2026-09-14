@@ -126,18 +126,18 @@ export const config = {
 
   // The week every weekly cap counts in — cars, parks, items. MO | TU | … | SU, in
   // CTH_TZ. Monday means Sunday night is the scramble. CTH_CAR_WEEK_START is the name it
-  // had when only the Garage had a week, and still works.
+  // had when only cars had a week, and still works.
   WEEK_START: (process.env.CTH_WEEK_START || process.env.CTH_CAR_WEEK_START || 'MO').toUpperCase(),
 
-  // ── The Garage (spec §1.8c) ────────────────────────────────────────────
-  // Photograph a car, the Pi asks Claude what it is, and prints a Not Wheels package.
+  // ── Car cards (spec §1.8c) ─────────────────────────────────────────────
+  // Photograph a car, the Pi asks Claude what it is, and prints a card for your binder.
   // A flat value with a weekly cap, so points_awarded is knowable at claim time and
   // frozen like every other claim — nothing about scoring reads outside the ledger.
   CAR_POINTS: num('CTH_CAR_POINTS', 5),
   // Per player, per calendar week. Past it a car still mints, rolls and pays XP; it is
   // worth 0 points, which is a success rather than an error.
   CAR_WEEKLY_CAP: num('CTH_CAR_WEEKLY_CAP', 100),
-  // XP by edition. Every package is at least Steel — plain stock is what going outside
+  // XP by edition. Every car card is at least Steel — plain stock is what going outside
   // and snapping a car is worth, and it is set to feel like a park collection's worth.
   CAR_XP_STEEL: num('CTH_CAR_XP_STEEL', 25),
   CAR_XP_GOLD: num('CTH_CAR_XP_GOLD', 75),

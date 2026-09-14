@@ -100,7 +100,7 @@ claimRoutes.post('/:id/flag', requireAuth, (req, res, next) => {
     const park = claim.park_id
       ? db.prepare('SELECT name FROM parks WHERE id = ?').get(claim.park_id)
       : null;
-    // And the car for a Garage claim, for the same reason.
+    // And the car for a car card, for the same reason.
     const car = claim.vehicle_id
       ? db.prepare("SELECT make || ' ' || model AS name FROM vehicles WHERE id = ?").get(claim.vehicle_id)
       : null;

@@ -35,7 +35,7 @@ before(async () => {
       // Generous enough that the rest of the suite never trips it, low enough that the
       // rate-limit test can reach it without a hundred argon2 hashes.
       CTH_LOGIN_MAX_ATTEMPTS: '25',
-      // The Garage's identify call, canned. Honoured only under NODE_ENV=test; the suite
+      // The car identify call, canned. Honoured only under NODE_ENV=test; the suite
       // must never reach the network, let alone spend money on it. The plate box makes
       // the blur run over a real sharp pipeline.
       CTH_IDENTIFY_STUB: JSON.stringify({
@@ -504,7 +504,7 @@ describe('the API end to end', () => {
     assert.ok(data.messages.some((m) => m.body === 'that was my nephew' && m.handle === 'bob'));
   });
 
-  // ── The Garage over HTTP ──
+  // ── Car cards over HTTP ──
   //
   // The identify call is stubbed (see the server env above); what this proves is the
   // multipart plumbing, the pipeline order, and that a refused car leaves nothing behind.
@@ -533,21 +533,21 @@ describe('the API end to end', () => {
     assert.equal(data.capacity.resets_on, 'Monday');
   });
 
-  test('a car is identified and printed as a package, trim stripped', async () => {
+  test('a car is identified and printed as a car card, trim stripped', async () => {
     const { status, data } = await bob('/cars/collect',
       { method: 'POST', raw: await carForm(100, { caption: 'parked across two spots' }) });
     assert.equal(status, 201);
-    assert.equal(data.package.kind, 'car');
-    assert.equal(data.package.vehicle.name, 'Honda Civic', 'one package for every Civic');
-    assert.equal(data.package.vehicle.trim, 'Si', 'the trim rides along as sighting detail');
-    assert.equal(data.package.hood.label, 'Hood 13 — Toronto Centre');
-    assert.equal(data.package.caption, 'parked across two spots');
+    assert.equal(data.card.kind, 'car');
+    assert.equal(data.card.vehicle.name, 'Honda Civic', 'one car card for every Civic');
+    assert.equal(data.card.vehicle.trim, 'Si', 'the trim rides along as sighting detail');
+    assert.equal(data.card.hood.label, 'Hood 13 — Toronto Centre');
+    assert.equal(data.card.caption, 'parked across two spots');
     assert.equal(data.points, 5);
     assert.equal(data.capacity.spent, 5, 'the response carries the capacity, so the client never works out the cap');
     assert.equal(data.first_sighting, true);
-    assert.equal(data.package.identified_as.plates, undefined, 'plate boxes are not kept');
+    assert.equal(data.card.identified_as.plates, undefined, 'plate boxes are not kept');
 
-    const thumb = path.join(MEDIA, data.package.thumb_url.replace('/media/', ''));
+    const thumb = path.join(MEDIA, data.card.thumb_url.replace('/media/', ''));
     const meta = await sharp(thumb).metadata();
     assert.deepEqual([meta.width, meta.height], [400, 400], 'the thumbnail is re-cut after the blur');
 
@@ -564,16 +564,19 @@ describe('the API end to end', () => {
     assert.equal(fs.readdirSync(path.join(MEDIA, 'original')).length, before);
   });
 
-  test('the Case, the card endpoint, the catalogue and the feed all read it back', async () => {
+  test('the binder, the card endpoint, the catalogue and the feed all read it back', async () => {
     const { data: players } = await carol('/players');
     const bobId = players.players.find((p) => p.handle === 'bob').id;
 
     const shelf = await carol(`/cards?player=${bobId}&kind=car`);
     assert.equal(shelf.data.kind, 'car');
     assert.equal(shelf.data.cards.length, 1);
-    assert.equal(shelf.data.summary.season_collected, 1);
-    assert.equal((await carol(`/cards?player=${bobId}`)).data.cards.length, 0,
-      'and the parks binder is not where it lives');
+    assert.equal(shelf.data.summary.kinds.car.season_collected, 1);
+    // One binder: the car card is in it alongside every other kind, and is not a park card.
+    assert.equal((await carol(`/cards?player=${bobId}`)).data.cards.length, 1,
+      'the binder holds every kind of card');
+    assert.equal((await carol(`/cards?player=${bobId}&kind=park`)).data.cards.length, 0,
+      'and filtering to parks leaves it out');
 
     const one = await carol(`/cards/${shelf.data.cards[0].claim_id}`);
     assert.equal(one.data.card.kind, 'car');
@@ -677,7 +680,7 @@ describe('the API end to end', () => {
     assert.equal(status, 201);
     assert.equal(data.trade.status, 'pending');
     assert.equal(data.trade.is_gift, true, 'no want side means a gift');
-    assert.equal(data.trade.offer.park_name, 'Far Test Park');
+    assert.equal(data.trade.offer.name, 'Far Test Park');
     assert.equal(data.trade.message, 'spare one');
     tradeId = data.trade.id;
 
@@ -712,14 +715,14 @@ describe('the API end to end', () => {
 
     // The card is in her binder and gone from his.
     const hers = await alice('/cards');
-    assert.ok(hers.data.cards.some((c) => c.park.name === 'Far Test Park'));
+    assert.ok(hers.data.cards.some((c) => c.name === 'Far Test Park'));
     assert.equal(hers.data.summary.cards_received, 1);
     assert.equal(hers.data.summary.season_collected, 0, 'she still collected nothing herself');
 
     const his = await bob('/cards');
-    assert.ok(!his.data.cards.some((c) => c.park.name === 'Far Test Park'));
+    assert.ok(!his.data.cards.some((c) => c.name === 'Far Test Park'));
     assert.equal(his.data.summary.cards_given_away, 1);
-    assert.equal(his.data.summary.season_points, 95, 'and he keeps the points he walked for');
+    assert.equal(his.data.summary.kinds.park.season_points, 95, 'and he keeps the points he walked for');
 
     const chat = await bob('/chat');
     assert.ok(chat.data.messages.some((m) => /Alice accepted Far Test Park from Bob/.test(m.body)));
@@ -733,7 +736,8 @@ describe('the API end to end', () => {
 
   test('you cannot offer a card you no longer hold', async () => {
     const { data: his } = await bob('/cards');
-    assert.equal(his.cards.length, 0, 'bob traded his only card away');
+    assert.equal(his.cards.filter((c) => c.kind === 'park').length, 0,
+      'bob traded his only park card away (his car card is still there)');
 
     const { status, data } = await bob('/trades', {
       method: 'POST',

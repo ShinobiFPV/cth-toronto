@@ -1,4 +1,5 @@
-// Trading park cards.
+// Trading cards — any kind of card, under one rule. What a card is comes from
+// lib/collectables.js; nothing here knows parks from cars.
 //
 // The rule that shapes everything here: **a trade moves the card, never the score.**
 // `points_awarded` and `xp_awarded` stay on the claim, with whoever earned them by
@@ -21,6 +22,7 @@
 // season per player.
 import { db, nowIso } from '../db.js';
 import { GameError, badRequest, forbidden, notFound } from './errors.js';
+import { getCard, isCardKind } from './collectables.js';
 
 /** Who holds this card right now, and who they got it from. */
 export const holdingOf = (claimId) => db.prepare(`
@@ -43,19 +45,13 @@ const player = (id) => db.prepare(
  * asked for either.
  */
 function tradableCard(claimId, expectedHolder, { side }) {
-  // A park card or a Not Wheels package — both trade through here, under the same rule.
-  const row = db.prepare(`
-    SELECT c.id, c.status, c.park_id, c.claim_kind, p.name AS park_name, p.value,
-           v.make, v.model
-      FROM claims c
-      LEFT JOIN parks p ON p.id = c.park_id
-      LEFT JOIN vehicles v ON v.id = c.vehicle_id
-     WHERE c.id = ?`).get(claimId);
-
-  if (!row || !(row.park_id || row.claim_kind === 'car')) {
+  // Any claim that printed a card trades through here, whatever kind of card it is.
+  const row = db.prepare('SELECT id, status, claim_kind FROM claims WHERE id = ?').get(claimId);
+  const card = row && isCardKind(row.claim_kind) ? getCard(claimId) : null;
+  if (!card) {
     throw notFound('CARD_NOT_FOUND', `There is no card with id ${claimId}.`);
   }
-  const name = row.park_name ?? `the ${row.make} ${row.model}`;
+  const { name } = card;
   if (row.status === 'reverted') {
     throw badRequest('CARD_REVERTED',
       `${name} was thrown out by flags, so it is not a card any more.`);
@@ -66,7 +62,7 @@ function tradableCard(claimId, expectedHolder, { side }) {
       ? `You do not hold ${name} any more.`
       : `They do not hold ${name} any more.`);
   }
-  return { ...row, name };
+  return { ...row, kind: row.claim_kind, name };
 }
 
 /**
@@ -219,31 +215,23 @@ function getTradeRow(tradeId) {
 const TRADE_SELECT = `
   SELECT t.*,
          fp.handle AS from_handle, fp.display_name AS from_name, fp.colour AS from_colour,
-         tp.handle AS to_handle, tp.display_name AS to_name, tp.colour AS to_colour,
-         oc.claim_kind AS offer_kind, oc.edition AS offer_edition,
-         COALESCE(op.name, ov.make || ' ' || ov.model) AS offer_card_name, op.value AS offer_value,
-         wc.claim_kind AS want_kind, wc.edition AS want_edition,
-         COALESCE(wp.name, wv.make || ' ' || wv.model) AS want_card_name, wp.value AS want_value
+         tp.handle AS to_handle, tp.display_name AS to_name, tp.colour AS to_colour
     FROM trades t
     JOIN players fp ON fp.id = t.from_player_id
-    JOIN players tp ON tp.id = t.to_player_id
-    JOIN claims oc  ON oc.id = t.offer_claim_id
-    LEFT JOIN parks    op ON op.id = oc.park_id
-    LEFT JOIN vehicles ov ON ov.id = oc.vehicle_id
-    LEFT JOIN claims wc ON wc.id = t.want_claim_id
-    LEFT JOIN parks    wp ON wp.id = wc.park_id
-    LEFT JOIN vehicles wv ON wv.id = wc.vehicle_id`;
+    JOIN players tp ON tp.id = t.to_player_id`;
 
-// A side of an offer. `value` is a park's value and null for a car package, whose worth
-// is its edition; `park_name` survives as an alias of `name` for older clients.
-const side = (claimId, kind, name, value, edition) => ({
-  claim_id: claimId,
-  kind: kind === 'car' ? 'car' : 'park',
-  name,
-  park_name: name,
-  value: kind === 'car' ? null : value,
-  edition: kind === 'car' ? (edition ?? 'steel') : (edition ?? null),
-});
+// A side of an offer: the card itself, whatever kind, plus the three fields every card
+// has and every list wants. The client renders it the way it renders any card.
+const side = (claimId) => {
+  const card = getCard(claimId);
+  return {
+    claim_id: claimId,
+    kind: card?.kind ?? null,
+    name: card?.name ?? 'a card',
+    edition: card?.edition ?? null,
+    card,
+  };
+};
 
 const shapeTrade = (r) => ({
   id: r.id,
@@ -253,11 +241,9 @@ const shapeTrade = (r) => ({
   resolved_at: r.resolved_at,
   from: { id: r.from_player_id, handle: r.from_handle, display_name: r.from_name, colour: r.from_colour },
   to: { id: r.to_player_id, handle: r.to_handle, display_name: r.to_name, colour: r.to_colour },
-  offer: side(r.offer_claim_id, r.offer_kind, r.offer_card_name, r.offer_value, r.offer_edition),
+  offer: side(r.offer_claim_id),
   // No want side means a gift, and the UI says so rather than showing an empty slot.
-  want: r.want_claim_id == null
-    ? null
-    : side(r.want_claim_id, r.want_kind, r.want_card_name, r.want_value, r.want_edition),
+  want: r.want_claim_id == null ? null : side(r.want_claim_id),
   is_gift: r.want_claim_id == null,
 });
 

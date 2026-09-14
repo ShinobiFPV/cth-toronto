@@ -28,9 +28,9 @@ export const ACTION_XP = {
 };
 
 /**
- * A car package pays by edition and nothing else: flat, rising, never capped. Every
- * package is at least Steel. Env-tunable, unlike the rest of this schedule, because the
- * Garage is new enough that its balance is a guess — see server/config.js.
+ * A car card pays by edition and nothing else: flat, rising, never capped. Every car
+ * card is at least Steel. Env-tunable, unlike the rest of this schedule, because car
+ * cards are new enough that their balance is a guess — see server/config.js.
  */
 export const carXp = (edition) => ({
   hologram: config.CAR_XP_HOLOGRAM,
@@ -162,7 +162,7 @@ export function xpFor({ kind, playerId, hoodId = null, parkId = null, rarity = n
       .get(playerId, parkId);
     if (!seen) { discovery = DISCOVERY_XP.park; discovered = 'park'; }
   } else if (kind !== 'park' && hoodId != null) {
-    // Territory only. A car package also records the Hood it was snapped in, and it must
+    // Territory only. A car card also records the Hood it was snapped in, and it must
     // not count as having set foot there — "park_id IS NULL" used to mean territory, and
     // stopped meaning it the day cars joined the ledger.
     const seen = db.prepare(`

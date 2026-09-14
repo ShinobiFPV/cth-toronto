@@ -92,18 +92,18 @@ export function rollEdition({ rand = crypto.randomInt, clover = false, capped = 
 }
 
 /**
- * How many of each edition a player holds. Drives the binder's chips and filter, and the
- * Case's — `kind` says which shelf.
+ * How many of each edition a player holds, of one kind of card. Drives the binder's
+ * chips and filter. `kind` is the claim_kind, so a new kind of card needs nothing here.
  */
 export function editionCounts(playerId, { seasonId = null, kind = 'park' } = {}) {
   const rows = db.prepare(`
     SELECT c.edition, COUNT(*) AS n FROM claims c
       LEFT JOIN card_holdings hold ON hold.claim_id = c.id
      WHERE COALESCE(hold.holder_id, c.player_id) = ?
-       AND ${kind === 'car' ? "c.claim_kind = 'car'" : 'c.park_id IS NOT NULL'}
+       AND c.claim_kind = ?
        AND c.status != 'reverted' AND c.edition IS NOT NULL
        ${seasonId ? 'AND c.season_id = ?' : ''}
      GROUP BY c.edition`)
-    .all(...(seasonId ? [playerId, seasonId] : [playerId]));
+    .all(...(seasonId ? [playerId, kind, seasonId] : [playerId, kind]));
   return Object.fromEntries(rows.map((r) => [r.edition, r.n]));
 }

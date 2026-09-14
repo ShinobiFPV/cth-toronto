@@ -1,13 +1,13 @@
-// What counts as "the same car" — the Garage's dedupe key.
+// What counts as "the same car" — the dedupe key for car cards.
 //
-// Identification exists for two things: the face of the package, and this key. It never
+// Identification exists for two things: the face of the card, and this key. It never
 // touches scoring, so accuracy barely matters for fairness and consistency matters
 // enormously. The key is make + model with trim and generation stripped, so `honda|civic`
-// is one package whether it was an Si or a base sedan.
+// is one card whether it was an Si or a base sedan.
 //
 // This is the easiest thing in the module to get wrong by being too specific. Too fine
-// and the Case fills with near-identical Civics; too coarse and every Toyota is one
-// package. The prompt already asks for the base model name without trim — everything
+// and a binder fills with near-identical Civics; too coarse and every Toyota is one
+// card. The prompt already asks for the base model name without trim — everything
 // here is the second line of defence, for the day the model says "Civic Si" anyway.
 import { GameError } from './errors.js';
 
@@ -108,7 +108,7 @@ export function resolveIdentification(raw, { minConfidence = 0.5 } = {}) {
   }
   if (raw.is_vehicle === false) {
     throw new GameError('NOT_A_VEHICLE',
-      'That does not look like a vehicle. The Garage only takes cars, trucks and bikes with engines.',
+      'That does not look like a vehicle. Only cars, trucks and bikes with engines print a card.',
       {}, 422);
   }
 
@@ -144,7 +144,7 @@ export function resolveIdentification(raw, { minConfidence = 0.5 } = {}) {
     body_style: text(raw.body_style),
     confidence,
     // Photographs of screens, magazines, diecast and game footage. Low plausibility
-    // marks the package for flaggers; it never rejects it — the group decides.
+    // marks the card for flaggers; it never rejects it — the group decides.
     in_situ: raw.in_situ !== false,
     plates,
     raw,

@@ -183,11 +183,11 @@ means you get to see that they went all the way out to Rouge Park and you didn't
 
 ---
 
-## The Garage
+## Cars
 
-Parks are the calm part. The Garage is for the walk between them: **photograph any car on
-the street** and it prints you a **Not Wheels** card for your Case: the photo on a printed
-backing, the edition in the stock, a spec strip along the bottom — and no flames.
+Parks are the calm part. Cars are for the walk between them: **photograph any car on the
+street** and it prints you a card for your binder — a **Not Wheels** card: the photo on a
+printed backing, the edition in the stock, a spec strip along the bottom, and no flames.
 
 - **5 points a car, up to 100 a week.** The week resets Monday midnight, Toronto time, so
   Sunday night is the scramble. Past the cap you keep collecting: the card still prints,
@@ -211,8 +211,17 @@ Cards roll editions like cards, but every one is at least Steel:
 | Gold | foil | +75 XP and 1 item |
 | **Hologram** | holographic | **+250 XP** and 3 items |
 
-Snap a car straight from the map, or from **Cards → Garage**. Cards trade exactly like
-park cards, and everybody's Case is open.
+Snap a car straight from the map or from your binder. A car card sits in the same binder as
+your park cards, trades exactly the same way, and is just as public.
+
+---
+
+## One binder
+
+Whatever you photographed, what you get is **a card, and it goes in your binder**. Parks and
+cars are two kinds of card on one shelf — filter to one kind if you like, trade any card for
+any other, and tap anything in the feed to see the card it printed. The game is built so the
+next kind of card slots straight in beside them.
 
 ---
 
@@ -389,11 +398,11 @@ npm start                # http://localhost:8096
 Then open it on a phone and **Add to Home Screen**, because the capture flow is the entire
 point and it feels wrong in a browser tab.
 
-The Garage needs an Anthropic API key in `.env` as `CTH_ANTHROPIC_API_KEY`. Without one
+Car cards need an Anthropic API key in `.env` as `CTH_ANTHROPIC_API_KEY`. Without one
 everything else works and every car comes back "the identifier is not answering".
 
 ```bash
-npm test                 # 357 tests, no server needed, touches nothing in data/, never calls Claude
+npm test                 # 366 tests, no server needed, touches nothing in data/, never calls Claude
 ```
 
 | Command | Does what |
@@ -409,7 +418,7 @@ npm test                 # 357 tests, no server needed, touches nothing in data/
 Node · Express · SQLite (`better-sqlite3`) · `ws` · `sharp` · argon2 · React · Vite · Leaflet ·
 the Anthropic SDK
 
-**One API key, and only for the Garage.** The basemap needs none: it's plain OpenStreetMap
+**One API key, and only for car cards.** The basemap needs none: it's plain OpenStreetMap
 raster darkened with a CSS filter, because CARTO's dark tiles now stamp "API KEY REQUIRED"
 across the whole city.
 
@@ -423,7 +432,8 @@ amber) because the map already spends every other colour on somebody's territory
 ```
 server/lib/game.js    ←  the claim state machine. This is the game.
 server/lib/parks.js      Parks: collection rules, card seeds, the binder
-server/lib/garage.js     the Garage: the weekly cap, dedupe, the Case
+server/lib/collectables.js  every kind of card, behind one registry — the binder reads this
+server/lib/cars.js       car cards: the weekly cap, dedupe
 server/lib/editions.js   the edition roll: one draw, a table that sums to 100
 server/lib/items.js      items: grants minus uses, Fortify, Clover, season expiry
 server/lib/identify.js   the one Claude call — what car is this?

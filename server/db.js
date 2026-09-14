@@ -47,7 +47,7 @@ const migrations = db.transaction(() => {
   // before this existed is.
   addColumn('claims', 'edition', 'TEXT');
 
-  // The Garage. A car collection is a claim with claim_kind = 'car' and vehicle_id set;
+  // Car cards. A car collection is a claim with claim_kind = 'car' and vehicle_id set;
   // the rest is what the identifier saw, kept so flaggers can read it, plus the week the
   // points cap is counted in. Null on every claim that predates it.
   addColumn('claims', 'vehicle_id', 'INTEGER REFERENCES vehicles(id)');
@@ -134,7 +134,7 @@ db.exec(`
     ON claims(player_id, park_id, season_id)
     WHERE park_id IS NOT NULL AND status != 'reverted';
 
-  -- One package per vehicle per player per season — the parks pattern, so a package the
+  -- One card per vehicle per player per season — the parks pattern, so a card the
   -- group threw out frees the vehicle up again.
   CREATE UNIQUE INDEX IF NOT EXISTS ux_car_once
     ON claims(player_id, season_id, vehicle_id)

@@ -1,4 +1,5 @@
-// The Not Wheels card — the Garage's collectable, sibling to ParkCard.
+// The Not Wheels card — the face of a car card, sibling to ParkCard. Which face a card
+// wears is decided by lib/collectables.js; this only draws one.
 //
 // It started life as a blister pack, with a hang tab and a plastic bubble over the
 // photo. Both went: under the packaging it was already a card, so now it is only the
@@ -8,7 +9,7 @@
 //
 // House rules carry over from the park card. The art is seeded, never random: card_seed
 // is hashed from (player, vehicle, season) on the server, so the stripe weave and the
-// serial are the same every time you open the Case. Every colour is a token in
+// serial are the same every time you open the binder. Every colour is a token in
 // styles.css.
 import { useMemo } from 'react';
 

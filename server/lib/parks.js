@@ -171,7 +171,7 @@ export function parkProgress(hoodId, playerId, at = nowIso()) {
 
 /**
  * Park points this player has scored in this Hood in the current period, and what is
- * left. The same shape as the Garage's weekly cap: an exact match on a stored key and a
+ * left. The same shape as the car cards' weekly cap: an exact match on a stored key and a
  * SUM, reverted claims giving their points back.
  *
  * `week` groups by week_key, so capacity comes back Monday everywhere in the app at once.
@@ -374,6 +374,8 @@ export function shapeCard(r) {
   return {
     kind: 'park',
     claim_id: r.claim_id,
+    // What the card is called, whatever kind it is — lists and trades read this.
+    name: r.park_name,
     set_size: setSize(),
     park: {
       id: r.park_id,

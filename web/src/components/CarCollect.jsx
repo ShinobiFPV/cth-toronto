@@ -21,8 +21,12 @@ const isHeic = (f) => HEIC.test(f.name || '') || /image\/hei[cf]/i.test(f.type |
 
 // The Hood you last snapped a car in. Per device, like appearance, and wrapped because a
 // private window throws on access rather than returning null.
-const HOOD_KEY = 'cth.garage.hood';
-const readHood = () => { try { return Number(localStorage.getItem(HOOD_KEY)) || null; } catch { return null; } };
+const HOOD_KEY = 'cth.cars.hood';
+// The key it had before cars were just cards, read once so nobody's remembered Hood is lost.
+const OLD_HOOD_KEY = 'cth.garage.hood';
+const readHood = () => {
+  try { return Number(localStorage.getItem(HOOD_KEY) ?? localStorage.getItem(OLD_HOOD_KEY)) || null; } catch { return null; }
+};
 const saveHood = (id) => { try { localStorage.setItem(HOOD_KEY, String(id)); } catch { /* fine */ } };
 
 // Failures the photo can fix. Everything else is information or a retry of the same shot.
@@ -125,7 +129,7 @@ export default function CarCollect({ onClose, onDone }) {
       <div className="bottom-sheet" role="dialog" aria-modal="true" aria-label="Snap a car">
         <div className="sheet-head">
           <div className="grow">
-            <h1>{phase === 'done' ? (result?.repeat ? 'Spotted again' : 'In the Case') : 'Snap a car'}</h1>
+            <h1>{phase === 'done' ? (result?.repeat ? 'Spotted again' : 'In your binder') : 'Snap a car'}</h1>
             <div className="tiny dim"><CapacityLine capacity={capacity} /></div>
           </div>
           <button className="btn btn-sm btn-ghost" onClick={onClose} aria-label="Close" disabled={busy}>
@@ -137,7 +141,7 @@ export default function CarCollect({ onClose, onDone }) {
           {phase === 'done' && result ? (
             <>
               <div className="nwcard-reveal">
-                <NotWheelsCard card={result.package} />
+                <NotWheelsCard card={result.card} />
               </div>
               <div className="tiny" style={{ textAlign: 'center' }}>
                 {result.repeat
@@ -145,7 +149,7 @@ export default function CarCollect({ onClose, onDone }) {
                   : result.points > 0
                     ? `+${result.points} points · +${result.xp.xp} XP · ${result.capacity.spent} / ${result.capacity.cap} this week`
                     : `Past this week's cap, so XP only — +${result.xp.xp} XP. Points come back ${result.capacity.resets_on}.`}
-                {result.first_sighting && ' The first one anybody has put in the Garage.'}
+                {result.first_sighting && ' The first card of one anybody has collected.'}
               </div>
               {result.items?.items?.length > 0 && (
                 <div className="tiny" style={{ textAlign: 'center', color: 'var(--accent-text)' }}>

@@ -32,7 +32,7 @@ const sheetRule = () => CSS.match(/\.bottom-sheet\s*\{[^}]*\}/s)?.[0];
 const FLOWS = [
   { file: 'web/src/components/ParkCollect.jsx', action: 'Collect' },
   // The car sheet carries the most of all: capacity, a Hood picker, a preview, a caption,
-  // an identify error with a retake button — and then the package itself.
+  // an identify error with a retake button — and then the card itself.
   { file: 'web/src/components/CarCollect.jsx', action: 'Snap it' },
   { file: 'web/src/components/ClaimFlow.jsx', action: 'Conquer / Steal / Reinforce' },
   // The Hood sheet was missed the first time round, and it is the one carrying two

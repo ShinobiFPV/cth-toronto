@@ -1,4 +1,4 @@
-// The Garage: what counts as the same car, what a car collection may and may not touch,
+// Car cards: what counts as the same car, what a car collection may and may not touch,
 // and how its editions roll — uncapped, and granting items only when the car scored.
 import { test, before, beforeEach, describe } from 'node:test';
 import assert from 'node:assert/strict';
@@ -6,16 +6,16 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'cth-garage-'));
+const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'cth-cars-'));
 process.env.CTH_DB = path.join(tmp, 'test.sqlite');
 process.env.CTH_JWT_SECRET = 'test-secret';
 
-let db, nowIso, config, garage, vehicles, editions, parks, xp, views, game, seasons;
+let db, nowIso, config, cars, vehicles, editions, parks, xp, views, game, seasons;
 
 before(async () => {
   ({ db, nowIso } = await import('../server/db.js'));
   ({ config } = await import('../server/config.js'));
-  garage = await import('../server/lib/garage.js');
+  cars = await import('../server/lib/cars.js');
   vehicles = await import('../server/lib/vehicles.js');
   editions = await import('../server/lib/editions.js');
   parks = await import('../server/lib/parks.js');
@@ -58,7 +58,7 @@ const always = (key) => (n) => {
 };
 
 const snap = (playerId, make, model, { hood = 13, rand = never, extra } = {}) =>
-  garage.commitCar({ identification: ident(make, model, extra), playerId, hoodId: hood, photo: photo(), rand });
+  cars.commitCar({ identification: ident(make, model, extra), playerId, hoodId: hood, photo: photo(), rand });
 
 const count = (sql, ...args) => db.prepare(sql).get(...args).n;
 
@@ -90,7 +90,7 @@ describe('what counts as the same car', () => {
   // imported the module.
   const key = (...args) => vehicles.vehicleKey(...args);
 
-  test('trim is stripped, so an Si and a base Civic are one package', () => {
+  test('trim is stripped, so an Si and a base Civic are one car card', () => {
     assert.equal(key('Honda', 'Civic'), 'honda|civic');
     assert.equal(key('Honda', 'Civic Si'), 'honda|civic');
     assert.equal(key('Honda', 'Civic Sport Touring'), 'honda|civic');
@@ -118,7 +118,7 @@ describe('what counts as the same car', () => {
   });
 
   test('too coarse is as wrong as too fine', () => {
-    // Every Toyota is not one package, and a single-letter model is not a trim.
+    // Every Toyota is not one car card, and a single-letter model is not a trim.
     assert.notEqual(key('Toyota', 'Corolla'), key('Toyota', 'Camry'));
     assert.equal(key('Tesla', 'Model S'), 'tesla|models');
     assert.notEqual(key('Tesla', 'Model S'), key('Tesla', 'Model 3'));
@@ -163,7 +163,7 @@ describe('resolving what the identifier said', () => {
 // ── collecting ────────────────────────────────────────────────────────────
 describe('collecting a car', () => {
   test('is a claim: kind car, the vehicle, the week, and the flat value', () => {
-    const { package: pack, points } = snap(alice, 'Honda', 'Civic Si', { extra: { trim: 'Si' } });
+    const { card: pack, points } = snap(alice, 'Honda', 'Civic Si', { extra: { trim: 'Si' } });
     const row = db.prepare('SELECT * FROM claims WHERE id = ?').get(pack.claim_id);
 
     assert.equal(row.claim_kind, 'car');
@@ -172,7 +172,7 @@ describe('collecting a car', () => {
     assert.ok(row.vehicle_id);
     assert.match(row.week_key, /^\d{4}-W\d{2}$/);
     assert.equal(row.vehicle_trim, 'Si', 'sighting detail rides on the claim');
-    assert.equal(pack.vehicle.name, 'Honda Civic', 'while the package is the base model');
+    assert.equal(pack.vehicle.name, 'Honda Civic', 'while the car card is the base model');
     assert.ok(JSON.parse(row.identify_json).make, 'and what the identifier said is kept for flaggers');
     assert.equal(row.park_id, null);
   });
@@ -206,18 +206,18 @@ describe('collecting a car', () => {
     assert.equal(first.vehicle.id, second.vehicle.id);
     assert.equal(count('SELECT COUNT(*) AS n FROM vehicles'), 1);
     assert.equal(db.prepare('SELECT first_seen_claim_id AS id FROM vehicles').get().id,
-      first.package.claim_id);
+      first.card.claim_id);
   });
 
-  test('the package art is seeded, not random', () => {
-    const { package: pack } = snap(alice, 'Honda', 'Civic');
+  test('the car card art is seeded, not random', () => {
+    const { card: pack } = snap(alice, 'Honda', 'Civic');
     const season = seasons.activeSeason().id;
-    assert.equal(pack.card_seed, garage.packSeed(alice, pack.vehicle.id, season));
-    assert.equal(garage.getPackageByClaim(pack.claim_id).card_seed, pack.card_seed);
+    assert.equal(pack.card_seed, cars.carCardSeed(alice, pack.vehicle.id, season));
+    assert.equal(cars.getCarCard(pack.claim_id).card_seed, pack.card_seed);
   });
 
   test('a suspect photo is collected, and says so', () => {
-    const { package: pack } = snap(alice, 'Honda', 'Civic', { extra: { in_situ: false } });
+    const { card: pack } = snap(alice, 'Honda', 'Civic', { extra: { in_situ: false } });
     assert.equal(pack.suspect, true);
     assert.equal(pack.status, 'active');
   });
@@ -225,7 +225,7 @@ describe('collecting a car', () => {
 
 // ── duplicates ────────────────────────────────────────────────────────────
 describe('once per vehicle per player per season', () => {
-  test('a repeat sighting mints nothing — no package, no XP, no points', () => {
+  test('a repeat sighting mints nothing — no car card, no XP, no points', () => {
     snap(alice, 'Honda', 'Civic');
     const claims = count('SELECT COUNT(*) AS n FROM claims');
     const photos = count('SELECT COUNT(*) AS n FROM photos');
@@ -241,19 +241,19 @@ describe('once per vehicle per player per season', () => {
 
   test('somebody else can still collect the same car', () => {
     snap(alice, 'Honda', 'Civic');
-    assert.equal(snap(bob, 'Honda', 'Civic').package.player.id, bob);
+    assert.equal(snap(bob, 'Honda', 'Civic').card.player.id, bob);
   });
 
-  test('a package the group threw out frees the vehicle up again', () => {
-    const { package: pack } = snap(alice, 'Honda', 'Civic');
+  test('a car card the group threw out frees the vehicle up again', () => {
+    const { card: pack } = snap(alice, 'Honda', 'Civic');
     game.revertClaim(pack.claim_id);
     const again = snap(alice, 'Honda', 'Civic');
-    assert.equal(again.package.vehicle.id, pack.vehicle.id);
+    assert.equal(again.card.vehicle.id, pack.vehicle.id);
     assert.equal(again.points, config.CAR_POINTS);
   });
 
   test('the database enforces it too, not just the evaluator', () => {
-    const { package: pack } = snap(alice, 'Honda', 'Civic');
+    const { card: pack } = snap(alice, 'Honda', 'Civic');
     assert.throws(() => db.prepare(`
       INSERT INTO claims (hood_id, player_id, season_id, claim_kind, points_awarded, status,
                           vehicle_id, created_at)
@@ -261,7 +261,7 @@ describe('once per vehicle per player per season', () => {
         FROM claims WHERE id = ?`).run(pack.claim_id), /UNIQUE/);
   });
 
-  test('with the repeat trickle on, a repeat pays a little XP once a week, and still no package', () => {
+  test('with the repeat trickle on, a repeat pays a little XP once a week, and still no car card', () => {
     withConfig({ CAR_REPEAT_XP: 10 }, () => {
       snap(alice, 'Honda', 'Civic');
       const before = xp.xpOf(alice);
@@ -273,15 +273,15 @@ describe('once per vehicle per player per season', () => {
 
       assert.throws(() => snap(alice, 'Honda', 'Civic'),
         (err) => err.code === 'ALREADY_COLLECTED', 'once per car per week');
-      assert.equal(garage.packagesOf(alice).length, 1, 'never a second package');
+      assert.equal(cars.carCardsOf(alice).length, 1, 'never a second car card');
     });
   });
 });
 
 // ── editions ──────────────────────────────────────────────────────────────
-describe('editions on a package', () => {
+describe('editions on a car card', () => {
   test('nothing is less than Steel', () => {
-    const { package: pack, xp: earned } = snap(alice, 'Honda', 'Civic', { rand: never });
+    const { card: pack, xp: earned } = snap(alice, 'Honda', 'Civic', { rand: never });
     assert.equal(pack.edition, 'steel');
     assert.equal(earned.xp, config.CAR_XP_STEEL);
   });
@@ -290,7 +290,7 @@ describe('editions on a package', () => {
     const steel = snap(alice, 'Honda', 'Civic', { rand: never });
     const gold = snap(alice, 'Mazda', 'CX-5', { rand: always('gold') });
     const holo = snap(alice, 'Audi', 'A4', { rand: always('hologram') });
-    assert.deepEqual([steel.package.edition, gold.package.edition, holo.package.edition],
+    assert.deepEqual([steel.card.edition, gold.card.edition, holo.card.edition],
       ['steel', 'gold', 'hologram']);
     assert.deepEqual([steel.xp.xp, gold.xp.xp, holo.xp.xp],
       [config.CAR_XP_STEEL, config.CAR_XP_GOLD, config.CAR_XP_HOLOGRAM]);
@@ -299,7 +299,7 @@ describe('editions on a package', () => {
   });
 
   test('an all-hits roll is a hologram, not demoted', () => {
-    assert.equal(snap(alice, 'Honda', 'Civic', { rand: () => 0 }).package.edition, 'hologram');
+    assert.equal(snap(alice, 'Honda', 'Civic', { rand: () => 0 }).card.edition, 'hologram');
   });
 });
 
@@ -309,13 +309,13 @@ describe('no hologram cap', () => {
       snap(alice, 'Honda', 'Civic', { rand: always('hologram') }),
       snap(bob, 'Mazda', 'CX-5', { rand: always('hologram') }),
       snap(alice, 'Audi', 'A4', { rand: always('hologram') }),
-    ].map((r) => r.package.edition);
+    ].map((r) => r.card.edition);
     assert.deepEqual(editionsPulled, ['hologram', 'hologram', 'hologram']);
   });
 
   test('a car hologram and a park hologram in the same Hood are both holograms', () => {
     db.prepare(`INSERT INTO parks (id, name, hood_id, lat, lng, value, distance_km, set_number)
-                VALUES (8801, 'Garage Test Park', 13, 43.65, -79.38, 10, 1, 1)`).run();
+                VALUES (8801, 'Car Test Park', 13, 43.65, -79.38, 10, 1, 1)`).run();
     snap(alice, 'Honda', 'Civic', { hood: 13, rand: always('hologram') });
     const card = parks.commitCollect({ parkId: 8801, playerId: bob, photo: photo(), rand: always('hologram') });
     assert.equal(card.claim.edition, 'hologram');
@@ -328,10 +328,10 @@ describe('the edition roll is unaffected by the points cap', () => {
       snap(alice, 'Honda', 'Civic');
       const past = snap(alice, 'Mazda', 'CX-5', { rand: always('hologram') });
       assert.equal(past.points, 0);
-      assert.equal(past.package.edition, 'hologram');
+      assert.equal(past.card.edition, 'hologram');
       assert.equal(past.xp.xp, config.CAR_XP_HOLOGRAM);
       assert.equal(db.prepare('SELECT xp_awarded AS x FROM claims WHERE id = ?')
-        .get(past.package.claim_id).x, config.CAR_XP_HOLOGRAM);
+        .get(past.card.claim_id).x, config.CAR_XP_HOLOGRAM);
       assert.deepEqual(past.items.items, [], 'no points, no items');
       assert.equal(past.items.reason, 'no_points');
     });
@@ -344,8 +344,8 @@ describe('the edition roll is unaffected by the points cap', () => {
   });
 });
 
-// ── the Case and everything that reads it ─────────────────────────────────
-describe('the Case, and what it does not inflate', () => {
+// ── car cards and everything that reads them ─────────────────────────────
+describe('car cards, and what they do not inflate', () => {
   test('cars have their own counters and never count as parks', () => {
     db.prepare(`INSERT INTO parks (id, name, hood_id, lat, lng, value, distance_km, set_number)
                 VALUES (8802, 'Counter Park', 13, 43.65, -79.38, 40, 5, 1)`).run();
@@ -358,22 +358,22 @@ describe('the Case, and what it does not inflate', () => {
     assert.equal(binder.season_collected, 1);
     assert.equal(binder.season_points, 40);
     assert.equal(binder.cards_held, 1);
-    assert.deepEqual(binder.by_edition, { steel: 1 }, 'a gold package is not a gold park card');
+    assert.deepEqual(binder.by_edition, { steel: 1 }, 'a gold car card is not a gold park card');
 
-    const shelf = garage.garageSummary(alice);
+    const shelf = cars.carSummary(alice);
     assert.equal(shelf.season_collected, 2);
     assert.equal(shelf.season_points, config.CAR_POINTS * 2);
-    assert.equal(shelf.packages_held, 2);
+    assert.equal(shelf.cards_held, 2);
     assert.deepEqual(shelf.by_edition, { gold: 1, steel: 1 });
 
     assert.equal(parks.cardsOf(alice).length, 1);
-    assert.equal(garage.packagesOf(alice).length, 2);
+    assert.equal(cars.carCardsOf(alice).length, 2);
   });
 
-  test('a package is not a park card, and a park card is not a package', () => {
-    const { package: pack } = snap(alice, 'Honda', 'Civic');
+  test('a car card is not a park card, and a park card is not a car card', () => {
+    const { card: pack } = snap(alice, 'Honda', 'Civic');
     assert.equal(parks.getCardByClaim(pack.claim_id), null);
-    assert.equal(garage.getPackageByClaim(pack.claim_id).kind, 'car');
+    assert.equal(cars.getCarCard(pack.claim_id).kind, 'car');
   });
 
   test('car points join the one total, and the standings split them out', () => {
@@ -395,14 +395,14 @@ describe('the Case, and what it does not inflate', () => {
     assert.equal(item.flaggable, true, 'the honour system covers cars too');
   });
 
-  test('the catalogue lists every vehicle and who holds a package of it', () => {
+  test('the catalogue lists every vehicle and who holds a car card of it', () => {
     snap(alice, 'Honda', 'Civic');
     snap(bob, 'Honda', 'Civic');
     snap(bob, 'Mazda', 'CX-5');
-    const cat = garage.catalogue();
+    const cat = cars.catalogue();
     assert.equal(cat.total, 2);
     const civic = cat.vehicles.find((v) => v.key === 'honda|civic');
-    assert.deepEqual(civic.packages.map((p) => p.holder.id).sort(), [alice, bob].sort());
-    assert.equal(garage.vehicleHistory(civic.id).sightings.length, 2);
+    assert.deepEqual(civic.cards.map((p) => p.holder.id).sort(), [alice, bob].sort());
+    assert.equal(cars.vehicleHistory(civic.id).sightings.length, 2);
   });
 });

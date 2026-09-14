@@ -10,6 +10,7 @@ import { useGame } from '../lib/store.jsx';
 import { BackIcon } from '../components/icons.jsx';
 import { Banner, Spinner, When } from '../components/bits.jsx';
 import CardLightbox from '../components/CardLightbox.jsx';
+import { collectable } from '../lib/collectables.js';
 
 const STATUS_LABEL = {
   pending: 'waiting',
@@ -58,17 +59,16 @@ export default function Trades() {
     }
   };
 
-  // A park card shows what the park is worth; a Not Wheels card's worth is its print.
+  // One side of an offer, whatever kind of card it is: the registry says how to tag it.
   const Card = ({ side, card }) => {
-    const name = card.name ?? card.park_name;
+    const entry = collectable(card.kind);
+    const tag = card.card ? entry.tag(card.card) : null;
     return (
       <button className="trade-card" onClick={() => setCardClaim(card.claim_id)}
-              title={`See the ${name} card`}>
+              title={`See the ${card.name} card`}>
         <span className="tiny dim">{side}</span>
-        <b className="truncate">{name}</b>
-        <span className="tiny dim">
-          {card.kind === 'car' ? `${card.edition} car card` : `+${card.value}`}
-        </span>
+        <b className="truncate">{card.name}</b>
+        <span className="tiny dim">{tag ? `${entry.noun} · ${tag.text}` : entry.noun}</span>
       </button>
     );
   };

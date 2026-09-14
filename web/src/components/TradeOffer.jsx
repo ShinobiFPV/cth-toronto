@@ -10,6 +10,7 @@ import { useEffect, useState } from 'react';
 import { api } from '../lib/api.js';
 import { useGame } from '../lib/store.jsx';
 import { cardName } from '../lib/game.js';
+import { collectable } from '../lib/collectables.js';
 import { CloseIcon } from './icons.jsx';
 import { Banner, Spinner } from './bits.jsx';
 
@@ -31,10 +32,9 @@ export default function TradeOffer({ card, onClose, onSent }) {
     let cancelled = false;
     setTheirCards(null);
     setWantId(null);
-    // Both shelves: a car card can be asked for in exchange for a park card and back.
-    Promise.all([api.cards(null, toId), api.cards(null, toId, 'car')])
-      .then(([parksShelf, carShelf]) => !cancelled
-        && setTheirCards([...parksShelf.cards, ...carShelf.cards]))
+    // Their whole binder: any card can be asked for in exchange for any other.
+    api.cards(null, toId)
+      .then((r) => !cancelled && setTheirCards(r.cards))
       .catch(() => !cancelled && setTheirCards([]));
     return () => { cancelled = true; };
   }, [toId]);
@@ -66,11 +66,7 @@ export default function TradeOffer({ card, onClose, onSent }) {
         <div className="sheet-head">
           <div className="grow">
             <h1>Offer {cardName(card)}</h1>
-            <div className="tiny dim">
-              {card.kind === 'car'
-                ? `${card.edition_label} car card · ${card.season?.name}${card.vehicle.year ? ` · ${card.vehicle.year}` : ''}`
-                : `${card.rarity_label} · ${card.season?.name} · #${String(card.park.set_number ?? card.park.id).padStart(4, '0')}`}
-            </div>
+            <div className="tiny dim">{collectable(card.kind).subtitle(card)}</div>
           </div>
           <button className="btn btn-sm btn-ghost" onClick={onClose} aria-label="Close" disabled={busy}>
             <CloseIcon style={{ width: 16, height: 16 }} />
@@ -118,19 +114,20 @@ export default function TradeOffer({ card, onClose, onSent }) {
 
               {theirCards && theirCards.length > 0 && (
                 <div className="sheet" style={{ marginTop: '0.5rem', maxHeight: '32vh', overflowY: 'auto' }}>
-                  {theirCards.map((c) => (
+                  {theirCards.map((c) => {
+                    const tag = collectable(c.kind).tag(c);
+                    return (
                     <button key={c.claim_id}
                             className={`row trade-pick ${wantId === c.claim_id ? 'picked' : ''}`}
                             aria-pressed={wantId === c.claim_id}
                             disabled={busy}
                             onClick={() => setWantId(c.claim_id)}>
-                      {c.kind === 'car'
-                        ? <span className={`chip ed-${c.edition}`}>{c.edition}</span>
-                        : <span className={`chip r-${c.rarity}`}>{c.points}</span>}
+                      <span className={tag.className}>{tag.text}</span>
                       <span className="grow truncate" style={{ textAlign: 'left' }}>{cardName(c)}</span>
                       <span className="tiny dim">{c.season?.name}</span>
                     </button>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>

@@ -6,15 +6,13 @@ import { db } from '../db.js';
 import { config } from '../config.js';
 import { requireAuth } from '../lib/auth.js';
 import {
-  listParksInHood, evaluateCollect, commitCollect, getPark, getCardByClaim,
-  cardsOf, collectionSummary, parkProgress, shapePark, parksForMap,
+  listParksInHood, evaluateCollect, commitCollect, getPark, parkProgress, shapePark, parksForMap,
 } from '../lib/parks.js';
 import { processUpload, discardUpload } from '../lib/images.js';
 import { broadcast, postMessage } from '../lib/hub.js';
 import { withLevelUp, announceLevelUp } from '../lib/xp-announce.js';
 import { notFound } from '../lib/errors.js';
 import { hoodLabel } from '../lib/hood-seed.js';
-import { packagesOf, garageSummary, getPackageByClaim } from '../lib/garage.js';
 import { itemClause, announceItemCap } from '../lib/item-announce.js';
 import { weekStartName } from '../lib/week.js';
 
@@ -125,44 +123,4 @@ parkRoutes.post('/parks/:id/collect', requireAuth, upload.single('photo'), async
   }
 });
 
-/**
- * A binder. `?season=` scopes it; omit for everything ever collected. `?player=` reads
- * somebody else's, and defaults to your own.
- *
- * Other players' binders are open on purpose. Nobody competes over parks (spec §1.8) —
- * a card in your binder takes nothing from anyone — so a collection is something to
- * show off rather than something to hide, and half the fun of a card game is looking
- * at what everybody else pulled. The cards are visible in the feed and in chat the
- * moment they are collected anyway.
- */
-parkRoutes.get('/cards', requireAuth, (req, res, next) => {
-  const seasonId = req.query.season ? Number(req.query.season) : null;
-  const playerId = req.query.player ? Number(req.query.player) : req.player.id;
-  // `?kind=car` is the Case — Not Wheels packages instead of park cards. Same shelf
-  // rules: holdings, public, optionally one season.
-  const kind = req.query.kind === 'car' ? 'car' : 'park';
-
-  const player = db.prepare('SELECT id, handle, display_name, colour FROM players WHERE id = ?')
-    .get(playerId);
-  if (!player) return next(notFound('PLAYER_NOT_FOUND', 'No player with that id.'));
-
-  res.json({
-    player,
-    is_you: player.id === req.player.id,
-    kind,
-    cards: kind === 'car' ? packagesOf(player.id, { seasonId }) : cardsOf(player.id, { seasonId }),
-    summary: kind === 'car' ? garageSummary(player.id) : collectionSummary(player.id),
-  });
-});
-
-/**
- * One card, by the claim that produced it. Not scoped to the owner — this is what the
- * feed opens when you tap somebody else's collection, and it is the same information
- * the feed already shows, laid out as the card it printed.
- */
-parkRoutes.get('/cards/:claimId', requireAuth, (req, res, next) => {
-  const claimId = Number(req.params.claimId);
-  const card = getCardByClaim(claimId) ?? getPackageByClaim(claimId);
-  if (!card) return next(notFound('CARD_NOT_FOUND', 'No card with that id.'));
-  res.json({ card });
-});
+// The binder itself — every kind of card on one shelf — lives in routes/cards.js.

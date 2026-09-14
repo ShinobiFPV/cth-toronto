@@ -1,18 +1,17 @@
 // The card a collection printed, opened from wherever that collection appears.
 //
-// The feed and a Hood's history both show park claims as a thumbnail and a name, which
+// The feed and a Hood's history both show collections as a thumbnail and a name, which
 // is the least interesting thing about them — the card is the point. This fetches it by
-// claim id and shows it full size.
+// claim id and shows it full size, whatever kind of card it is.
 //
-// It is deliberately not fussy about whose card it is. Nobody competes over parks, so a
+// It is deliberately not fussy about whose card it is. Nobody competes over a card, so a
 // card is something to show off; being able to see what everybody else pulled is most
 // of why a card game is fun.
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api.js';
 import { CloseIcon } from './icons.jsx';
 import { Spinner } from './bits.jsx';
-import ParkCard from './ParkCard.jsx';
-import NotWheelsCard from './NotWheelsCard.jsx';
+import Card from './Card.jsx';
 
 export default function CardLightbox({ claimId, onClose }) {
   const [card, setCard] = useState(null);
@@ -40,10 +39,10 @@ export default function CardLightbox({ claimId, onClose }) {
 
   return (
     <div className="lightbox" onClick={onClose} role="dialog" aria-modal="true"
-         aria-label="Park card">
+         aria-label="Card">
       {/* Stop a tap on the card itself from closing the thing you just opened. */}
       <div onClick={(e) => e.stopPropagation()}>
-        {card && (card.kind === 'car' ? <NotWheelsCard card={card} /> : <ParkCard card={card} />)}
+        {card && <Card card={card} />}
         {!card && !error && <Spinner />}
         {error && <div className="empty">{error}</div>}
       </div>

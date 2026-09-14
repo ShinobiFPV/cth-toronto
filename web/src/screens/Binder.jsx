@@ -1,22 +1,29 @@
-// The binder: every park card somebody owns. The reason to keep collecting once the
-// points stop mattering.
+// The binder: every card somebody holds, of every kind. The reason to keep collecting
+// once the points stop mattering.
 //
-// Anybody's binder, not just your own — /binder/:playerId. Nobody competes over parks,
-// so a collection is something to show off rather than something to protect, and
-// looking at what everybody else pulled is most of why a card game is fun.
+// One shelf, not one per kind. A park card and a car card are both cards; what differs is
+// the face each prints and a few lines of detail, and both come from lib/collectables.js —
+// so a new kind of card turns up here without this screen changing.
+//
+// Anybody's binder, not just your own — /binder/:playerId. Nobody competes over a card,
+// so a collection is something to show off rather than something to protect, and looking
+// at what everybody else pulled is most of why a card game is fun.
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import { useGame } from '../lib/store.jsx';
-import { BackIcon, BagIcon, CloseIcon, SwapIcon } from '../components/icons.jsx';
+import { COLLECTABLES, KIND_ORDER, collectable } from '../lib/collectables.js';
+import { BackIcon, BagIcon, CameraIcon, CloseIcon, SwapIcon } from '../components/icons.jsx';
 import { Banner, Spinner } from '../components/bits.jsx';
-import ParkCard from '../components/ParkCard.jsx';
+import Card from '../components/Card.jsx';
 import TradeOffer from '../components/TradeOffer.jsx';
-import Case from '../components/Case.jsx';
 
 const RARITY_ORDER = ['legendary', 'rare', 'uncommon', 'common'];
 // Rarest first, matching the roll's own order (server/lib/editions.js).
 const EDITION_ORDER = ['hologram', 'gold', 'steel'];
+
+const editionRank = (c) => (c.edition ? EDITION_ORDER.length - EDITION_ORDER.indexOf(c.edition) : 0);
+const rarityRank = (c) => (c.rarity ? RARITY_ORDER.indexOf(c.rarity) : RARITY_ORDER.length);
 
 export default function Binder() {
   const navigate = useNavigate();
@@ -30,9 +37,10 @@ export default function Binder() {
   const [edition, setEdition] = useState('all');
   const [offering, setOffering] = useState(null);
   const [note, setNote] = useState(null);
+  const [collecting, setCollecting] = useState(null);   // a kind whose collect flow is open
+  const [version, setVersion] = useState(0);
 
-  // Escape closes the zoomed card, as it does in CardLightbox. Without this the two
-  // ways of looking at a card behave differently for no reason.
+  // Escape closes the zoomed card, as it does in CardLightbox.
   useEffect(() => {
     if (!zoom) return undefined;
     const onKey = (e) => e.key === 'Escape' && setZoom(null);
@@ -43,41 +51,44 @@ export default function Binder() {
   const viewing = playerId ? Number(playerId) : null;
   const isMine = viewing == null || viewing === me?.id;
 
-  // Parks | Garage. The tab bar is full, so the Garage lives here as the other half of
-  // the Cards tab — in the URL, so a link to somebody's Case stays a link to their Case.
+  // Which kind of card to show, or all of them. In the URL, so a link to somebody's car
+  // cards stays a link to their car cards.
   const [params, setParams] = useSearchParams();
-  const kind = params.get('kind') === 'car' ? 'car' : 'park';
-  const setKind = (k) => setParams(k === 'car' ? { kind: 'car' } : {}, { replace: true });
-  const suffix = kind === 'car' ? '?kind=car' : '';
+  const kind = COLLECTABLES[params.get('kind')] ? params.get('kind') : null;
+  const setKind = (k) => setParams(k ? { kind: k } : {}, { replace: true });
+  const suffix = kind ? `?kind=${kind}` : '';
 
   useEffect(() => {
-    if (kind !== 'park') return undefined;
     let cancelled = false;
     setLoading(true);
-    api.cards(scope === 'season' ? session?.season?.id : null, viewing)
+    api.cards(scope === 'season' ? session?.season?.id : null, viewing, kind)
       .then((r) => !cancelled && setData(r))
       .catch(() => {})
       .finally(() => !cancelled && setLoading(false));
     return () => { cancelled = true; };
-  }, [scope, session?.season?.id, viewing, kind]);
+  }, [scope, session?.season?.id, viewing, kind, version]);
+
+  // A rarity filter left over from another kind would hide everything.
+  useEffect(() => { setRarity('all'); }, [kind]);
 
   const cards = useMemo(() => {
     let list = [...(data?.cards ?? [])];
     if (rarity !== 'all') list = list.filter((c) => c.rarity === rarity);
-    // 'special' is every non-standard card at once, which is what anybody actually
-    // wants to look at.
-    if (edition === 'special') list = list.filter((c) => c.edition);
+    // 'special' is every Gold and Hologram at once, which is what anybody actually wants.
+    if (edition === 'special') list = list.filter((c) => c.edition === 'gold' || c.edition === 'hologram');
     else if (edition !== 'all') list = list.filter((c) => c.edition === edition);
-    return list.sort((a, b) =>
-      // Specials to the front, rarest edition first — they are the reason to open this.
-      (b.edition ? EDITION_ORDER.length - EDITION_ORDER.indexOf(b.edition) : 0)
-      - (a.edition ? EDITION_ORDER.length - EDITION_ORDER.indexOf(a.edition) : 0)
-      || RARITY_ORDER.indexOf(a.rarity) - RARITY_ORDER.indexOf(b.rarity)
-      || b.points - a.points
-      || a.park.name.localeCompare(b.park.name));
+    return list.sort((a, b) => editionRank(b) - editionRank(a)
+      || rarityRank(a) - rarityRank(b)
+      || b.claim_id - a.claim_id);
   }, [data, rarity, edition]);
 
+  const hasRarity = (data?.cards ?? []).some((c) => c.rarity);
   const s = data?.summary;
+  // The totals row follows the filter: one kind's own numbers, or the whole binder's.
+  const totals = kind ? s?.kinds?.[kind] : s;
+  const kindsShown = kind ? [kind] : KIND_ORDER;
+  const them = players.find((p) => p.id === viewing)?.display_name ?? 'Their';
+  const Collecting = collecting ? collectable(collecting).Collect : null;
 
   return (
     <div className="screen-pad">
@@ -86,7 +97,7 @@ export default function Binder() {
           <BackIcon style={{ width: 14, height: 14 }} /> Back
         </button>
         <span className="grow" />
-        {/* The bag lives off Cards rather than on a sixth tab: items come out of cards. */}
+        {/* The bag lives off the binder rather than on a sixth tab: items come out of cards. */}
         <Link className="btn btn-sm btn-ghost" to="/items">
           <BagIcon style={{ width: 14, height: 14 }} /> Items
           {(session?.items?.held ?? 0) > 0 && (
@@ -103,26 +114,23 @@ export default function Binder() {
 
       {note && <Banner kind="ok">{note}</Banner>}
 
-      {(() => {
-        const them = players.find((p) => p.id === viewing)?.display_name ?? 'Their';
-        const shelf = kind === 'car' ? 'Case' : 'binder';
-        return <h1>{isMine ? (kind === 'car' ? 'Case' : 'Binder') : `${them}’s ${shelf}`}</h1>;
-      })()}
+      <h1>{isMine ? 'Binder' : `${them}’s binder`}</h1>
       <p className="tiny dim" style={{ margin: '0.3rem 0 0.9rem' }}>
-        {kind === 'car'
-          ? (isMine
-            ? `Every car you have snapped. ${session?.season ? 'Five points a car, up to 100 a week; ' : ''}`
-              + 'past that, still a card and still the XP.'
-            : 'Every car they have snapped. Nobody loses anything to a photo of a car, so '
-              + 'compare away.')
-          : (isMine
-            ? 'Every park sign you have photographed. Each park comes back around next season.'
-            : 'Every park sign they have photographed. Nobody competes over parks, so this '
-              + 'costs you nothing — and the same parks are still there for you.')}
+        {isMine
+          ? 'Every card you have collected — park signs, cars, all of it. Tap one to look at it or offer it.'
+          : 'Every card they have collected. Nobody loses anything to somebody else’s card, so compare away.'}
       </p>
 
-      {/* Whose binder. Yours first, then everybody else — this is the whole point of
-          making collections public, so it is a control rather than a deep link. */}
+      {/* The ways to collect straight from here. Parks are collected from the map. */}
+      {isMine && KIND_ORDER.filter((k) => COLLECTABLES[k].Collect).map((k) => (
+        <button key={k} className="btn btn-block" style={{ marginBottom: '0.8rem' }}
+                onClick={() => setCollecting(k)}>
+          <CameraIcon style={{ width: 18, height: 18 }} /> {COLLECTABLES[k].collectLabel}
+        </button>
+      ))}
+
+      {/* Whose binder. Yours first, then everybody else — a control, not a deep link, because
+          looking at other people's cards is the point of making them public. */}
       {players.length > 1 && (
         <div className="cluster" style={{ marginBottom: '0.8rem' }}>
           {[...players].sort((a, b) => (a.id === me?.id ? -1 : b.id === me?.id ? 1 : 0))
@@ -141,50 +149,56 @@ export default function Binder() {
         </div>
       )}
 
-      <div className="toggle" role="group" aria-label="Collection">
-        <button aria-pressed={kind === 'park'} onClick={() => setKind('park')}>Parks</button>
-        <button aria-pressed={kind === 'car'} onClick={() => setKind('car')}>Garage</button>
+      <div className="toggle" role="group" aria-label="Which cards">
+        <button aria-pressed={kind == null} onClick={() => setKind(null)}>All cards</button>
+        {KIND_ORDER.map((k) => (
+          <button key={k} aria-pressed={kind === k} onClick={() => setKind(k)}>
+            {COLLECTABLES[k].label}
+          </button>
+        ))}
       </div>
 
-      {kind === 'car' ? <Case viewing={viewing} isMine={isMine} onOffer={setOffering} /> : (<>
-      {s && (
+      {totals && (
         <div className="sheet" style={{ marginBottom: '0.9rem' }}>
-          {/* Collected and held are different questions once cards can be traded, and
-              the labels have to say which is which — otherwise a binder holding a
-              traded card reads as "0 collected" above a grid with a card in it. */}
-          <div className="row">
-            <span className="grow dim">Collected {s.season?.name ?? 'this season'}</span>
-            <b className="num">{s.season_collected}</b>
-            <span className="tiny dim">/ {s.parks_total} parks</span>
-          </div>
-          <div className="row">
-            <span className="grow dim">Points earned from parks, this season</span>
-            <b className="num">{s.season_points}</b>
-          </div>
-          <div className="row">
-            <span className="grow dim">Distinct parks collected, all time</span>
-            <b className="num">{s.distinct_parks_all_time}</b>
-          </div>
+          {/* Collected and held are different questions once cards can be traded, and the
+              labels have to say which is which. */}
           <div className="row">
             <span className="grow dim">
               Cards on the shelf
-              {(s.cards_received > 0 || s.cards_given_away > 0) && (
-                <span className="tiny"> · {s.cards_received} in, {s.cards_given_away} out</span>
+              {(totals.cards_received > 0 || totals.cards_given_away > 0) && (
+                <span className="tiny"> · {totals.cards_received} in, {totals.cards_given_away} out</span>
               )}
             </span>
-            <b className="num">{s.cards_held}</b>
+            <b className="num">{totals.cards_held}</b>
           </div>
-          {Object.keys(s.by_rarity ?? {}).length > 0 && (
+
+          {kindsShown.map((k) => {
+            const entry = COLLECTABLES[k];
+            const detail = s.kinds?.[k];
+            if (!detail) return null;
+            const chips = entry.summaryChips(detail);
+            return (
+              <div key={k}>
+                {entry.summaryRows(detail, { isMine }).map((row) => (
+                  <div key={row.label} className="row">
+                    <span className="grow dim">{row.label}</span>
+                    <b className="num">{row.value}</b>
+                    {row.extra && <span className="tiny dim">{row.extra}</span>}
+                  </div>
+                ))}
+                {chips.length > 0 && (
+                  <div className="row" style={{ gap: '0.5rem', flexWrap: 'wrap' }}>
+                    {chips.map((c) => <span key={c.key} className={c.className}>{c.text}</span>)}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+          {Object.keys(totals.by_edition ?? {}).length > 0 && (
             <div className="row" style={{ gap: '0.5rem', flexWrap: 'wrap' }}>
-              {RARITY_ORDER.filter((r) => s.by_rarity[r]).map((r) => (
-                <span key={r} className={`chip r-${r}`}>{s.by_rarity[r]} {r}</span>
-              ))}
-            </div>
-          )}
-          {Object.keys(s.by_edition ?? {}).length > 0 && (
-            <div className="row" style={{ gap: '0.5rem', flexWrap: 'wrap' }}>
-              {EDITION_ORDER.filter((e) => s.by_edition[e]).map((e) => (
-                <span key={e} className={`chip ed-${e}`}>{s.by_edition[e]} {e}</span>
+              {EDITION_ORDER.filter((e) => totals.by_edition[e]).map((e) => (
+                <span key={e} className={`chip ed-${e}`}>{totals.by_edition[e]} {e}</span>
               ))}
             </div>
           )}
@@ -198,14 +212,16 @@ export default function Binder() {
         <button aria-pressed={scope === 'all'} onClick={() => setScope('all')}>All time</button>
       </div>
 
-      <div className="cluster" style={{ marginBottom: '0.5rem' }}>
-        {['all', ...RARITY_ORDER].map((r) => (
-          <button key={r} className={`btn btn-sm ${rarity === r ? 'btn-primary' : 'btn-ghost'}`}
-                  onClick={() => setRarity(r)}>
-            {r === 'all' ? 'All' : r}
-          </button>
-        ))}
-      </div>
+      {hasRarity && (
+        <div className="cluster" style={{ marginBottom: '0.5rem' }}>
+          {['all', ...RARITY_ORDER].map((r) => (
+            <button key={r} className={`btn btn-sm ${rarity === r ? 'btn-primary' : 'btn-ghost'}`}
+                    onClick={() => setRarity(r)}>
+              {r === 'all' ? 'Any rarity' : r}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="cluster" style={{ marginBottom: '0.8rem' }}>
         {['all', 'special', ...EDITION_ORDER].map((e) => (
@@ -221,19 +237,19 @@ export default function Binder() {
       {!loading && !cards.length && (
         <div className="empty">
           {isMine
-            ? 'Nothing here yet. Open a Hood on the map and tap Collect parks.'
-            : 'They have not collected anything yet.'}
+            ? `Nothing here yet. To get a card, ${kindsShown.map((k) => COLLECTABLES[k].emptyHint).join(', or ')}.`
+            : 'They have not collected anything here yet.'}
         </div>
       )}
 
       <div className="card-grid">
         {cards.map((c) => (
           <div key={c.claim_id} className="card-slot">
-            <ParkCard card={c} compact onClick={() => setZoom(c)} />
-            {/* Whose feet got this card. A traded card keeps the collector's name on
-                it, because that is who actually went there. */}
+            <Card card={c} compact onClick={() => setZoom(c)} />
+            {/* A traded card keeps its collector's name on it, because that is who went
+                and got it. */}
             {c.traded && (
-              <span className="card-from tiny" title={`Collected by ${c.player.display_name}`}>
+              <span className="card-from tiny" title={`${collectable(c.kind).collectedBy} ${c.player.display_name}`}>
                 <i className="dot" style={{ background: c.player.colour }} />
                 {c.player.display_name}
               </span>
@@ -245,9 +261,12 @@ export default function Binder() {
       {zoom && (
         <div className="lightbox" onClick={() => setZoom(null)} role="dialog" aria-modal="true">
           <div onClick={(e) => e.stopPropagation()} className="stack" style={{ alignItems: 'center' }}>
-            <ParkCard card={zoom} />
-            {/* Only your own binder offers a card, and only when there is somebody to
-                offer it to. */}
+            <Card card={zoom} />
+            {collectable(zoom.kind).note && (
+              <div className="lightbox-note">{collectable(zoom.kind).note(zoom)}</div>
+            )}
+            {/* Only your own binder offers a card, and only when there is somebody to offer
+                it to. */}
             {isMine && players.length > 1 && (
               <button className="btn btn-primary" onClick={() => { setOffering(zoom); setZoom(null); }}>
                 <SwapIcon style={{ width: 16, height: 16 }} /> Offer this card
@@ -260,7 +279,6 @@ export default function Binder() {
           </button>
         </div>
       )}
-      </>)}
 
       {offering && (
         <TradeOffer
@@ -269,10 +287,14 @@ export default function Binder() {
           onSent={(trade) => {
             setOffering(null);
             setNote(trade.is_gift
-              ? `${trade.offer.name ?? trade.offer.park_name} offered to ${trade.to.display_name}.`
+              ? `${trade.offer.name} offered to ${trade.to.display_name}.`
               : `Offer sent to ${trade.to.display_name}.`);
           }}
         />
+      )}
+
+      {Collecting && (
+        <Collecting onClose={() => setCollecting(null)} onDone={() => setVersion((n) => n + 1)} />
       )}
     </div>
   );

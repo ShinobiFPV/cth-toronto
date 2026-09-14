@@ -73,9 +73,9 @@ CREATE TABLE IF NOT EXISTS parks (
 );
 CREATE INDEX IF NOT EXISTS idx_parks_hood ON parks(hood_id, name);
 
--- ── The Garage ─────────────────────────────────────────────────────────────
+-- ── Car cards ──────────────────────────────────────────────────────────────
 -- The catalogue of every vehicle anybody has photographed. One row per make + model,
--- trim and generation stripped: an Si and a base Civic are the same package. The
+-- trim and generation stripped: an Si and a base Civic are the same card. The
 -- sighting detail (year, trim, generation) rides on the claim instead.
 CREATE TABLE IF NOT EXISTS vehicles (
   id                  INTEGER PRIMARY KEY,

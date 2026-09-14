@@ -1,4 +1,4 @@
-// Calendar weeks in Toronto, for every weekly cap: the Garage's points, the per-Hood park
+// Calendar weeks in Toronto, for every weekly cap: car card points, the per-Hood park
 // points (when counted by week), and items.
 //
 // The week is a stored string rather than a rolling window: a week key is computed once

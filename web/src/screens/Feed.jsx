@@ -4,8 +4,8 @@ import { Link } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import { useGame } from '../lib/store.jsx';
 import { KIND_VERB } from '../lib/game.js';
-import { CardIcon, CarIcon } from '../components/icons.jsx';
-import { Subject, PlayerName, FlagButton, When, Spinner, Lightbox } from '../components/bits.jsx';
+import { PlayerName, FlagButton, When, Spinner, Lightbox } from '../components/bits.jsx';
+import CardLink from '../components/CardLink.jsx';
 import Caption from '../components/Caption.jsx';
 import CardLightbox from '../components/CardLightbox.jsx';
 
@@ -39,8 +39,7 @@ export default function Feed() {
         <article key={c.id} className={`claim ${c.status === 'reverted' ? 'reverted' : ''}`}>
           {c.thumb_url
             ? <img className="claim-thumb" src={c.thumb_url} alt="" loading="lazy"
-                   onClick={() => (c.park || c.claim_kind === 'car'
-                     ? setCardClaim(c.id) : setZoomed(c.display_url))} />
+                   onClick={() => (c.card ? setCardClaim(c.id) : setZoomed(c.display_url))} />
             : <div className="claim-thumb" aria-hidden="true" />}
 
           <div className="grow">
@@ -59,26 +58,8 @@ export default function Feed() {
               <span className={`chip ${c.claim_kind === 'reversal' ? 'chip-bad' : 'chip-accent'}`}>
                 {KIND_VERB[c.claim_kind]}{c.points ? ` +${c.points}` : ''}
               </span>
-              {c.park
-                ? (
-                  <button className="btn btn-sm btn-ghost" onClick={() => setCardClaim(c.id)}
-                          title={`See the ${c.park.name} card`}>
-                    <CardIcon style={{ width: 14, height: 14 }} />
-                    {c.park.name}
-                  </button>
-                )
-                : c.vehicle
-                  ? (
-                    c.claim_kind === 'car' ? (
-                      <button className="btn btn-sm btn-ghost" onClick={() => setCardClaim(c.id)}
-                              title={`See the ${c.vehicle.name} card`}>
-                        <CarIcon style={{ width: 14, height: 14 }} />
-                        {c.vehicle.name}
-                      </button>
-                    ) : <span className="tiny dim">{c.vehicle.name}</span>
-                  )
-                  : c.photo_type && <Subject type={c.photo_type} />}
-              {c.claim_kind === 'car' && c.edition && c.edition !== 'steel'
+              <CardLink claim={c} onOpen={setCardClaim} />
+              {c.card && c.edition && c.edition !== 'steel'
                 && <span className={`chip ed-${c.edition}`}>{c.edition}</span>}
               {c.beaten && <span className="tiny dim">beat {c.beaten.display_name}</span>}
               {c.replaced_photo_type

@@ -15,13 +15,13 @@ const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'cth-trades-'));
 process.env.CTH_DB = path.join(tmp, 'test.sqlite');
 process.env.CTH_JWT_SECRET = 'test-secret';
 
-let db, nowIso, parks, trades, leaderboard, revertClaim, xpOf, garage, vehicles, items;
+let db, nowIso, parks, trades, leaderboard, revertClaim, xpOf, cars, vehicles, items;
 
 before(async () => {
   ({ db, nowIso } = await import('../server/db.js'));
   parks = await import('../server/lib/parks.js');
   items = await import('../server/lib/items.js');
-  garage = await import('../server/lib/garage.js');
+  cars = await import('../server/lib/cars.js');
   vehicles = await import('../server/lib/vehicles.js');
   trades = await import('../server/lib/trades.js');
   ({ leaderboard } = await import('../server/lib/views.js'));
@@ -152,16 +152,16 @@ describe('a trade moves the card, never the score', () => {
 });
 
 // ── across collection types ───────────────────────────────────────────────
-describe('a Not Wheels package trades like a card', () => {
-  const snap = (playerId, make, model, rand = (n) => n - 1) => garage.commitCar({
+describe('a car card trades like any card', () => {
+  const snap = (playerId, make, model, rand = (n) => n - 1) => cars.commitCar({
     identification: vehicles.resolveIdentification({
       is_vehicle: true, in_situ: true, make, model, generation: null, trim: null,
       year_range: null, body_style: null, confidence: 0.9, plates: [],
     }),
     playerId, hoodId: 13, photo: photo(), rand,
-  }).package;
+  }).card;
 
-  test('a package for a park card moves no points, no XP and no standings', () => {
+  test('a car card for a park card moves no points, no XP and no standings', () => {
     const pack = snap(alice, 'Honda', 'Civic', () => 0);    // a hologram, for the most XP
     const card = collect(6004, bob).claim;                  // the most points
 
@@ -180,8 +180,8 @@ describe('a Not Wheels package trades like a card', () => {
     assert.equal(xpOf(alice), was.alice);
     assert.equal(xpOf(bob), was.bob);
 
-    assert.deepEqual(garage.packagesOf(bob).map((p) => p.claim_id), [pack.claim_id]);
-    assert.equal(garage.packagesOf(bob)[0].player.id, alice, 'it remembers who snapped it');
+    assert.deepEqual(cars.carCardsOf(bob).map((p) => p.claim_id), [pack.claim_id]);
+    assert.equal(cars.carCardsOf(bob)[0].player.id, alice, 'it remembers who snapped it');
     assert.deepEqual(binder(alice), ['Edge of the World']);
   });
 
@@ -190,14 +190,14 @@ describe('a Not Wheels package trades like a card', () => {
     const { id } = trades.offerTrade({ fromId: alice, toId: bob, offerClaimId: pack.claim_id });
     trades.acceptTrade({ tradeId: id, playerId: bob });
 
-    assert.equal(garage.garageSummary(alice).packages_given_away, 1);
-    assert.equal(garage.garageSummary(bob).packages_received, 1);
-    assert.equal(parks.collectionSummary(alice).cards_given_away, 0, 'a package is not a park card');
+    assert.equal(cars.carSummary(alice).cards_given_away, 1);
+    assert.equal(cars.carSummary(bob).cards_received, 1);
+    assert.equal(parks.collectionSummary(alice).cards_given_away, 0, 'a car card is not a park card');
     assert.equal(parks.collectionSummary(bob).cards_received, 0);
-    assert.equal(garage.garageSummary(alice).season_collected, 1, 'and she still collected it');
+    assert.equal(cars.carSummary(alice).season_collected, 1, 'and she still collected it');
   });
 
-  test('a reverted package cannot be offered', () => {
+  test('a reverted car card cannot be offered', () => {
     const pack = snap(alice, 'Honda', 'Civic');
     revertClaim(pack.claim_id);
     assert.throws(() => trades.offerTrade({ fromId: alice, toId: bob, offerClaimId: pack.claim_id }),

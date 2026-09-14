@@ -5,10 +5,7 @@ import { requireAuth } from '../lib/auth.js';
 import {
   offerTrade, acceptTrade, declineTrade, cancelTrade, tradesFor, getTrade,
 } from '../lib/trades.js';
-import { getCardByClaim } from '../lib/parks.js';
-import { getPackageByClaim } from '../lib/garage.js';
-
-const anyCard = (claimId) => getCardByClaim(claimId) ?? getPackageByClaim(claimId);
+import { getCard } from '../lib/collectables.js';
 import { broadcast, postMessage } from '../lib/hub.js';
 import { badRequest } from '../lib/errors.js';
 
@@ -86,8 +83,8 @@ tradeRoutes.post('/trades/:id/accept', requireAuth, (req, res, next) => {
       trade,
       // The cards as they now stand, so the binder can update without a refetch.
       cards: [
-        anyCard(trade.offer.claim_id),
-        trade.want ? anyCard(trade.want.claim_id) : null,
+        getCard(trade.offer.claim_id),
+        trade.want ? getCard(trade.want.claim_id) : null,
       ].filter(Boolean),
     });
   } catch (err) { next(err); }

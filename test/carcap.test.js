@@ -1,4 +1,4 @@
-// The Garage's weekly points cap, and the calendar arithmetic underneath it.
+// The car cards' weekly points cap, and the calendar arithmetic underneath it.
 //
 // Time is simulated the way test/game.test.js winds hood_state clocks back: by writing
 // week_key and timestamps directly. Nothing here waits.
@@ -12,12 +12,12 @@ const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'cth-carcap-'));
 process.env.CTH_DB = path.join(tmp, 'test.sqlite');
 process.env.CTH_JWT_SECRET = 'test-secret';
 
-let db, nowIso, config, garage, vehicles, week, views, game, seasons, xp;
+let db, nowIso, config, cars, vehicles, week, views, game, seasons, xp;
 
 before(async () => {
   ({ db, nowIso } = await import('../server/db.js'));
   ({ config } = await import('../server/config.js'));
-  garage = await import('../server/lib/garage.js');
+  cars = await import('../server/lib/cars.js');
   vehicles = await import('../server/lib/vehicles.js');
   week = await import('../server/lib/week.js');
   views = await import('../server/lib/views.js');
@@ -54,7 +54,7 @@ const nextCar = () => vehicles.resolveIdentification({
 // The last draw of the roll is always Steel, whatever the rate table says.
 const never = (n) => n - 1;
 const snap = (playerId, identification = nextCar()) =>
-  garage.commitCar({ identification, playerId, hoodId: 13, photo: photo(), rand: never });
+  cars.commitCar({ identification, playerId, hoodId: 13, photo: photo(), rand: never });
 
 const withConfig = (patch, fn) => {
   const was = Object.fromEntries(Object.keys(patch).map((k) => [k, config[k]]));
@@ -86,7 +86,7 @@ describe('the weekly cap', () => {
     const past = snap(alice);
     assert.equal(past.points, 0, 'worth nothing past the cap');
     assert.equal(past.xp.xp, config.CAR_XP_STEEL, 'and every bit of the XP');
-    assert.equal(past.package.status, 'active', 'it is a collection, not a failure');
+    assert.equal(past.card.status, 'active', 'it is a collection, not a failure');
     assert.equal(past.capacity.xp_only, true);
     assert.equal(past.capacity.remaining, 0);
   });
@@ -119,10 +119,10 @@ describe('the weekly cap', () => {
 
   test('capacity is known before the shutter', () => {
     withConfig({ CAR_WEEKLY_CAP: config.CAR_POINTS * 2 }, () => {
-      assert.equal(garage.capacityFor(alice).next_award, config.CAR_POINTS);
+      assert.equal(cars.capacityFor(alice).next_award, config.CAR_POINTS);
       snap(alice);
       snap(alice);
-      const cap = garage.capacityFor(alice);
+      const cap = cars.capacityFor(alice);
       assert.equal(cap.spent, config.CAR_POINTS * 2);
       assert.equal(cap.xp_only, true);
       assert.equal(cap.resets_on, week.weekStartName());
@@ -136,8 +136,8 @@ describe('the weekly cap', () => {
       snap(alice);
       assert.equal(snap(alice).points, 0);
 
-      game.revertClaim(first.package.claim_id);
-      assert.equal(garage.capacityFor(alice).remaining, config.CAR_POINTS);
+      game.revertClaim(first.card.claim_id);
+      assert.equal(cars.capacityFor(alice).remaining, config.CAR_POINTS);
       assert.equal(snap(alice).points, config.CAR_POINTS);
     });
   });
@@ -150,22 +150,22 @@ describe('the weekly cap', () => {
       // Both preflights say "5 points"...
       const a = nextCar();
       const b = nextCar();
-      assert.equal(garage.evaluateCar({ identification: a, playerId: alice }).points, config.CAR_POINTS);
-      assert.equal(garage.evaluateCar({ identification: b, playerId: alice }).points, config.CAR_POINTS);
+      assert.equal(cars.evaluateCar({ identification: a, playerId: alice }).points, config.CAR_POINTS);
+      assert.equal(cars.evaluateCar({ identification: b, playerId: alice }).points, config.CAR_POINTS);
 
       // ...and the transactions decide.
       assert.deepEqual([snap(alice, a).points, snap(alice, b).points], [config.CAR_POINTS, 0]);
-      assert.equal(garage.pointsInWeek(alice, garage.capacityFor(alice).week_key), config.CAR_WEEKLY_CAP);
+      assert.equal(cars.pointsInWeek(alice, cars.capacityFor(alice).week_key), config.CAR_WEEKLY_CAP);
     });
   });
 
   test('capacity comes back in a new week', () => {
     withConfig({ CAR_WEEKLY_CAP: config.CAR_POINTS }, () => {
       snap(alice);
-      assert.equal(garage.capacityFor(alice).xp_only, true);
+      assert.equal(cars.capacityFor(alice).xp_only, true);
       // Wind that claim back into a week that has already passed.
       db.prepare("UPDATE claims SET week_key = '2020-W01' WHERE player_id = ?").run(alice);
-      assert.equal(garage.capacityFor(alice).spent, 0);
+      assert.equal(cars.capacityFor(alice).spent, 0);
       assert.equal(snap(alice).points, config.CAR_POINTS);
     });
   });
@@ -177,7 +177,7 @@ describe('the weekly cap', () => {
     withConfig({ CAR_WEEKLY_CAP: config.CAR_POINTS * 2 }, () => {
       // Last season's car, same week.
       const earlier = snap(alice);
-      db.prepare('UPDATE claims SET season_id = ? WHERE id = ?').run(other, earlier.package.claim_id);
+      db.prepare('UPDATE claims SET season_id = ? WHERE id = ?').run(other, earlier.card.claim_id);
 
       const later = snap(alice);
       assert.equal(later.points, config.CAR_POINTS,
@@ -247,7 +247,7 @@ describe('week keys, in Toronto', () => {
   });
 
   test('a claim stores the week it landed in', () => {
-    const { package: pack } = snap(alice);
+    const { card: pack } = snap(alice);
     const row = db.prepare('SELECT week_key, created_at FROM claims WHERE id = ?').get(pack.claim_id);
     assert.equal(row.week_key, week.weekKey(row.created_at));
   });

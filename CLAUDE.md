@@ -161,7 +161,19 @@ changing one, read the test first — it says why.
   make that true; drop them and XP becomes a rename of the Champion total.
 - **Nothing mechanical hangs off a level** — it is a title and a number. A level that
   granted an advantage would compound, and early joiners could never be caught.
-- **The Garage is claims too, and the dullest possible scoring.** A car is a row with
+- **Every card is a card, whatever it is of.** Parks and cars are two kinds of card in one
+  binder — never two shelves, and there is no Garage, no Case and no package any more. The
+  server's registry is `server/lib/collectables.js`: the binder (`GET /api/cards`, every kind
+  unless `?kind=`), the one-card lookup, trade sides and the binder summary all go through
+  it. The client's is `web/src/lib/collectables.js`: each kind's face (rendered by
+  `Card.jsx`), icon, list tag and summary rows, read by the binder, the lightbox, the feed
+  (`CardLink.jsx`) and trades. **Nothing that reads cards may branch on a kind** — a new kind
+  is its own module, a `claim_kind`, and one entry in each registry. Every card shape carries
+  `kind`, `claim_id`, `name`, `edition`, `player`, `holder`, `traded` and `season`, and every
+  card-printing claim in the feed carries `card`; `test/collectables.test.js` holds both. The
+  car card's face is still called **Not Wheels** (`NotWheelsCard.jsx`) — that is a card
+  design, the way a park card has its own.
+- **Car cards are claims too, with the dullest possible scoring.** A car is a row with
   `claim_kind = 'car'` and `vehicle_id` set; it never touches `hood_state`. It pays a flat
   `CAR_POINTS` clamped by `min()` against what is left of `CAR_WEEKLY_CAP`, computed once
   in `commitCar()` and frozen. Past the cap the claim still lands, worth 0 — that is a
@@ -176,7 +188,7 @@ changing one, read the test first — it says why.
   park cap filters on `claim_kind = 'park'`. Any new query that means "territory claims"
   has to say so by kind.
 - **The dedupe key is make + model, trim and generation stripped.** `vehicleKey()` in
-  `server/lib/vehicles.js` is the only place one is made. Too fine and the Case fills with
+  `server/lib/vehicles.js` is the only place one is made. Too fine and a binder fills with
   Civics; too coarse and every Toyota is one card. Single letters are never stripped as
   trim unless the identifier reported them as trim — "Model S" is a model.
 - **The identify call happens in the route, never in the transaction**, and is swappable
@@ -236,13 +248,12 @@ changing one, read the test first — it says why.
 - **Any suite that empties `claims` must empty the item tables first.** Grants join to
   claims by id, SQLite reuses ids once a table is empty, and a random Gold in an unforced
   collection leaves a grant behind that attaches itself to the next test's claim.
-- **The Garage lives inside the Cards tab** as a **Parks | Garage** control, carried in
-  the URL as `?kind=car`, because the tab bar has no room for a sixth label. The shelf is
-  the **Case**, the collectable is a **Not Wheels card** (`NotWheelsCard.jsx`), and a
-  card component that might receive either branches on `card.kind`. It was a blister
-  package with a hang tab and a plastic bubble; both were removed because underneath it
-  was already a card. The API still says `package` / `packages_held` / `packagesOf()` —
-  wire names, not player-facing — so don't rename those without a reason.
+- **Players collect cards for their binder.** That is the one sentence every screen should
+  agree with. The Cards tab is the binder, with an **All cards / Parks / Cars** filter in the
+  URL as `?kind=`; a kind with its own collect flow (cars) gets a button on your own binder,
+  and parks are collected from the map. Car cards were once a "Garage" with a "Case" shelf and
+  "packages" in the API — all three words are gone from the code and the copy, and should
+  stay gone.
 - **The app is Park-E-Mans GO! — the sub-game inside it is just "parks".** A button reading
   "Play Parkemans GO" inside an app of that name is a button offering to launch the app
   you are already in, so the Hood sheet says **Collect parks** and the parks screen is
@@ -264,7 +275,7 @@ changing one, read the test first — it says why.
 ## Testing
 
 ```bash
-npm test        # 357 tests, no server needed, touches nothing in data/
+npm test        # 366 tests, no server needed, touches nothing in data/
 ```
 
 - `test/game.test.js` — the rules, driving the game module directly. Time is simulated by
@@ -282,8 +293,11 @@ npm test        # 357 tests, no server needed, touches nothing in data/
 - `test/trades.test.js` — trading. The first suite in it exists only to assert that a
   trade changes no points, no XP and no standings; the rest covers the rules, stale
   offers and the inbox.
-- `test/garage.test.js` — the Garage: the dedupe key, what a car may not touch, uncapped
+- `test/cars.test.js` — car cards: the dedupe key, what a car may not touch, uncapped
   editions and their items, and that cars never inflate the parks numbers.
+- `test/collectables.test.js` — parks and cars as two kinds of one card: one binder, one
+  lookup, the shared card fields, summed totals, and trades and the feed treating every
+  kind alike.
 - `test/carcap.test.js` — the weekly points cap and the week-key arithmetic, including
   both Toronto DST transitions and the ISO year boundary.
 - `test/xp.test.js` — the level curve (asserted to invert exactly across 200 levels), the
@@ -300,7 +314,7 @@ There is no linter and no CI. Validate frontend changes by running the app
   table that already exists, so a new column needs an entry in the migrations block at the
   top of `server/db.js`. Keep those append-only and idempotent: they run on deploy against
   a live database with real claims in it.
-- **The Garage needs an Anthropic API key on the Pi** — `CTH_ANTHROPIC_API_KEY` in
+- **Car cards need an Anthropic API key on the Pi** — `CTH_ANTHROPIC_API_KEY` in
   `/home/shinobi/cth/.env`. Without it every car collection is `IDENTIFY_UNAVAILABLE` and
   nothing is written, which is safe but looks broken. Every collection is one billed vision
   call, made after the cheap checks (Hood, season) and before the dedupe check, because the

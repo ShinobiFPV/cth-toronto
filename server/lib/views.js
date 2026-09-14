@@ -14,6 +14,7 @@ import { parkProgress } from './parks.js';
 import { progressFor } from './xp.js';
 import { withArticle } from './vehicles.js';
 import { armedFortifyOn, itemSummary } from './items.js';
+import { isCardKind } from './collectables.js';
 
 /** Every Hood with its holder and, if a viewer is given, what that viewer can do. */
 export function listHoods(viewerId = null, at = nowIso()) {
@@ -183,8 +184,10 @@ export function shapeClaim(r, viewerId = null) {
     shot_data: r.exif_json ? JSON.parse(r.exif_json) : null,
     reverts_claim_id: r.reverts_claim_id ?? null,
     park: r.park_id ? { id: r.park_id, name: r.park_name, value: r.park_value } : null,
-    // Set on a car package ('car') and a repeat sighting ('sighting'). Only a 'car' has a
-    // package to open; a sighting is a photo and some XP.
+    // Set on any claim that printed a card, whatever kind: the feed and a Hood's history
+    // open it the same way. A repeat car sighting prints nothing and has none.
+    card: isCardKind(r.claim_kind) ? { kind: r.claim_kind, claim_id: r.id } : null,
+    // Set on a car card ('car') and a repeat sighting ('sighting'), for the name.
     vehicle: r.vehicle_id && r.vehicle_make
       ? { id: r.vehicle_id, make: r.vehicle_make, model: r.vehicle_model,
           name: `${r.vehicle_make} ${r.vehicle_model}`, year: r.vehicle_year ?? null }
@@ -307,7 +310,7 @@ export function leaderboard(seasonId = null) {
       level: levelOf(xpByPlayer[p.id] ?? 0),
       title: titleOf(levelOf(xpByPlayer[p.id] ?? 0)),
       park_points: kindPoints[p.id]?.park ?? 0,
-      // The Garage, split out the same way. Capped at 100 a week, so it can never
+      // Car cards, split out the same way. Capped at 100 a week, so they can never
       // dominate the table, but it is worth seeing where somebody's points came from.
       cars: kinds[p.id]?.car ?? 0,
       car_points: kindPoints[p.id]?.car ?? 0,

@@ -1,4 +1,5 @@
-// The Garage: photograph cars on the street, and each one prints a Not Wheels package.
+// Car cards: photograph cars on the street, and each one prints a card for your binder —
+// one kind of card among others, registered in lib/collectables.js.
 //
 // Architecturally boring on purpose. A car pays a flat CAR_POINTS, capped at
 // CAR_WEEKLY_CAP per player per calendar week, and that is fully knowable at claim time
@@ -6,7 +7,7 @@
 // other claim in the game. No second scoring path, nothing derived on the leaderboard,
 // nothing scheduled. SUM(points_awarded) is still the whole story.
 //
-// Past the cap you keep collecting: the package mints, the edition rolls, the XP lands,
+// Past the cap you keep collecting: the card mints, the edition rolls, the XP lands,
 // and the claim is worth 0. That is a success, never an error — a WEEKLY_CAP_REACHED
 // code would turn a good collection into something the UI has to apologise for.
 //
@@ -14,7 +15,7 @@
 // The Hood is recorded because it gives the feed its flavour, not because snapping a car
 // takes any ground.
 //
-// Like parks, packages and Cases are public. Nobody loses anything when you photograph a
+// Like park cards, car cards and binders are public. Nobody loses anything when you photograph a
 // car, and comparing pulls is most of the fun.
 import crypto from 'node:crypto';
 import { db, nowIso } from '../db.js';
@@ -30,11 +31,11 @@ import { withArticle } from './vehicles.js';
 import { activeClover, grantItems } from './items.js';
 
 /**
- * The package's art seed, from (player, vehicle, season) — the same collection always
- * renders the same package. Never the edition: that is fresh randomness, because this
+ * The card's art seed, from (player, vehicle, season) — the same collection always
+ * renders the same card. Never the edition: that is fresh randomness, because this
  * salt is public and a seed-derived edition could be shopped for.
  */
-export const packSeed = (playerId, vehicleId, seasonId) =>
+export const carCardSeed = (playerId, vehicleId, seasonId) =>
   crypto.createHash('sha256')
     .update(`cth-notwheels:${playerId}:${vehicleId}:${seasonId}`)
     .digest('hex')
@@ -209,7 +210,7 @@ export const commitCar = db.transaction((
                         identify_json, identify_confidence, week_key, created_at)
     VALUES (?, ?, ?, ?, 'car', 'car', ?, ?, 'active', 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
     .run(hood.id, playerId, seasonId, photoId, evaluation.points, earned.xp,
-         packSeed(playerId, vehicle.id, seasonId), edition, vehicle.id,
+         carCardSeed(playerId, vehicle.id, seasonId), edition, vehicle.id,
          identification.year_range, identification.trim, identification.generation,
          identifyJson(identification), identification.confidence, evaluation.week_key, at);
   const claimId = Number(row.lastInsertRowid);
@@ -226,7 +227,7 @@ export const commitCar = db.transaction((
 
   return {
     repeat: false,
-    package: getPackageByClaim(claimId),
+    card: getCarCard(claimId),
     vehicle,
     hood,
     season_id: seasonId,
@@ -240,7 +241,7 @@ export const commitCar = db.transaction((
 
 /**
  * A car you already have, when CAR_REPEAT_XP is on: a small XP trickle and nothing
- * else. No package — duplicates of a package come from trading, never from snapping the
+ * else. No card — duplicates of a card come from trading, never from snapping the
  * same car twice — and no points.
  */
 function commitSighting({ identification, playerId, hood, photo, caption, at, evaluation }) {
@@ -259,7 +260,7 @@ function commitSighting({ identification, playerId, hood, photo, caption, at, ev
   return {
     repeat: true,
     claim_id: Number(row.lastInsertRowid),
-    package: getPackageByClaim(evaluation.claim_id),
+    card: getCarCard(evaluation.claim_id),
     vehicle,
     hood,
     season_id: evaluation.season.id,
@@ -270,10 +271,10 @@ function commitSighting({ identification, playerId, hood, photo, caption, at, ev
   };
 }
 
-// ── reading packages ───────────────────────────────────────────────────────
+// ── reading cards ─────────────────────────────────────────────────────────
 
 // Holder is COALESCE(the holdings override, whoever snapped it), as for park cards.
-const PACK_SELECT = `
+const CAR_CARD_SELECT = `
   SELECT c.id AS claim_id, c.player_id, c.season_id, c.points_awarded, c.xp_awarded,
          c.card_seed, c.created_at, c.status, c.flag_count, c.edition, c.hood_id, c.week_key,
          c.vehicle_year, c.vehicle_trim, c.vehicle_generation, c.identify_json,
@@ -297,12 +298,14 @@ const PACK_SELECT = `
 
 const parse = (json) => { try { return json ? JSON.parse(json) : null; } catch { return null; } };
 
-export function shapePackage(r) {
+export function shapeCarCard(r) {
   const said = parse(r.identify_json);
   const person = (id, handle, name, colour) => ({ id, handle, display_name: name, colour });
   return {
     kind: 'car',
     claim_id: r.claim_id,
+    // What the card is called, whatever kind it is — lists and trades read this.
+    name: `${r.make} ${r.model}`,
     vehicle: {
       id: r.vehicle_id,
       key: r.vehicle_key,
@@ -310,7 +313,7 @@ export function shapePackage(r) {
       model: r.model,
       name: `${r.make} ${r.model}`,
       body_style: r.body_style,
-      // Sighting detail: this car, not the package's model.
+      // Sighting detail: this car, not the card's model.
       year: r.vehicle_year,
       trim: r.vehicle_trim,
       generation: r.vehicle_generation,
@@ -343,28 +346,28 @@ export function shapePackage(r) {
   };
 }
 
-export const getPackageByClaim = (claimId) => {
-  const row = db.prepare(`${PACK_SELECT} WHERE c.id = ? AND c.claim_kind = 'car'`).get(claimId);
-  return row ? shapePackage(row) : null;
+export const getCarCard = (claimId) => {
+  const row = db.prepare(`${CAR_CARD_SELECT} WHERE c.id = ? AND c.claim_kind = 'car'`).get(claimId);
+  return row ? shapeCarCard(row) : null;
 };
 
-/** A player's Case: the packages they hold, newest first, optionally one season. */
-export function packagesOf(playerId, { seasonId = null, limit = 500 } = {}) {
+/** The car cards a player holds, newest first, optionally one season. The binder merges these with every other kind. */
+export function carCardsOf(playerId, { seasonId = null, limit = 500 } = {}) {
   const where = `COALESCE(hold.holder_id, c.player_id) = ? AND c.claim_kind = 'car'
                  AND c.status != 'reverted'`;
   const rows = seasonId
-    ? db.prepare(`${PACK_SELECT} WHERE ${where} AND c.season_id = ? ORDER BY c.id DESC LIMIT ?`)
+    ? db.prepare(`${CAR_CARD_SELECT} WHERE ${where} AND c.season_id = ? ORDER BY c.id DESC LIMIT ?`)
       .all(playerId, seasonId, limit)
-    : db.prepare(`${PACK_SELECT} WHERE ${where} ORDER BY c.id DESC LIMIT ?`).all(playerId, limit);
-  return rows.map(shapePackage);
+    : db.prepare(`${CAR_CARD_SELECT} WHERE ${where} ORDER BY c.id DESC LIMIT ?`).all(playerId, limit);
+  return rows.map(shapeCarCard);
 }
 
 /**
- * The Case's totals. Its own counters rather than a share of the binder's: cars must not
+ * Car cards' totals — this kind's share of the binder summary (lib/collectables.js). Its own counters rather than a share of the binder's: cars must not
  * inflate the parks number, and "collected" and "held" stay separate questions for the
  * same reason they are for park cards.
  */
-export function garageSummary(playerId, at = nowIso()) {
+export function carSummary(playerId, at = nowIso()) {
   const season = activeSeason(at);
   const seasonRow = season ? db.prepare(`
     SELECT COUNT(*) AS n, COALESCE(SUM(points_awarded), 0) AS pts FROM claims
@@ -396,16 +399,16 @@ export function garageSummary(playerId, at = nowIso()) {
     season_points: seasonRow.pts,
     distinct_vehicles_all_time: allTime.vehicles,
     catalogue_size: db.prepare('SELECT COUNT(*) AS n FROM vehicles').get().n,
-    packages_held: held,
-    packages_received: traded.received,
-    packages_given_away: traded.given,
+    cards_held: held,
+    cards_received: traded.received,
+    cards_given_away: traded.given,
     by_edition: editionCounts(playerId, { seasonId: season?.id ?? null, kind: 'car' }),
     capacity: capacityFor(playerId, at),
     season,
   };
 }
 
-/** Every vehicle anybody has ever pulled, and who holds a package of it now. */
+/** Every vehicle anybody has ever pulled, and who holds a card of it now. */
 export function catalogue() {
   const vehicles = db.prepare(`
     SELECT v.*, fp.display_name AS first_by
@@ -414,7 +417,7 @@ export function catalogue() {
       LEFT JOIN players fp ON fp.id = fc.player_id
      ORDER BY v.make COLLATE NOCASE, v.model COLLATE NOCASE`).all();
 
-  const packages = db.prepare(`
+  const held = db.prepare(`
     SELECT c.id AS claim_id, c.vehicle_id, c.edition, c.season_id,
            p.id AS holder_id, p.handle, p.display_name, p.colour
       FROM claims c
@@ -424,7 +427,7 @@ export function catalogue() {
      ORDER BY c.id`).all();
 
   const byVehicle = new Map();
-  for (const p of packages) {
+  for (const p of held) {
     if (!byVehicle.has(p.vehicle_id)) byVehicle.set(p.vehicle_id, []);
     byVehicle.get(p.vehicle_id).push({
       claim_id: p.claim_id,
@@ -445,7 +448,7 @@ export function catalogue() {
       body_style: v.body_style,
       first_seen_at: v.created_at,
       first_seen_by: v.first_by ?? null,
-      packages: byVehicle.get(v.id) ?? [],
+      cards: byVehicle.get(v.id) ?? [],
     })),
   };
 }

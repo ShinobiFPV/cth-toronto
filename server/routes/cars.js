@@ -1,5 +1,5 @@
-// The Garage's endpoints. See lib/garage.js for the rules and lib/identify.js for the
-// vision call.
+// Car card endpoints. See lib/cars.js for the rules and lib/identify.js for the vision
+// call. The cards themselves are read through the binder (routes/cards.js), like any card.
 import { Router } from 'express';
 import multer from 'multer';
 import { db } from '../db.js';
@@ -9,7 +9,7 @@ import { activeSeason } from '../lib/seasons.js';
 import { processUpload, discardUpload, blurRegions } from '../lib/images.js';
 import { identifyPhoto } from '../lib/identify.js';
 import { resolveIdentification, withArticle } from '../lib/vehicles.js';
-import { commitCar, capacityFor, catalogue, vehicleHistory } from '../lib/garage.js';
+import { commitCar, capacityFor, catalogue, vehicleHistory } from '../lib/cars.js';
 import { broadcast, postMessage } from '../lib/hub.js';
 import { withLevelUp, announceLevelUp } from '../lib/xp-announce.js';
 import { GameError, badRequest, notFound } from '../lib/errors.js';
@@ -33,7 +33,7 @@ carRoutes.get('/cars/capacity', requireAuth, (req, res) => {
   });
 });
 
-/** Every vehicle ever pulled, and who holds what. Public, like binders. */
+/** Every vehicle anybody has a card of, and who holds which. Public, like binders. */
 carRoutes.get('/cars', requireAuth, (_req, res) => {
   res.json(catalogue());
 });
@@ -77,9 +77,9 @@ carRoutes.post('/cars/collect', requireAuth, upload.single('photo'), async (req,
 
     announce(req.player, result);
     broadcast('car_collected', {
-      claim_id: result.repeat ? result.claim_id : result.package.claim_id,
+      claim_id: result.repeat ? result.claim_id : result.card.claim_id,
       vehicle_id: result.vehicle.id, hood_id: hood.id, player_id: req.player.id,
-      points: result.points, edition: result.repeat ? null : result.package.edition,
+      points: result.points, edition: result.repeat ? null : result.card.edition,
       repeat: result.repeat,
     });
     if (result.items?.items.length) broadcast('items_changed', { player_id: req.player.id });
@@ -87,7 +87,7 @@ carRoutes.post('/cars/collect', requireAuth, upload.single('photo'), async (req,
 
     res.status(201).json({
       repeat: result.repeat,
-      package: result.package,
+      card: result.card,
       points: result.points,
       xp: result.xp,
       items: result.items ?? null,
@@ -119,31 +119,31 @@ function announce(player, result) {
     return;
   }
 
-  const pack = result.package;
+  const { card } = result;
   const worth = result.points > 0
     ? `+${result.points}, ${result.capacity.spent}/${result.capacity.cap} this week`
     : `past the weekly cap — XP only, +${result.xp.xp} XP`;
   postMessage({
     body: `${player.display_name} snapped ${withArticle(name)} in ${where} (${worth})`
-      + (result.first_sighting ? ' — the first one in the Garage' : '')
-      + (pack.suspect ? '. The identifier is not sure this one is a real car on the street.' : '')
-      + (pack.caption ? ` — "${pack.caption}"` : ''),
+      + (result.first_sighting ? ' — the first card of one anybody has collected' : '')
+      + (card.suspect ? '. The identifier is not sure this one is a real car on the street.' : '')
+      + (card.caption ? ` — "${card.caption}"` : ''),
     kind: 'system',
-    meta: { event: 'car', claim_id: pack.claim_id, vehicle_id: result.vehicle.id,
-      hood_id: result.hood.id, points: result.points, suspect: pack.suspect },
+    meta: { event: 'car', claim_id: card.claim_id, vehicle_id: result.vehicle.id,
+      hood_id: result.hood.id, points: result.points, suspect: card.suspect },
   });
 
   // A hologram reads like the event it is, and the items a special pull came with ride on
   // its line — including, plainly, the ones the caps held back.
-  if (pack.edition === 'hologram' || pack.edition === 'gold') {
+  if (card.edition === 'hologram' || card.edition === 'gold') {
     postMessage({
-      body: (pack.edition === 'hologram'
-        ? `HOLOGRAM — ${player.display_name} pulled a Not Wheels hologram: ${withArticle(name)}`
+      body: (card.edition === 'hologram'
+        ? `HOLOGRAM — ${player.display_name} pulled a hologram car card: ${withArticle(name)}`
         : `Gold edition — ${player.display_name}'s ${name} came out gold`)
         + ` (+${result.xp.xp} XP)${itemClause(result.items)}`,
       kind: 'system',
       meta: {
-        event: 'edition', edition: pack.edition, claim_id: pack.claim_id, vehicle_id: result.vehicle.id,
+        event: 'edition', edition: card.edition, claim_id: card.claim_id, vehicle_id: result.vehicle.id,
         items: result.items?.items.map((i) => i.item_type) ?? [],
       },
     });
