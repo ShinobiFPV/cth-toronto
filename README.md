@@ -283,8 +283,14 @@ Your Hood getting stolen stings wherever you are in the app, and walking into so
 **Fortify** sounds exactly like what it is.
 
 **Sound effects** and **Music** are separate switches on your profile: effects on, music off
-until you want the loop on the map. Sound starts after your first tap. If an iPhone is silent,
-check the switch on the side — it mutes web audio completely.
+until you want the loop on the map.
+
+Every time you open the app, the map says **Welcome back**. Tap it and you'll hear the
+level-up sting — that tap is what switches sound on, because phones won't play a note until
+you've touched something. (It used to wait for any first tap, which an iPhone quietly
+ignored, so the sounds stayed off until you went and previewed one in the settings.) If an
+iPhone is still silent after that, check the switch on the side — it mutes web audio
+completely.
 
 Every default sound was synthesised from scratch for this app and is CC0. The admin can swap
 any of them from the profile screen — preview, replace, set the volume, reset — and every
