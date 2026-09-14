@@ -7,7 +7,8 @@ one and you collect it, and it prints you a card. Do that 1,513 times and you ha
 the entire city.
 
 The other half is Risk, except the board is Toronto, the armies are photographs, and the
-rules are enforced entirely by people yelling at each other in a group chat.
+rules are enforced entirely by people yelling at each other in a group chat. And when you
+just want something to do on a walk, there's a scavenger hunt.
 
 > It used to be called **Capture the Hood: Toronto**, back when the territory game was
 > the point. Then everybody started going to parks instead, so the app is named after
@@ -229,7 +230,8 @@ next kind of card slots straight in beside them.
 
 A Gold pull hands you **one item**, a Hologram **three** — as long as the card scored
 points, and up to **4 a week** (back on Monday). Past that you keep pulling cards and XP;
-you just stop stockpiling power. Your bag lives under **Cards → Items** and on your profile,
+you just stop stockpiling power. The other way to get them is to finish a
+[Scavenger Blitz](#scavenger-blitz): three items a hunt, on top of the weekly four. Your bag lives under **Cards → Items** and on your profile,
 and everything in it expires when the season ends, so spend it in week 12 instead of
 hoarding it into a reset.
 
@@ -308,8 +310,19 @@ they can flag it if it looks wrong.
 
 A finished hunt pays **+10 points** (up to 200 a season), **XP** (80 in a park, 240 on the
 street) and **three items** that don't use up your weekly item limit. Your first three hunts
-each week score; after that a hunt still pays its XP. Three hunts at a time, no time limit.
-Photos from a park hunt stay with you.
+each week score; after that a hunt still pays its XP. A hunt pays into whichever season you
+*finish* it in.
+
+- **Three hunts at a time, no time limit.** They carry on across a season rollover.
+- **Stuck with a hopeless draw?** Abandon it — no reward, the slot's free again. Then you
+  can't abandon another for six hours, because otherwise everybody would reroll until they
+  got five benches.
+- **A finished street hunt goes to chat** as one line with its five photos in a strip.
+  **Photos from a park hunt stay with you** — a hunt is often a kid's afternoon in the park,
+  and that's nobody else's business.
+
+Your hunts, your progress and how many scoring hunts you've got left this week are on the
+**Blitz** screen, which is also on your profile.
 
 ---
 
@@ -318,7 +331,8 @@ Photos from a park hunt stay with you.
 Points are about **value**. XP is about **turning up**.
 
 A steal is 70 XP, a conquer 50, a reinforce 20, a park 10 plus a bit for rarity and its
-edition (15 at the least), a car 25 and up by edition. Going
+edition (15 at the least), a car 25 and up by edition, a finished park hunt 80 and a street
+hunt 240. Going
 somewhere you have **never been before** is worth +100 — which is the entire point, because
 it means the person who has seen all 25 Hoods out-levels the person farming four of them
 next to their flat, even if that person is winning on points.
@@ -398,6 +412,10 @@ subject beats theirs, that the cooldowns have elapsed.
 Everything else is enforced by **flagging**. Two flags and a claim is reverted — points
 cancelled, Hood handed back, and the whole accusation posted publicly in chat.
 
+Cars and hunt photos do go past Claude, but as a helper, not a referee. It tells you what car
+you've snapped, or says **Found it!** — and when it can't tell, you can say "I'm sure" and
+carry on. The group finds out, and the flag button is right there.
+
 <p align="center">
   <img src="docs/screenshots/10-feed.png" width="300" alt="The feed: every claim with a thumbnail and a flag button">
   <br><em>Every claim, with a flag button on it. One tap to start an argument.</em>
@@ -458,8 +476,10 @@ npm start                # http://localhost:8096
 Then open it on a phone and **Add to Home Screen**, because the capture flow is the entire
 point and it feels wrong in a browser tab.
 
-Car cards need an Anthropic API key in `.env` as `CTH_ANTHROPIC_API_KEY`. Without one
-everything else works and every car comes back "the identifier is not answering".
+Car cards and Scavenger Blitz photos need an Anthropic API key in `.env` as
+`CTH_ANTHROPIC_API_KEY`. Without one everything else works: every car comes back "the
+identifier is not answering", and every hunt photo goes straight to "I'm sure". Every car
+and every hunt photo is one billed vision call.
 
 ```bash
 npm test                 # 439 tests, no server needed, touches nothing in data/, never calls Claude
@@ -468,7 +488,8 @@ npm test                 # 439 tests, no server needed, touches nothing in data/
 | Command | Does what |
 |---|---|
 | `npm run import-hoods` | Fetches the ward boundaries, simplifies 1.1 MB down to 66 kB, works out each Hood's difficulty and which Hoods border which |
-| `npm run import-parks` | Fetches every park, files each under the Hood it sits in, scores it 5–100 |
+| `npm run import-parks` | Fetches every park, files each under the Hood it sits in, scores it 5–100, and records its amenities for park hunts |
+| `node scripts/import-amenities.js` | Refreshes park amenities from the City's data and lists any it couldn't match. `--from-db` rebuilds offline |
 | `npm run rollover` | Checks whether the season has ended; escalates untouched Hoods and expires items. Idempotent. `--dry-run` to peek |
 | `npm run invite [n]` | More invite codes |
 | `node scripts/build-park-index.js` | Rewrites `parks.index.json` for Find a park. `import-parks` does this for you |
@@ -480,7 +501,7 @@ npm test                 # 439 tests, no server needed, touches nothing in data/
 Node · Express · SQLite (`better-sqlite3`) · `ws` · `sharp` · argon2 · React · Vite · Leaflet ·
 the Anthropic SDK
 
-**One API key, and only for car cards.** The basemap needs none: it's plain OpenStreetMap
+**One API key, only for cars and hunt photos.** The basemap needs none: it's plain OpenStreetMap
 raster darkened with a CSS filter, because CARTO's dark tiles now stamp "API KEY REQUIRED"
 across the whole city.
 
@@ -498,10 +519,15 @@ server/lib/collectables.js  every kind of card, behind one registry — the bind
 server/lib/cars.js       car cards: the weekly cap, dedupe
 server/lib/editions.js   the edition roll: one draw, a table that sums to 100
 server/lib/items.js      items: grants minus uses, Fortify, Clover, season expiry
+server/lib/hunts.js      Scavenger Blitz: slots, finding things, "I'm sure", rewards
+server/lib/hunt-generate.js  drawing a hunt from a seed; the pools are in hunt-pool.js
+server/lib/hunt-verify.js    the park hunt camera check — is there a bench in this photo?
+server/lib/amenities.js  which parks have which amenities, from the City's data
+server/data/hunt-vehicles.json  the street hunt car list, versioned
 server/lib/audio.js      sound slots: repo defaults, admin overrides, hashed URLs
 server/lib/privacy.js    refuses any request that carries a location
 web/src/lib/nearby.js    Find a park — worked out entirely on the phone
-server/lib/identify.js   the one Claude call — what car is this?
+server/lib/identify.js   what car is this — and is it the one the hunt asked for?
 server/lib/vehicles.js   what counts as the same car
 server/lib/week.js       Toronto calendar weeks, DST included
 server/lib/views.js      read models; every score derived from the ledger
@@ -520,11 +546,11 @@ presentation. Deployment is in `SETUP.md`, the design doc is
 
 ## Credits and small print
 
-Hood boundaries and all 1,513 parks come from
+Hood boundaries, all 1,513 parks and their amenities come from
 [City of Toronto Open Data](https://open.toronto.ca/), used under the
 [Open Government Licence – Toronto](https://open.toronto.ca/open-data-license/). Map tiles
 © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors. Type is Inter Tight,
-under the SIL Open Font License. Cars are identified by
+under the SIL Open Font License. Cars are identified, and hunt photos checked, by
 [Claude](https://www.anthropic.com/claude). Not Wheels is a joke about the format, not a
 product, and has nothing to do with anybody's diecast cars.
 
