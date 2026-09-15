@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { db } from '../db.js';
 import {
   registerPlayer, loginPlayer, setAuthCookie, clearAuthCookie,
-  requireAuth, requireAdmin, createInvite, publicPlayer, setPlayerColour,
+  requireAuth, requireAdmin, requireViewer, createInvite, publicPlayer, setPlayerColour,
 } from '../lib/auth.js';
 import { PLAYER_COLOURS } from '../config.js';
 import { playerSummary } from '../lib/views.js';
@@ -48,7 +48,7 @@ meRoutes.get('/me', requireAuth, (req, res) => {
   res.json({ player: publicPlayer(req.player), ...playerSummary(req.player.id) });
 });
 
-meRoutes.get('/players', requireAuth, (_req, res) => {
+meRoutes.get('/players', requireViewer, (_req, res) => {
   res.json({
     players: db.prepare('SELECT * FROM players ORDER BY id').all().map(publicPlayer),
     colours: PLAYER_COLOURS,

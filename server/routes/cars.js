@@ -4,7 +4,7 @@ import { Router } from 'express';
 import multer from 'multer';
 import { db } from '../db.js';
 import { config } from '../config.js';
-import { requireAuth } from '../lib/auth.js';
+import { requireAuth, requireViewer } from '../lib/auth.js';
 import { activeSeason } from '../lib/seasons.js';
 import { processUpload, discardUpload, blurRegions } from '../lib/images.js';
 import { identifyPhoto } from '../lib/identify.js';
@@ -34,11 +34,11 @@ carRoutes.get('/cars/capacity', requireAuth, (req, res) => {
 });
 
 /** Every vehicle anybody has a card of, and who holds which. Public, like binders. */
-carRoutes.get('/cars', requireAuth, (_req, res) => {
+carRoutes.get('/cars', requireViewer, (_req, res) => {
   res.json(catalogue());
 });
 
-carRoutes.get('/cars/:vehicleId', requireAuth, (req, res, next) => {
+carRoutes.get('/cars/:vehicleId', requireViewer, (req, res, next) => {
   const history = vehicleHistory(Number(req.params.vehicleId));
   if (!history) return next(notFound('VEHICLE_NOT_FOUND', 'No vehicle with that id.'));
   res.json(history);

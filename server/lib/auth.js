@@ -29,6 +29,19 @@ export function setAuthCookie(res, player) {
 
 export const clearAuthCookie = (res) => res.clearCookie(config.cookieName, { path: '/' });
 
+/**
+ * Whether an Authorization header carries the observer token. Both sides are hashed first
+ * so timingSafeEqual always compares equal lengths, whatever was sent. An unset token
+ * disables the observer entirely.
+ */
+export function isObserverToken(header) {
+  if (!config.observerToken || typeof header !== 'string') return false;
+  const m = /^Bearer\s+(\S+)\s*$/i.exec(header);
+  if (!m) return false;
+  const digest = (s) => crypto.createHash('sha256').update(s).digest();
+  return crypto.timingSafeEqual(digest(m[1]), digest(config.observerToken));
+}
+
 /** Resolve a raw cookie-jar token to a player row, or null. Used by HTTP and by /ws. */
 export function playerFromToken(token) {
   if (!token) return null;
@@ -42,12 +55,26 @@ export function playerFromToken(token) {
 
 export function attachPlayer(req, _res, next) {
   req.player = playerFromToken(req.cookies?.[config.cookieName]);
+  // Only considered when there is no player: a request never carries both identities.
+  req.observer = !req.player && isObserverToken(req.headers?.authorization);
   next();
 }
 
 export function requireAuth(req, _res, next) {
   if (!req.player) return next(unauthorized());
   next();
+}
+
+/**
+ * A player, or the read-only observer on a GET. Only for routes whose answer is the same
+ * for everybody, or that take a null viewer safely — never anything scoped to "you" (/me,
+ * trades, items, hunts, park progress, capacity) and never a write; those stay requireAuth.
+ * The observer is nobody: no player row, no colour, not in /players or the standings.
+ */
+export function requireViewer(req, _res, next) {
+  if (req.player) return next();
+  if (req.observer && (req.method === 'GET' || req.method === 'HEAD')) return next();
+  next(unauthorized());
 }
 
 export function requireAdmin(req, _res, next) {

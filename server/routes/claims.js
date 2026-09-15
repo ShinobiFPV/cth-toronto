@@ -2,7 +2,7 @@
 import { Router } from 'express';
 import { db, nowIso } from '../db.js';
 import { config } from '../config.js';
-import { requireAuth } from '../lib/auth.js';
+import { requireAuth, requireViewer } from '../lib/auth.js';
 import { revertClaim } from '../lib/game.js';
 import { setCaption } from '../lib/captions.js';
 import { shapeClaim } from '../lib/views.js';
@@ -28,11 +28,11 @@ LEFT JOIN parks  pk ON pk.id = c.park_id
 LEFT JOIN vehicles veh ON veh.id = c.vehicle_id
    WHERE c.id = ?`).get(id);
 
-claimRoutes.get('/:id', requireAuth, (req, res, next) => {
+claimRoutes.get('/:id', requireViewer, (req, res, next) => {
   const claim = fullClaim(Number(req.params.id));
   if (!claim) return next(notFound('CLAIM_NOT_FOUND', 'No such claim.'));
   res.json({
-    claim: shapeClaim(claim, req.player.id),
+    claim: shapeClaim(claim, req.player?.id ?? null),
     flags: db.prepare(`
       SELECT f.id, f.reason, f.created_at, p.handle, p.display_name, p.colour
         FROM flags f JOIN players p ON p.id = f.player_id

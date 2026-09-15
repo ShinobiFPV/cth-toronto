@@ -2,7 +2,7 @@
 import { Router } from 'express';
 import { db } from '../db.js';
 import { config } from '../config.js';
-import { requireAuth } from '../lib/auth.js';
+import { requireAuth, requireViewer } from '../lib/auth.js';
 import { leaderboard, feed } from '../lib/views.js';
 import { activeSeason, allSeasons, nextSeason } from '../lib/seasons.js';
 import { recentMessages, postMessage, onlineCount } from '../lib/hub.js';
@@ -13,7 +13,7 @@ export const miscRoutes = Router();
 
 const clampLimit = (v, def, max) => Math.min(Math.max(Number(v) || def, 1), max);
 
-miscRoutes.get('/leaderboard', requireAuth, (req, res, next) => {
+miscRoutes.get('/leaderboard', requireViewer, (req, res, next) => {
   try {
     const season = req.query.season
       ? db.prepare('SELECT * FROM seasons WHERE id = ?').get(Number(req.query.season))
@@ -23,11 +23,11 @@ miscRoutes.get('/leaderboard', requireAuth, (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-miscRoutes.get('/leaderboard/champion', requireAuth, (_req, res) => {
+miscRoutes.get('/leaderboard/champion', requireViewer, (_req, res) => {
   res.json({ season: null, standings: leaderboard(null) });
 });
 
-miscRoutes.get('/seasons', requireAuth, (_req, res) => {
+miscRoutes.get('/seasons', requireViewer, (_req, res) => {
   const active = activeSeason();
   res.json({
     seasons: allSeasons().map((s) => ({ ...s, active: !!active && s.id === active.id })),
@@ -68,17 +68,17 @@ miscRoutes.get('/seasons', requireAuth, (_req, res) => {
   });
 });
 
-miscRoutes.get('/feed', requireAuth, (req, res) => {
+miscRoutes.get('/feed', requireViewer, (req, res) => {
   const limit = clampLimit(req.query.limit, 30, 100);
   const before = req.query.before ? Number(req.query.before) : null;
-  const items = feed({ before, limit, viewerId: req.player.id });
+  const items = feed({ before, limit, viewerId: req.player?.id ?? null });
   res.json({
     feed: items,
     next_before: items.length === limit ? items[items.length - 1].id : null,
   });
 });
 
-miscRoutes.get('/chat', requireAuth, (req, res) => {
+miscRoutes.get('/chat', requireViewer, (req, res) => {
   const limit = clampLimit(req.query.limit, 50, 200);
   const before = req.query.before ? Number(req.query.before) : null;
   const messages = recentMessages({ before, limit });

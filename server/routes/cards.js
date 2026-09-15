@@ -1,9 +1,9 @@
 // The binder: one shelf for every kind of card. See lib/collectables.js.
 import { Router } from 'express';
 import { db } from '../db.js';
-import { requireAuth } from '../lib/auth.js';
+import { requireViewer } from '../lib/auth.js';
 import { cardsOf, getCard, binderSummary, isCardKind, cardKindList } from '../lib/collectables.js';
-import { notFound } from '../lib/errors.js';
+import { badRequest, notFound } from '../lib/errors.js';
 
 export const cardRoutes = Router();
 
@@ -17,9 +17,11 @@ export const cardRoutes = Router();
  * something to hide, and half the fun of a card game is looking at what everybody else
  * pulled. The cards are in the feed and in chat the moment they are collected anyway.
  */
-cardRoutes.get('/cards', requireAuth, (req, res, next) => {
+cardRoutes.get('/cards', requireViewer, (req, res, next) => {
   const seasonId = req.query.season ? Number(req.query.season) : null;
-  const playerId = req.query.player ? Number(req.query.player) : req.player.id;
+  // The observer has no binder of its own, so it has to say whose it wants.
+  const playerId = req.query.player ? Number(req.query.player) : req.player?.id;
+  if (!playerId) return next(badRequest('PLAYER_REQUIRED', 'Say whose binder: ?player=<id>.'));
   const kind = isCardKind(req.query.kind) ? req.query.kind : null;
 
   const player = db.prepare('SELECT id, handle, display_name, colour FROM players WHERE id = ?')
@@ -28,7 +30,7 @@ cardRoutes.get('/cards', requireAuth, (req, res, next) => {
 
   res.json({
     player,
-    is_you: player.id === req.player.id,
+    is_you: player.id === req.player?.id,
     kind,
     kinds: cardKindList(),
     cards: cardsOf(player.id, { seasonId, kind }),
@@ -40,7 +42,7 @@ cardRoutes.get('/cards', requireAuth, (req, res, next) => {
  * One card, by the claim that produced it, whatever kind. Not scoped to the owner — this
  * is what the feed opens when you tap somebody else's collection.
  */
-cardRoutes.get('/cards/:claimId', requireAuth, (req, res, next) => {
+cardRoutes.get('/cards/:claimId', requireViewer, (req, res, next) => {
   const card = getCard(Number(req.params.claimId));
   if (!card) return next(notFound('CARD_NOT_FOUND', 'No card with that id.'));
   res.json({ card });

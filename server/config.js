@@ -46,6 +46,10 @@ export const config = {
   sessionDays: num('CTH_SESSION_DAYS', 30),
   cookieName: 'cth_token',
   cookieSecure: bool('CTH_COOKIE_SECURE', process.env.NODE_ENV === 'production'),
+  // A read-only observer — a home assistant, say — sent as `Authorization: Bearer <token>`.
+  // It may GET the shared read routes and listen on /ws without being a player. See
+  // requireViewer() in lib/auth.js. Unset disables it; under 32 characters is refused below.
+  observerToken: process.env.CTH_OBSERVER_TOKEN || '',
 
   // ── Game levers (spec §1, §10) ─────────────────────────────────────────
   // Stealing pays the Hood's difficulty score times this, so 10-100 across the city.
@@ -216,6 +220,11 @@ export const config = {
 
   timezone: process.env.CTH_TZ || 'America/Toronto',
 };
+
+if (config.observerToken && config.observerToken.length < 32) {
+  console.warn('[cth] CTH_OBSERVER_TOKEN is shorter than 32 characters — observer access disabled');
+  config.observerToken = '';
+}
 
 if (!config.jwtSecret) {
   if (config.isProd) {

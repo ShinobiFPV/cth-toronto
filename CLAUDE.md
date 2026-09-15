@@ -25,8 +25,9 @@ app, no session, no stored appearance.
 with the code. If you change a rule, change the spec too.
 
 This is a standalone project in the ShinTech workspace with its own deploy. It shares
-nothing with `imq2`, `shinlink-os` or `port-manager` except the physical Pi and the house
-visual style.
+nothing with `shinlink-os` or `port-manager` except the physical Pi and the house visual
+style. `imq2`'s voice assistant reads it through the observer token (see Gotchas) — over
+HTTP, read-only, never the database.
 
 **Port 8096**, not the 8093 the spec asked for. On shinobi 8091 is Site Editor, 8092 is
 shintech-forms and 8093 is MedFam (also `shinnode`'s default); elsewhere in ShinTech
@@ -332,6 +333,9 @@ npm test        # 439 tests, no server needed, touches nothing in data/
   winding `hood_state` clocks backwards, not by waiting.
 - `test/api.test.js` — boots the real server on port 8199 against a temp database and
   walks the whole thing over HTTP, including real JPEGs through the sharp pipeline.
+- `test/observer.test.js` — the read-only observer token: what it can read, everything it
+  is refused (per-player routes and every write), that it is not a player, and that on
+  `/ws` it can neither chat nor appear in presence. Its own server, on port 8197.
 - `test/parks.test.js` — parks and cards. Seeds four parks by hand rather than importing
   1,513, so the suite never touches the network.
 - `test/editions.test.js` — Steel / Gold / Hologram: the rate table and its exact
@@ -395,6 +399,14 @@ There is no linter and no CI. Validate frontend changes by running the app
   makes every attempt cost real Pi CPU, so both are rate limited per IP (and login per
   handle too) in `server/lib/ratelimit.js`. The limits are env-tunable. If you add
   another unauthenticated route, it needs a limiter.
+- **The observer token is read-only and it is nobody.** `CTH_OBSERVER_TOKEN` (32+
+  characters, unset = off) is checked in `attachPlayer` only when there is no player, and
+  only `requireViewer` honours it, and only on GET. Put `requireViewer` only on a route
+  whose answer is the same for everybody or that takes a null viewer safely — never on
+  anything scoped to "you" (`/me`, trades, items, hunts, park progress, capacity) and never
+  on a write; those stay `requireAuth`. A null viewer is also what keeps an armed Fortify
+  owner-only on the Hood routes. On `/ws` the observer hears every frame but cannot chat and
+  never joins presence. `test/observer.test.js` holds all of it.
 - **This repo is public.** No infrastructure identifiers in it — the Cloudflare tunnel id
   is read out of `/etc/cloudflared/config.yml` at run time rather than written down.
   Keep it that way.

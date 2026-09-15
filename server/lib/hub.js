@@ -7,7 +7,7 @@ import { WebSocketServer } from 'ws';
 import { parse as parseCookie } from 'cookie';
 import { db, nowIso } from '../db.js';
 import { config } from '../config.js';
-import { playerFromToken, publicPlayer } from './auth.js';
+import { playerFromToken, publicPlayer, isObserverToken } from './auth.js';
 
 const clients = new Set();
 
@@ -68,21 +68,25 @@ export function attachWebSocket(server) {
   wss.on('connection', (ws, req) => {
     const cookies = parseCookie(req.headers.cookie || '');
     const player = playerFromToken(cookies[config.cookieName]);
-    if (!player) {
+    // The read-only observer hears every frame but is nobody: it cannot chat, and it never
+    // joins presence, so nobody's online list changes when it connects or leaves.
+    const observer = !player && isObserverToken(req.headers.authorization);
+    if (!player && !observer) {
       ws.close(4001, 'unauthorized');
       return;
     }
 
     ws.player = player;
+    ws.observer = observer;
     ws.isAlive = true;
     clients.add(ws);
 
     ws.send(JSON.stringify({
       type: 'hello',
-      payload: { player: publicPlayer(player), online: onlineHandles() },
+      payload: { player: player ? publicPlayer(player) : null, observer, online: onlineHandles() },
       at: nowIso(),
     }));
-    broadcast('presence', { online: onlineHandles() });
+    if (!observer) broadcast('presence', { online: onlineHandles() });
 
     ws.on('pong', () => { ws.isAlive = true; });
 
@@ -90,7 +94,7 @@ export function attachWebSocket(server) {
       let msg;
       try { msg = JSON.parse(data.toString()); } catch { return; }
 
-      if (msg.type === 'chat') {
+      if (msg.type === 'chat' && ws.player) {
         const body = String(msg.body ?? '').trim().slice(0, MAX_BODY);
         if (!body) return;
         postMessage({ playerId: ws.player.id, body, kind: 'user' });
@@ -101,7 +105,7 @@ export function attachWebSocket(server) {
 
     ws.on('close', () => {
       clients.delete(ws);
-      broadcast('presence', { online: onlineHandles() });
+      if (!ws.observer) broadcast('presence', { online: onlineHandles() });
     });
     ws.on('error', () => clients.delete(ws));
   });

@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import multer from 'multer';
 import { config } from '../config.js';
-import { requireAuth } from '../lib/auth.js';
+import { requireAuth, requireViewer } from '../lib/auth.js';
 import { listHoods, hoodDetail, hoodHistory, shapeClaim, claimSummary } from '../lib/views.js';
 import { commitClaim, evaluateClaim, CLAIM_ITEMS } from '../lib/game.js';
 import { withLevelUp, announceLevelUp } from '../lib/xp-announce.js';
@@ -19,18 +19,20 @@ const upload = multer({
   limits: { fileSize: config.maxUploadBytes, files: 1 },
 });
 
-hoodRoutes.get('/', requireAuth, (req, res) => {
-  res.json({ hoods: listHoods(req.player.id) });
+// The three read routes take a null viewer for the observer: the Hood comes back with no
+// `viewer` block at all, which is also what keeps an armed Fortify owner-only.
+hoodRoutes.get('/', requireViewer, (req, res) => {
+  res.json({ hoods: listHoods(req.player?.id ?? null) });
 });
 
-hoodRoutes.get('/:id', requireAuth, (req, res, next) => {
-  const detail = hoodDetail(Number(req.params.id), req.player.id);
+hoodRoutes.get('/:id', requireViewer, (req, res, next) => {
+  const detail = hoodDetail(Number(req.params.id), req.player?.id ?? null);
   if (!detail) return next(notFound('HOOD_NOT_FOUND', 'There is no Hood with that number.'));
   res.json({ hood: detail });
 });
 
-hoodRoutes.get('/:id/history', requireAuth, (req, res) => {
-  res.json({ history: hoodHistory(Number(req.params.id), req.player.id) });
+hoodRoutes.get('/:id/history', requireViewer, (req, res) => {
+  res.json({ history: hoodHistory(Number(req.params.id), req.player?.id ?? null) });
 });
 
 /**
